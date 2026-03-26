@@ -1,0 +1,28 @@
+Create the **React user interface only** for a web application with authentication pages: Login, Register, and Forgot Password. 
+- Use **JSX** (not TSX) for all components. 
+- Do **not implement any backend logic**—UI only. 
+- All pages must use **one single CSS file** (e.g., `styles.css`) for global and reusable styles. 
+- Ensure **uniform styling, spacing, fonts, and buttons** across all pages. 
+- The CSS should be modular and reusable so that elements like buttons, input fields, and form containers can be used across pages. 
+- Include **responsive design** for desktop and mobile screens. 
+- Organize the React project structure neatly: 
+    - `src/`
+        - `index.jsx`
+        - `App.jsx`
+        - `pages/`
+            - `auth/`
+                - `LoginPage.jsx`
+                - `RegisterPage.jsx`
+                - `ForgotPasswordPage.jsx`
+        - `assets/` (optional for images/icons)
+        - `styles.css` (single global/reusable stylesheet)
+- Components should be **clean, semantic, and accessible** (use proper `<form>`, `<label>`, `<input>` tags).
+- Add placeholders for logos, icons, or images, but **do not implement backend API calls**.
+- Forms should include **all necessary fields**: (sample)
+    - Login: email, password, submit button, forgot password link
+    - Register: name, email, password, confirm password, submit button, username and password rules etc.
+    - Forgot Password: email, submit button
+- Include **hover, focus, and active states** for buttons and inputs in CSS.
+- Keep **code clean, readable, and properly indented**.
+- Use **className** for all styling and avoid inline styles.
+- Include a **global container layout** so all pages share the same look and spacing.

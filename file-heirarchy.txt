@@ -1,0 +1,103 @@
+📁 src/
+├── main.jsx
+├── App.jsx
+├── assets/
+│   ├── images/
+│   ├── icons/
+│   └── fonts/
+├── styles/
+│   ├── variables.css          # global colors, fonts, sizes, spacing
+│   ├── auth.css               # auth pages: login, register, forgot password
+│   ├── organizer.css          # organizer pages: dashboard, events, rubrics
+│   ├── judge.css              # judge pages: dashboard, scoring, invites
+│   ├── participant.css        # participant pages: dashboard, events, certificates
+│   └── public.css             # public pages: events, leaderboard, archive
+├── pages/
+│   ├── auth/
+│   │   ├── LoginPage.jsx
+│   │   ├── RegisterPage.jsx
+│   │   └── ForgotPasswordPage.jsx
+│   ├── organizer/
+│   │   ├── DashboardPage.jsx
+│   │   ├── CreateEventPage.jsx
+│   │   ├── ManageEventPage.jsx
+│   │   ├── ParticipantsPage.jsx
+│   │   ├── JudgesPage.jsx
+│   │   ├── RubricBuilderPage.jsx
+│   │   ├── ResultsPage.jsx
+│   │   ├── CertificatesPage.jsx
+│   │   └── PublishPage.jsx
+│   ├── judge/
+│   │   ├── JudgeDashboard.jsx
+│   │   ├── ScoringPage.jsx
+│   │   ├── InvitePage.jsx
+│   │   └── RubricReviewPage.jsx
+│   ├── participant/
+│   │   ├── ParticipantDashboard.jsx
+│   │   ├── MyEventsPage.jsx
+│   │   ├── AcceptInvitePage.jsx
+│   │   ├── CertificatesPage.jsx
+│   │   └── LeaderboardPage.jsx
+│   └── public/
+│       ├── EventPage.jsx
+│       ├── LeaderboardPage.jsx
+│       ├── ArchivePage.jsx
+│       └── NotFoundPage.jsx
+
+---
+
+### Explanation (with flexible roles)
+
+**Auth Pages**
+
+* **LoginPage.jsx** – Allows users to log in. Users don’t need to pick a role at registration.
+* **RegisterPage.jsx** – Users can register without choosing a role. After registration, they can start organizing events or wait to be invited as judges or participants.
+* **ForgotPasswordPage.jsx** – Standard password recovery.
+
+**Organizer Pages**
+
+* **DashboardPage.jsx** – Overview of events, participants, judges, and live scores. Even a user invited as a judge or participant can temporarily see events they’re involved in.
+* **CreateEventPage.jsx** – Users can start organizing an event right away without being assigned a “fixed organizer” role.
+* **ManageEventPage.jsx** – Edit or delete events created.
+* **ParticipantsPage.jsx** – Manage participants (invite, track responses).
+* **JudgesPage.jsx** – Manage judges (invite, track responses).
+* **RubricBuilderPage.jsx** – Build scoring rubrics for events.
+* **ResultsPage.jsx** – View scores and automatic rankings.
+* **CertificatesPage.jsx** – Generate and manage certificates for participants and judges.
+* **PublishPage.jsx** – Publish final results, highlights, and archive.
+
+**Judge Pages**
+
+* **JudgeDashboard.jsx** – Overview of events where the user is acting as a judge.
+* **ScoringPage.jsx** – Interface to submit scores.
+* **InvitePage.jsx** – Accept or decline invitations.
+* **RubricReviewPage.jsx** – Review assigned rubrics.
+  *(Even an organizer can temporarily act as a judge here.)*
+
+**Participant Pages**
+
+* **ParticipantDashboard.jsx** – Overview of events the user is participating in.
+* **MyEventsPage.jsx** – List of events accepted as a participant.
+* **AcceptInvitePage.jsx** – Accept or decline invitations.
+* **CertificatesPage.jsx** – Download earned certificates.
+* **LeaderboardPage.jsx** – View live event leaderboards.
+  *(Organizers can also act as participants for certain events.)*
+
+**Public Pages**
+
+* **EventPage.jsx** – Public info, schedule, participants.
+* **LeaderboardPage.jsx** – Live leaderboard for public viewing.
+* **ArchivePage.jsx** – Past events and winners.
+* **NotFoundPage.jsx** – 404 page.
+
+---
+
+### ✅ Flow Highlights (with flexible roles)
+
+1. Users register → no fixed role.
+2. User can **start organizing an event** immediately → becomes organizer for that event.
+3. Users can also be **invited as judge or participant** for events.
+4. Users can **switch roles per event**: an organizer can participate as judge or participant depending on event context.
+5. Organizers create events → invite judges/participants → build rubric → scoring → publish → archive.
+6. Participants and judges accept invites → access dashboards → view events → score → view leaderboard → download certificates.
+7. Public users see event info, live leaderboards, and archives.
