@@ -1,15 +1,16 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useEventContext } from './OrganizerLayout';
+import { colors } from '../../styles/colors';
 
 /* ─── data ──────────────────────────────────────────────────────────────── */
 const USER_POOL = [
-  { id: 9001, name: 'Lapu-Lapu',      email: 'lapulapu@mactan.ph', team: 'Kadato-an Warriors' },
-  { id: 9002, name: 'Diego Cera',     email: 'diego@manila.ph',    team: 'Tondo FC' },
-  { id: 9003, name: 'Rajah Soliman',  email: 'soliman@maynila.ph', team: 'Pasig Royals' },
-  { id: 9004, name: 'Tupas',          email: 'tupas@cebu.ph',      team: 'Visayas United' },
-  { id: 9005, name: 'Humabon',        email: 'humabon@cebu.ph',    team: 'Visayas United' },
-  { id: 9006, name: 'Si Awi',         email: 'siawi@visayas.ph',   team: 'Leyte Eagles' },
-  { id: 9007, name: 'Datu Mangal',    email: 'mangal@mindanao.ph', team: 'Southern Stars' },
+  { id: 9001, name: 'Lapu-Lapu', email: 'lapulapu@mactan.ph', team: 'Kadato-an Warriors' },
+  { id: 9002, name: 'Diego Cera', email: 'diego@manila.ph', team: 'Tondo FC' },
+  { id: 9003, name: 'Rajah Soliman', email: 'soliman@maynila.ph', team: 'Pasig Royals' },
+  { id: 9004, name: 'Tupas', email: 'tupas@cebu.ph', team: 'Visayas United' },
+  { id: 9005, name: 'Humabon', email: 'humabon@cebu.ph', team: 'Visayas United' },
+  { id: 9006, name: 'Si Awi', email: 'siawi@visayas.ph', team: 'Leyte Eagles' },
+  { id: 9007, name: 'Datu Mangal', email: 'mangal@mindanao.ph', team: 'Southern Stars' },
 ];
 
 function initials(name = '') {
@@ -19,7 +20,7 @@ function initials(name = '') {
 /* ─── EditableCell: noticeable edit-cue ─────────────────────────────────── */
 function EditableCell({ value, options, onSave, placeholder = '— click to edit —', type = 'text' }) {
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft]     = useState(value);
+  const [draft, setDraft] = useState(value);
   const [hovered, setHovered] = useState(false);
 
   const commit = () => { if (draft !== value) onSave(draft); setEditing(false); };
@@ -28,7 +29,7 @@ function EditableCell({ value, options, onSave, placeholder = '— click to edit
   if (editing && options) return (
     <select autoFocus value={draft} onChange={e => setDraft(e.target.value)} onBlur={commit}
       onKeyDown={e => e.key === 'Escape' && cancel()}
-      style={{ fontSize: '13px', padding: '5px 10px', border: '2px solid var(--accent)', borderRadius: '8px', outline: 'none', background: '#fff', fontFamily: 'var(--font-main)', boxShadow: '0 0 0 3px var(--accent-glow)' }}>
+      style={{ fontSize: '13px', padding: '5px 10px', border: `2px solid ${colors.accent}`, borderRadius: '8px', outline: 'none', background: '#fff', fontFamily: "'Inter', sans-serif", boxShadow: `0 0 0 3px ${colors.accentGlow}` }}>
       {options.map(o => <option key={o}>{o}</option>)}
     </select>
   );
@@ -38,7 +39,7 @@ function EditableCell({ value, options, onSave, placeholder = '— click to edit
       onChange={e => setDraft(e.target.value)}
       onBlur={commit}
       onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') cancel(); }}
-      style={{ fontSize: '13px', padding: '5px 10px', border: '2px solid var(--accent)', borderRadius: '8px', width: '150px', outline: 'none', fontFamily: 'var(--font-main)', boxShadow: '0 0 0 3px var(--accent-glow)' }} />
+      style={{ fontSize: '13px', padding: '5px 10px', border: `2px solid ${colors.accent}`, borderRadius: '8px', width: '150px', outline: 'none', fontFamily: "'Inter', sans-serif", boxShadow: `0 0 0 3px ${colors.accentGlow}` }} />
   );
 
   return (
@@ -55,10 +56,10 @@ function EditableCell({ value, options, onSave, placeholder = '— click to edit
         transition: 'all 0.15s',
       }}
     >
-      <span style={{ fontSize: '13px', color: value ? 'var(--ink-mid)' : 'var(--ink-muted)', fontStyle: value ? 'normal' : 'italic' }}>
+      <span style={{ fontSize: '13px', color: value ? colors.inkMid : colors.inkMuted, fontStyle: value ? 'normal' : 'italic' }}>
         {value || placeholder}
       </span>
-      <span className="material-symbols-rounded" style={{ fontSize: '13px', color: hovered ? 'var(--accent)' : 'transparent', transition: 'color 0.15s', flexShrink: 0 }}>
+      <span className="material-symbols-rounded" style={{ fontSize: '13px', color: hovered ? colors.accent : 'transparent', transition: 'color 0.15s', flexShrink: 0 }}>
         edit
       </span>
     </div>
@@ -81,19 +82,25 @@ function UndoBar({ message, onUndo, onDismiss }) {
   }, []);
 
   return (
-    <div className="notification-container">
-      <div className="notification-pill pill-info" style={{ '--duration': '5s' }}>
-        <div className="pill-icon info">
-          <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>info</span>
+    <div style={{
+      position: 'fixed', bottom: '32px', left: '50%', transform: 'translateX(-50%)',
+      zIndex: 2000, display: 'flex', flexDirection: 'column', alignItems: 'center', width: 'auto', maxWidth: '400px', pointerEvents: 'none'
+    }}>
+      <div style={{
+        background: 'rgba(15, 23, 42, 0.95)', backdropFilter: 'blur(12px)', color: '#fff', borderRadius: '16px',
+        padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '14px',
+        boxShadow: '0 10px 40px rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.1)',
+        pointerEvents: 'auto', position: 'relative', overflow: 'hidden'
+      }}>
+        <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'rgba(59,130,246,0.15)', display: 'grid', placeItems: 'center', color: colors.accent }}>
+          <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>info</span>
         </div>
-        <span className="pill-message">{message}</span>
-        <button className="pill-action-btn" onClick={onUndo}>Undo</button>
-        <button className="pill-close-btn" onClick={onDismiss}>
+        <span style={{ fontSize: '13.5px', fontWeight: 500, flex: 1 }}>{message}</span>
+        <button onClick={onUndo} style={{ background: 'none', border: 'none', color: colors.accent, fontWeight: 700, fontSize: '13px', cursor: 'pointer', padding: '6px 10px', borderRadius: '8px', transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(59,130,246,0.1)'} onMouseLeave={e => e.currentTarget.style.background = 'none'}>Undo</button>
+        <button onClick={onDismiss} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', display: 'grid', placeItems: 'center' }} onMouseEnter={e => e.currentTarget.style.color = '#fff'} onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.4)'}>
           <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>close</span>
         </button>
-        <div className="pill-progress">
-          <div className="pill-progress-bar" style={{ width: `${progress}%`, animation: 'none' }} />
-        </div>
+        <div style={{ position: 'absolute', bottom: 0, left: 0, height: '3px', width: `${progress}%`, background: colors.accent, transition: 'width 0.05s linear' }} />
       </div>
     </div>
   );
@@ -130,15 +137,28 @@ export default function ParticipantsPage() {
 
   const undo = useUndo();
 
-  const [search, setSearch]         = useState('');
-  const [selected, setSelected]     = useState(new Set());
+  const [search, setSearch] = useState('');
+  const [selected, setSelected] = useState(new Set());
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [userSearch, setUserSearch] = useState('');
-  const [pending, setPending]       = useState([]);
+  const [pending, setPending] = useState([]);
   const [viewParticipant, setViewParticipant] = useState(null);
-  const [confirmKick, setConfirmKick]         = useState(null);
-  const [showBulkTeam, setShowBulkTeam]       = useState(false);
-  const [bulkTeamVal, setBulkTeamVal]         = useState('');
+  const [confirmKick, setConfirmKick] = useState(null);
+  const [showBulkTeam, setShowBulkTeam] = useState(false);
+  const [bulkTeamVal, setBulkTeamVal] = useState('');
+
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  const [activeBtnHover, setActiveBtnHover] = useState(null);
+  const [hoveredRow, setHoveredRow] = useState(null);
+
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const isMobile = windowWidth <= 768;
+  const isTablet = windowWidth <= 1024;
 
   const knownTeams = [...new Set(participants.map(p => p.team).filter(Boolean))];
 
@@ -147,19 +167,18 @@ export default function ParticipantsPage() {
     (p.team || '').toLowerCase().includes(search.toLowerCase())
   );
 
-  const allChecked  = filtered.length > 0 && filtered.every(p => selected.has(p.id));
+  const allChecked = filtered.length > 0 && filtered.every(p => selected.has(p.id));
   const someChecked = filtered.some(p => selected.has(p.id));
 
   const toggleAll = () => allChecked ? setSelected(new Set()) : setSelected(new Set(filtered.map(p => p.id)));
   const toggleOne = id => setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
-  /* ── invite pool ── */
   const poolResults = USER_POOL.filter(u =>
     userSearch.length > 0 &&
     (u.name.toLowerCase().includes(userSearch.toLowerCase()) || u.email.toLowerCase().includes(userSearch.toLowerCase())) &&
     !participants.find(p => p.id === u.id) && !pending.find(p => p.id === u.id)
   );
-  const addToPending     = u => setPending(prev => [...prev, u]);
+  const addToPending = u => setPending(prev => [...prev, u]);
   const removeFromPending = id => setPending(prev => prev.filter(u => u.id !== id));
 
   const handleBulkAdd = () => {
@@ -172,7 +191,6 @@ export default function ParticipantsPage() {
     setPending([]); setUserSearch(''); setShowInviteModal(false);
   };
 
-  /* ── remove ── */
   const doRemove = ids => {
     const snap = participants.filter(p => ids.includes(p.id));
     ids.forEach(id => removeParticipant(selectedEvent.id, id));
@@ -208,25 +226,245 @@ export default function ParticipantsPage() {
     e.target.value = '';
   };
 
-  const registered   = participants.filter(p => p.status === 'Registered').length;
+  const registered = participants.filter(p => p.status === 'Registered').length;
   const pendingCount = participants.filter(p => p.status === 'Pending').length;
-  const sel          = selected.size;
+  const sel = selected.size;
+
+  const styles = {
+    pageHeader: {
+      marginBottom: '40px',
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: isMobile ? 'stretch' : 'flex-start',
+      flexDirection: isMobile ? 'column' : 'row',
+      gap: '24px',
+    },
+    pageTitle: {
+      fontFamily: "'DM Sans', sans-serif",
+      fontSize: isMobile ? '28px' : '32px',
+      fontWeight: '800',
+      color: colors.navy,
+      letterSpacing: '-0.03em',
+      lineHeight: '1.1',
+      margin: 0,
+      marginBottom: '8px',
+    },
+    pageDescription: {
+      color: colors.inkMid,
+      fontSize: '15px',
+      maxWidth: '600px',
+      lineHeight: '1.55',
+      margin: 0,
+    },
+    btn: (hovered, primary = false) => ({
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: '8px',
+      padding: '10px 20px',
+      borderRadius: '14px',
+      fontSize: '13.5px',
+      fontWeight: '600',
+      cursor: 'pointer',
+      transition: 'all 0.22s cubic-bezier(0.4, 0, 0.2, 1)',
+      fontFamily: "'Inter', sans-serif",
+      whiteSpace: 'nowrap',
+      background: primary ? (hovered ? colors.navySoft : colors.navy) : (hovered ? colors.pageBg : '#fff'),
+      color: primary ? '#fff' : (hovered ? colors.navy : colors.inkSoft),
+      border: primary ? 'none' : `1px solid ${hovered ? colors.navy : colors.border}`,
+      boxShadow: hovered ? '0 4px 12px rgba(15, 31, 61, 0.15)' : '0 1px 3px rgba(26,24,20,0.06)',
+      transform: hovered ? 'translateY(-1px)' : 'none',
+      height: '42px',
+    }),
+    dashboardGrid: {
+      display: 'grid',
+      gridTemplateColumns: isMobile ? '1fr' : 'repeat(12, 1fr)',
+      gap: '24px',
+      marginBottom: '28px',
+    },
+    widgetCard: (span) => ({
+      background: '#fff',
+      border: `1px solid ${colors.borderSoft}`,
+      borderRadius: '18px',
+      padding: '24px',
+      boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+      gridColumn: isMobile ? 'span 1' : `span ${span}`,
+    }),
+    statLabel: {
+      fontSize: '11px',
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: '0.08em',
+      color: colors.inkMuted,
+      marginBottom: '8px',
+      display: 'block',
+    },
+    statValue: {
+      fontFamily: "'DM Sans', sans-serif",
+      fontSize: '32px',
+      fontWeight: '800',
+      color: colors.navy,
+      letterSpacing: '-0.04em',
+      lineHeight: '1',
+    },
+    tableContainer: {
+      background: '#fff',
+      border: `1px solid ${colors.borderSoft}`,
+      borderRadius: '22px',
+      overflow: 'hidden',
+      boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+      marginBottom: '80px',
+    },
+    tableHeader: {
+      padding: '20px 24px',
+      borderBottom: `1px solid ${colors.borderSoft}`,
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      flexWrap: 'wrap',
+      gap: '16px',
+    },
+    tableTitle: {
+      fontFamily: "'DM Sans', sans-serif",
+      fontSize: '18px',
+      fontWeight: '700',
+      color: colors.navy,
+      margin: 0,
+    },
+    searchInputWrapper: {
+      position: 'relative',
+      width: isMobile ? '100%' : '240px',
+    },
+    searchInput: {
+      width: '100%',
+      height: '40px',
+      padding: '0 16px 0 40px',
+      background: colors.pageBg,
+      border: `1px solid ${colors.border}`,
+      borderRadius: '100px',
+      fontSize: '14px',
+      color: colors.navy,
+      outline: 'none',
+      transition: 'all 0.2s',
+      fontFamily: "'Inter', sans-serif",
+    },
+    dataTable: {
+      width: '100%',
+      borderCollapse: 'collapse',
+      textAlign: 'left',
+    },
+    th: {
+      padding: '14px 24px',
+      background: '#F8FAFC',
+      fontSize: '11.5px',
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: '0.05em',
+      color: colors.inkMuted,
+      borderBottom: `1px solid ${colors.borderSoft}`,
+    },
+    td: {
+      padding: '16px 24px',
+      borderBottom: `1px solid ${colors.borderSoft}`,
+      fontSize: '14px',
+      color: colors.inkMid,
+    },
+    userAvatar: (size = 34, fontSize = 11, bg = colors.accentBg, text = colors.accentDeep) => ({
+      width: `${size}px`,
+      height: `${size}px`,
+      borderRadius: '50%',
+      background: bg,
+      color: text,
+      display: 'grid',
+      placeItems: 'center',
+      fontSize: `${fontSize}px`,
+      fontWeight: '700',
+      transition: 'all 0.2s',
+    }),
+    btnIcon: (hovered, danger = false) => ({
+      background: hovered ? (danger ? 'rgba(239,68,68,0.1)' : 'rgba(15,31,61,0.05)') : 'none',
+      border: 'none',
+      color: hovered ? (danger ? colors.coral : colors.navy) : colors.inkMuted,
+      cursor: 'pointer',
+      padding: '8px',
+      borderRadius: '10px',
+      display: 'grid',
+      placeItems: 'center',
+      transition: 'all 0.15s',
+    }),
+    modalOverlay: {
+      position: 'fixed',
+      top: 0, left: 0, right: 0, bottom: 0,
+      background: 'rgba(15, 31, 61, 0.4)',
+      backdropFilter: 'blur(4px)',
+      display: 'grid',
+      placeItems: 'center',
+      zIndex: 1000,
+      padding: '20px',
+      animation: 'fadeIn 0.2s ease-out',
+    },
+    modalContainer: (maxWidth = '600px') => ({
+      background: '#fff',
+      borderRadius: '22px',
+      width: '100%',
+      maxWidth: maxWidth,
+      boxShadow: '0 16px 48px rgba(26,24,20,0.12)',
+      position: 'relative',
+      overflow: 'hidden',
+      animation: 'modalUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+    }),
+    modalTitle: {
+      fontFamily: "'DM Sans', sans-serif",
+      fontSize: '22px',
+      fontWeight: '800',
+      color: colors.navy,
+      letterSpacing: '-0.02em',
+      margin: 0,
+    },
+    floatingToolbar: {
+      position: 'fixed',
+      bottom: '32px',
+      left: '50%',
+      transform: 'translateX(-50%)',
+      zIndex: 500,
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+      padding: '10px 14px',
+      background: 'rgba(15,23,42,0.92)',
+      backdropFilter: 'blur(20px)',
+      border: '1px solid rgba(255,255,255,0.1)',
+      borderRadius: '18px',
+      boxShadow: '0 12px 40px rgba(0,0,0,0.35)',
+      color: '#fff',
+      animation: 'undoSlideUp 0.25s cubic-bezier(0.34,1.56,0.64,1)',
+    },
+  };
 
   return (
     <>
       {/* ── Header ── */}
-      <div className="page-header">
+      <div style={styles.pageHeader}>
         <div>
-          <h1 className="page-title">Participants</h1>
-          <p className="page-description">Manage competitors for <strong style={{ color: 'var(--navy)' }}>{selectedEvent.name}</strong>.</p>
+          <h1 style={styles.pageTitle}>Participants</h1>
+          <p style={styles.pageDescription}>Manage competitors for <strong style={{ color: colors.navy }}>{selectedEvent.name}</strong>.</p>
         </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <label className="secondary-btn" style={{ cursor: 'pointer', height: '42px' }}>
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+          <label 
+            style={styles.btn(activeBtnHover === 'import')}
+            onMouseEnter={() => setActiveBtnHover('import')}
+            onMouseLeave={() => setActiveBtnHover(null)}
+          >
             <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>upload_file</span>
             Import CSV
             <input type="file" accept=".csv" style={{ display: 'none' }} onChange={handleFileImport} />
           </label>
-          <button className="primary-btn" style={{ height: '42px' }} onClick={() => setShowInviteModal(true)}>
+          <button 
+            style={styles.btn(activeBtnHover === 'invite', true)} 
+            onMouseEnter={() => setActiveBtnHover('invite')}
+            onMouseLeave={() => setActiveBtnHover(null)}
+            onClick={() => setShowInviteModal(true)}
+          >
             <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>person_add</span>
             Invite Participant
           </button>
@@ -234,76 +472,84 @@ export default function ParticipantsPage() {
       </div>
 
       {/* ── KPI Strip ── */}
-      <div className="dashboard-grid" style={{ marginBottom: '28px' }}>
-        <div className="widget-card col-span-4"><span className="stat-label">Total</span><div className="stat-value">{participants.length}</div></div>
-        <div className="widget-card col-span-4"><span className="stat-label">Registered</span><div className="stat-value" style={{ color: 'var(--sage)' }}>{registered}</div></div>
-        <div className="widget-card col-span-4"><span className="stat-label">Pending Invite</span><div className="stat-value" style={{ color: '#D97706' }}>{pendingCount}</div></div>
+      <div style={styles.dashboardGrid}>
+        <div style={styles.widgetCard(4)}><span style={styles.statLabel}>Total</span><div style={styles.statValue}>{participants.length}</div></div>
+        <div style={styles.widgetCard(4)}><span style={styles.statLabel}>Registered</span><div style={{ ...styles.statValue, color: colors.success }}>{registered}</div></div>
+        <div style={styles.widgetCard(4)}><span style={styles.statLabel}>Pending Invite</span><div style={{ ...styles.statValue, color: '#D97706' }}>{pendingCount}</div></div>
       </div>
 
       {/* ── Table ── */}
-      <div className="table-container">
-        <div className="table-header">
-          <h3 style={{ margin: 0 }}>Participant List ({participants.length})</h3>
-          <div style={{ position: 'relative', marginLeft: 'auto' }}>
-            <span className="material-symbols-rounded" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '18px', color: 'var(--ink-muted)' }}>search</span>
-            <input type="text" className="custom-input" placeholder="Filter..." value={search}
+      <div style={styles.tableContainer}>
+        <div style={styles.tableHeader}>
+          <h3 style={styles.tableTitle}>Participant List ({participants.length})</h3>
+          <div style={styles.searchInputWrapper}>
+            <span className="material-symbols-rounded" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '20px', color: colors.inkMuted, pointerEvents: 'none' }}>search</span>
+            <input type="text" placeholder="Filter..." value={search}
               onChange={e => setSearch(e.target.value)}
-              style={{ paddingLeft: '34px', height: '38px', borderRadius: '100px', width: '210px' }} />
+              style={styles.searchInput}
+              onFocus={e => { e.target.style.borderColor = colors.accent; e.target.style.background = '#fff'; e.target.style.boxShadow = `0 0 0 3px ${colors.accentGlow}`; }}
+              onBlur={e => { e.target.style.borderColor = colors.border; e.target.style.background = colors.pageBg; e.target.style.boxShadow = 'none'; }}
+            />
           </div>
         </div>
 
         <div style={{ overflowX: 'auto' }}>
-          <table className="data-table">
+          <table style={styles.dataTable}>
             <thead>
               <tr>
-                <th style={{ width: '48px' }}>
+                <th style={{ ...styles.th, width: '48px' }}>
                   <input type="checkbox" checked={allChecked} ref={el => el && (el.indeterminate = someChecked && !allChecked)}
-                    onChange={toggleAll} style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: 'var(--accent)' }} />
+                    onChange={toggleAll} style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: colors.accent }} />
                 </th>
-                <th>Participant</th>
-                <th>Email</th>
-                <th title="Click any cell below to edit">
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <th style={styles.th}>Participant</th>
+                <th style={styles.th}>Email</th>
+                <th style={{ ...styles.th, cursor: 'help' }} title="Click any cell below to edit">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                     Team / Affiliation
-                    <span className="material-symbols-rounded" style={{ fontSize: '13px', color: 'var(--accent)', opacity: 0.7 }}>edit</span>
-                  </span>
+                    <span className="material-symbols-rounded" style={{ fontSize: '14px', color: colors.accent, opacity: 0.7 }}>edit</span>
+                  </div>
                 </th>
-                <th>Score</th>
-                <th title="Click any cell below to edit">
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <th style={styles.th}>Score</th>
+                <th style={{ ...styles.th, cursor: 'help' }} title="Click any cell below to edit">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                     Status
-                    <span className="material-symbols-rounded" style={{ fontSize: '13px', color: 'var(--accent)', opacity: 0.7 }}>edit</span>
-                  </span>
+                    <span className="material-symbols-rounded" style={{ fontSize: '14px', color: colors.accent, opacity: 0.7 }}>edit</span>
+                  </div>
                 </th>
-                <th style={{ textAlign: 'right' }}>Actions</th>
+                <th style={{ ...styles.th, textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr><td colSpan={7} style={{ padding: '72px', textAlign: 'center' }}>
-                  <span className="material-symbols-rounded" style={{ fontSize: '40px', color: 'var(--border)', display: 'block', marginBottom: '10px' }}>groups</span>
-                  <span style={{ color: 'var(--ink-muted)', fontSize: '14px' }}>
-                    {participants.length === 0 ? 'No participants yet. Invite some!' : 'No results match.'}
+                  <span className="material-symbols-rounded" style={{ fontSize: '48px', color: colors.border, display: 'block', marginBottom: '16px' }}>groups_2</span>
+                  <span style={{ color: colors.inkMuted, fontSize: '15px' }}>
+                    {participants.length === 0 ? 'No participants yet. Invite some!' : 'No results match your search.'}
                   </span>
                 </td></tr>
               ) : filtered.map(p => {
                 const isSel = selected.has(p.id);
                 return (
-                  <tr key={p.id} style={{ background: isSel ? 'rgba(59,130,246,0.05)' : '', transition: 'background 0.15s' }}>
-                    <td>
+                  <tr 
+                    key={p.id} 
+                    style={{ background: isSel ? 'rgba(59,130,246,0.04)' : (hoveredRow === p.id ? colors.pageBg : 'transparent'), transition: 'all 0.2s' }}
+                    onMouseEnter={() => setHoveredRow(p.id)}
+                    onMouseLeave={() => setHoveredRow(null)}
+                  >
+                    <td style={styles.td}>
                       <input type="checkbox" checked={isSel} onChange={() => toggleOne(p.id)}
-                        style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: 'var(--accent)' }} />
+                        style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: colors.accent }} />
                     </td>
-                    <td>
+                    <td style={styles.td}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <div className="user-avatar" style={{ width: '34px', height: '34px', fontSize: '11px', flexShrink: 0, background: isSel ? 'var(--accent)' : 'var(--accent-bg)', color: isSel ? '#fff' : 'var(--accent-deep)', transition: 'all 0.2s' }}>
+                        <div style={styles.userAvatar(34, 11, isSel ? colors.accent : colors.accentBg, isSel ? '#fff' : colors.accentDeep)}>
                           {initials(p.name)}
                         </div>
-                        <span style={{ fontWeight: 700, color: 'var(--navy)', fontSize: '14px' }}>{p.name}</span>
+                        <span style={{ fontWeight: 700, color: colors.navy, fontSize: '14px' }}>{p.name}</span>
                       </div>
                     </td>
-                    <td style={{ color: 'var(--ink-mid)', fontSize: '13px' }}>{p.email}</td>
-                    <td>
+                    <td style={{ ...styles.td, fontSize: '13px' }}>{p.email}</td>
+                    <td style={styles.td}>
                       <EditableCell
                         value={p.team}
                         options={knownTeams.length > 0 ? knownTeams : undefined}
@@ -311,27 +557,27 @@ export default function ParticipantsPage() {
                         placeholder="— assign team —"
                       />
                     </td>
-                    <td>
-                      <span style={{ fontFamily: 'var(--font-head)', fontWeight: 800, fontSize: '17px', color: p.score != null ? 'var(--navy)' : 'var(--ink-muted)' }}>
+                    <td style={styles.td}>
+                      <span style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 800, fontSize: '17px', color: p.score != null ? colors.navy : colors.inkMuted }}>
                         {p.score ?? '—'}
                       </span>
                     </td>
-                    <td>
+                    <td style={styles.td}>
                       <EditableCell value={p.status} options={['Registered', 'Pending']}
                         onSave={val => updateParticipant(selectedEvent.id, p.id, { status: val })} />
                     </td>
-                    <td>
+                    <td style={{ ...styles.td, textAlign: 'right' }}>
                       <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
-                        <button className="btn-icon" title="View Profile" onClick={() => setViewParticipant(p)}>
-                          <span className="material-symbols-rounded">person</span>
+                        <button style={styles.btnIcon(activeBtnHover === `vp-${p.id}`)} title="View Profile" onClick={() => setViewParticipant(p)} onMouseEnter={() => setActiveBtnHover(`vp-${p.id}`)} onMouseLeave={() => setActiveBtnHover(null)}>
+                          <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>account_circle</span>
                         </button>
                         {p.status === 'Pending' && (
-                          <button className="btn-icon" title="Resend Invite" onClick={() => showToast(`Resent invite to ${p.email}.`, 'info')}>
-                            <span className="material-symbols-rounded">mail</span>
+                          <button style={styles.btnIcon(activeBtnHover === `ri-${p.id}`)} title="Resend Invite" onClick={() => showToast(`Resent invite to ${p.email}.`, 'info')} onMouseEnter={() => setActiveBtnHover(`ri-${p.id}`)} onMouseLeave={() => setActiveBtnHover(null)}>
+                            <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>mail</span>
                           </button>
                         )}
-                        <button className="btn-icon" title="Remove" style={{ color: 'var(--coral)' }} onClick={() => setConfirmKick(p)}>
-                          <span className="material-symbols-rounded">person_remove</span>
+                        <button style={styles.btnIcon(activeBtnHover === `rm-${p.id}`, true)} title="Remove" onClick={() => setConfirmKick(p)} onMouseEnter={() => setActiveBtnHover(`rm-${p.id}`)} onMouseLeave={() => setActiveBtnHover(null)}>
+                          <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>person_remove</span>
                         </button>
                       </div>
                     </td>
@@ -345,115 +591,120 @@ export default function ParticipantsPage() {
 
       {/* ══ FLOATING SELECTION TOOLBAR ══ */}
       {sel > 0 && (
-        <div style={{
-          position: 'fixed', bottom: '32px', left: '50%', transform: 'translateX(-50%)',
-          zIndex: 500, animation: 'undoSlideUp 0.25s cubic-bezier(0.34,1.56,0.64,1)',
-        }}>
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: '6px',
-            padding: '10px 14px',
-            background: 'rgba(15,23,42,0.88)',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
-            border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: '16px',
-            boxShadow: '0 12px 40px rgba(0,0,0,0.35)',
-            color: '#fff',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingRight: '10px', borderRight: '1px solid rgba(255,255,255,0.15)', marginRight: '4px' }}>
-              <div style={{ width: '24px', height: '24px', borderRadius: '6px', background: 'var(--accent)', display: 'grid', placeItems: 'center', fontSize: '11px', fontWeight: 800 }}>{sel}</div>
-              <span style={{ fontSize: '13.5px', fontWeight: 600, color: 'rgba(255,255,255,0.8)' }}>selected</span>
-            </div>
-            {[
-              { icon: 'group_work', label: 'Set Team', action: () => { setShowBulkTeam(true); setBulkTeamVal(''); } },
-              { icon: 'check_circle', label: 'Mark Registered', action: () => { [...selected].forEach(id => updateParticipant(selectedEvent.id, id, { status: 'Registered' })); showToast(`Marked ${sel} as Registered.`, 'success'); setSelected(new Set()); } },
-            ].map(a => (
-              <button key={a.label} onClick={a.action} style={{
-                display: 'flex', alignItems: 'center', gap: '6px',
-                background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)',
-                color: '#e2e8f0', padding: '7px 14px', borderRadius: '10px',
-                fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s', whiteSpace: 'nowrap',
-              }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.16)'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}>
-                <span className="material-symbols-rounded" style={{ fontSize: '15px' }}>{a.icon}</span>
-                {a.label}
-              </button>
-            ))}
-            <button onClick={() => doRemove([...selected])} style={{
+        <div style={styles.floatingToolbar}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingRight: '12px', borderRight: '1px solid rgba(255,255,255,0.15)', marginRight: '4px' }}>
+            <div style={{ width: '24px', height: '24px', borderRadius: '6px', background: colors.accent, display: 'grid', placeItems: 'center', fontSize: '11px', fontWeight: 800 }}>{sel}</div>
+            <span style={{ fontSize: '13.5px', fontWeight: 600, color: 'rgba(255,255,255,0.8)' }}>selected</span>
+          </div>
+          {[
+            { icon: 'group_work', label: 'Set Team', action: () => { setShowBulkTeam(true); setBulkTeamVal(''); }, id: 'bulk-team' },
+            { icon: 'check_circle', label: 'Mark Registered', action: () => { [...selected].forEach(id => updateParticipant(selectedEvent.id, id, { status: 'Registered' })); showToast(`Marked ${sel} as Registered.`, 'success'); setSelected(new Set()); }, id: 'bulk-reg' },
+          ].map(a => (
+            <button key={a.id} onClick={a.action} style={{
               display: 'flex', alignItems: 'center', gap: '6px',
-              background: 'rgba(239,68,68,0.2)', border: '1px solid rgba(239,68,68,0.35)',
+              background: activeBtnHover === a.id ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.08)', 
+              border: '1px solid rgba(255,255,255,0.12)',
+              color: '#e2e8f0', padding: '7px 14px', borderRadius: '10px',
+              fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s', whiteSpace: 'nowrap',
+            }}
+            onMouseEnter={() => setActiveBtnHover(a.id)}
+            onMouseLeave={() => setActiveBtnHover(null)}>
+              <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>{a.icon}</span>
+              {a.label}
+            </button>
+          ))}
+          <button onClick={() => doRemove([...selected])} 
+            onMouseEnter={() => setActiveBtnHover('bulk-rm')}
+            onMouseLeave={() => setActiveBtnHover(null)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '6px',
+              background: activeBtnHover === 'bulk-rm' ? 'rgba(239,68,68,0.35)' : 'rgba(239,68,68,0.2)', 
+              border: '1px solid rgba(239,68,68,0.35)',
               color: '#FCA5A5', padding: '7px 14px', borderRadius: '10px',
               fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s',
+            }}>
+            <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>delete</span>
+            Remove
+          </button>
+          <div style={{ width: '1px', height: '24px', background: 'rgba(255,255,255,0.12)', margin: '0 4px' }} />
+          <button 
+            onClick={() => setSelected(new Set())} 
+            onMouseEnter={() => setActiveBtnHover('bulk-close')}
+            onMouseLeave={() => setActiveBtnHover(null)}
+            style={{ 
+              background: activeBtnHover === 'bulk-close' ? 'rgba(255,255,255,0.1)' : 'none', 
+              border: 'none', color: activeBtnHover === 'bulk-close' ? '#fff' : 'rgba(255,255,255,0.4)', 
+              cursor: 'pointer', padding: '6px', display: 'grid', placeItems: 'center', borderRadius: '8px', transition: 'all 0.15s' 
             }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.35)'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.2)'; }}>
-              <span className="material-symbols-rounded" style={{ fontSize: '15px' }}>delete</span>
-              Remove
-            </button>
-            <div style={{ width: '1px', height: '24px', background: 'rgba(255,255,255,0.12)', margin: '0 4px' }} />
-            <button onClick={() => setSelected(new Set())} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', padding: '6px', display: 'grid', placeItems: 'center', borderRadius: '8px', transition: 'all 0.15s' }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = '#fff'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'rgba(255,255,255,0.4)'; }}>
-              <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>close</span>
-            </button>
-          </div>
+          >
+            <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>close</span>
+          </button>
         </div>
       )}
 
-      {/* ══ INVITE MODAL ══ */}
+      {/* ── INVITE MODAL ── */}
       {showInviteModal && (
-        <div className="modal-overlay" onClick={() => { setShowInviteModal(false); setPending([]); setUserSearch(''); }}>
-          <div className="modal-container" onClick={e => e.stopPropagation()} style={{ maxWidth: '600px', padding: 0, overflow: 'hidden' }}>
-            <div style={{ padding: '28px 32px 20px', borderBottom: '1px solid var(--border-soft)' }}>
+        <div style={styles.modalOverlay} onClick={() => { setShowInviteModal(false); setPending([]); setUserSearch(''); }}>
+          <div style={styles.modalContainer('600px')} onClick={e => e.stopPropagation()}>
+            <div style={{ padding: '28px 32px 20px', borderBottom: `1px solid ${colors.borderSoft}` }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
-                  <h2 className="modal-title" style={{ margin: 0 }}>Invite Participants</h2>
-                  <p style={{ fontSize: '13px', color: 'var(--ink-muted)', marginTop: '4px' }}>Search, add to list, then send all invites at once.</p>
+                  <h2 style={styles.modalTitle}>Invite Participants</h2>
+                  <p style={{ fontSize: '14px', color: colors.inkMuted, marginTop: '6px', margin: 0 }}>Search, add to list, then send all invites at once.</p>
                 </div>
-                <button className="btn-icon" onClick={() => { setShowInviteModal(false); setPending([]); setUserSearch(''); }}><span className="material-symbols-rounded">close</span></button>
+                <button style={styles.btnIcon(activeBtnHover === 'modal-close')} onClick={() => { setShowInviteModal(false); setPending([]); setUserSearch(''); }} onMouseEnter={() => setActiveBtnHover('modal-close')} onMouseLeave={() => setActiveBtnHover(null)}>
+                  <span className="material-symbols-rounded">close</span>
+                </button>
               </div>
-              <div style={{ position: 'relative', marginTop: '16px' }}>
-                <span className="material-symbols-rounded" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', fontSize: '20px', color: 'var(--ink-muted)' }}>search</span>
-                <input type="text" placeholder="Search by name or email..." value={userSearch} onChange={e => setUserSearch(e.target.value)} className="custom-input" style={{ paddingLeft: '44px' }} autoFocus />
+              <div style={{ position: 'relative', marginTop: '20px' }}>
+                <span className="material-symbols-rounded" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', fontSize: '20px', color: colors.inkMuted, pointerEvents: 'none' }}>search</span>
+                <input type="text" placeholder="Search by name or email..." value={userSearch} onChange={e => setUserSearch(e.target.value)} 
+                  style={{ ...styles.searchInput, width: '100%', background: '#fff', paddingLeft: '44px' }} 
+                  autoFocus 
+                  onFocus={e => { e.target.style.borderColor = colors.accent; e.target.style.boxShadow = `0 0 0 3px ${colors.accentGlow}`; }}
+                  onBlur={e => { e.target.style.borderColor = colors.border; e.target.style.boxShadow = 'none'; }}
+                />
               </div>
             </div>
-            <div style={{ maxHeight: '220px', overflowY: 'auto', borderBottom: '1px solid var(--border-soft)' }}>
+            <div style={{ maxHeight: '220px', overflowY: 'auto', borderBottom: `1px solid ${colors.borderSoft}` }}>
               {userSearch.length === 0 ? (
-                <div style={{ padding: '28px', textAlign: 'center', color: 'var(--ink-muted)' }}>
-                  <span className="material-symbols-rounded" style={{ fontSize: '28px', display: 'block', marginBottom: '6px', opacity: .3 }}>person_search</span>
+                <div style={{ padding: '32px', textAlign: 'center', color: colors.inkMuted }}>
+                  <span className="material-symbols-rounded" style={{ fontSize: '32px', display: 'block', marginBottom: '8px', opacity: 0.3 }}>person_search</span>
                   Type a name or email to find participants.
                 </div>
               ) : poolResults.length === 0 ? (
-                <div style={{ padding: '28px', textAlign: 'center', color: 'var(--ink-muted)' }}>No users found for "<strong>{userSearch}</strong>".</div>
+                <div style={{ padding: '32px', textAlign: 'center', color: colors.inkMuted }}>No users found for "<strong>{userSearch}</strong>".</div>
               ) : poolResults.map(u => (
-                <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '12px 24px', borderBottom: '1px solid var(--border-soft)', transition: 'background var(--transition)' }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'var(--page-bg)'}
-                  onMouseLeave={e => e.currentTarget.style.background = ''}>
-                  <div className="user-avatar" style={{ width: '36px', height: '36px', fontSize: '12px', flexShrink: 0 }}>{initials(u.name)}</div>
+                <div 
+                  key={u.id} 
+                  style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '12px 32px', borderBottom: `1px solid ${colors.borderSoft}`, transition: 'background 0.2s', background: hoveredRow === u.id ? colors.pageBg : 'transparent' }}
+                  onMouseEnter={() => setHoveredRow(u.id)}
+                  onMouseLeave={() => setHoveredRow(null)}
+                >
+                  <div style={styles.userAvatar(36, 12)}>{initials(u.name)}</div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--navy)' }}>{u.name}</div>
-                    <div style={{ fontSize: '12px', color: 'var(--ink-muted)' }}>{u.email} · {u.team}</div>
+                    <div style={{ fontSize: '14px', fontWeight: 600, color: colors.navy }}>{u.name}</div>
+                    <div style={{ fontSize: '12px', color: colors.inkMuted }}>{u.email} · {u.team}</div>
                   </div>
-                  <button className="primary-btn" style={{ padding: '7px 16px', fontSize: '13px' }} onClick={() => addToPending(u)}>
-                    <span className="material-symbols-rounded" style={{ fontSize: '15px' }}>add</span> Add
+                  <button onClick={() => addToPending(u)} onMouseEnter={() => setActiveBtnHover(`add-${u.id}`)} onMouseLeave={() => setActiveBtnHover(null)} style={{ ...styles.btn(activeBtnHover === `add-${u.id}`, true), padding: '6px 14px', height: '34px', fontSize: '12.5px' }}>
+                    <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>add</span> Add
                   </button>
                 </div>
               ))}
             </div>
-            <div style={{ padding: '14px 24px', background: 'var(--page-bg)', borderBottom: '1px solid var(--border-soft)', minHeight: '56px' }}>
+            <div style={{ padding: '16px 32px', background: colors.pageBg, borderBottom: `1px solid ${colors.borderSoft}`, minHeight: '60px' }}>
               {pending.length === 0 ? (
-                <p style={{ fontSize: '13px', color: 'var(--ink-muted)', textAlign: 'center', margin: 0 }}>Added participants will appear here.</p>
+                <p style={{ fontSize: '13px', color: colors.inkMuted, textAlign: 'center', margin: '4px 0' }}>Added participants will appear here.</p>
               ) : (
                 <>
-                  <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--ink-muted)', marginBottom: '8px' }}>To be invited ({pending.length})</div>
+                  <div style={{ fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', color: colors.inkMuted, marginBottom: '10px', letterSpacing: '0.05em' }}>To be invited ({pending.length})</div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                     {pending.map(u => (
-                      <div key={u.id} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#fff', border: '1px solid var(--border-soft)', borderRadius: '100px', padding: '4px 10px 4px 6px' }}>
-                        <div className="user-avatar" style={{ width: '20px', height: '20px', fontSize: '8px' }}>{initials(u.name)}</div>
-                        <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--navy)' }}>{u.name}</span>
-                        <button onClick={() => removeFromPending(u.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-muted)', padding: 0, display: 'grid', placeItems: 'center' }}>
-                          <span className="material-symbols-rounded" style={{ fontSize: '14px' }}>close</span>
+                      <div key={u.id} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#fff', border: `1px solid ${colors.borderSoft}`, borderRadius: '100px', padding: '4px 10px 4px 6px' }}>
+                        <div style={styles.userAvatar(22, 8)}>{initials(u.name)}</div>
+                        <span style={{ fontSize: '13px', fontWeight: 600, color: colors.navy }}>{u.name}</span>
+                        <button onClick={() => removeFromPending(u.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.inkMuted, padding: 0, display: 'grid', placeItems: 'center', transition: 'color 0.2s' }} onMouseEnter={e => e.currentTarget.style.color = colors.coral} onMouseLeave={e => e.currentTarget.style.color = colors.inkMuted}>
+                          <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>close_circle</span>
                         </button>
                       </div>
                     ))}
@@ -461,9 +712,15 @@ export default function ParticipantsPage() {
                 </>
               )}
             </div>
-            <div style={{ padding: '16px 24px', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-              <button className="secondary-btn" onClick={() => { setShowInviteModal(false); setPending([]); setUserSearch(''); }}>Cancel</button>
-              <button className="primary-btn" disabled={pending.length === 0} onClick={handleBulkAdd}>
+            <div style={{ padding: '20px 32px', display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button style={styles.btn(activeBtnHover === 'cancel-invite')} onClick={() => { setShowInviteModal(false); setPending([]); setUserSearch(''); }} onMouseEnter={() => setActiveBtnHover('cancel-invite')} onMouseLeave={() => setActiveBtnHover(null)}>Cancel</button>
+              <button 
+                style={styles.btn(activeBtnHover === 'confirm-invite', true)} 
+                disabled={pending.length === 0} 
+                onClick={handleBulkAdd}
+                onMouseEnter={() => setActiveBtnHover('confirm-invite')}
+                onMouseLeave={() => setActiveBtnHover(null)}
+              >
                 <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>send</span>
                 Send Invites ({pending.length})
               </button>
@@ -474,20 +731,35 @@ export default function ParticipantsPage() {
 
       {/* ══ BULK TEAM MODAL ══ */}
       {showBulkTeam && (
-        <div className="modal-overlay" onClick={() => setShowBulkTeam(false)}>
-          <div className="modal-container" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px' }}>
-            <h2 className="modal-title">Set Team</h2>
-            <p className="modal-sub">Applying to <strong>{sel}</strong> selected participant(s).</p>
-            <label className="custom-label">Team Name</label>
-            <input type="text" className="custom-input" list="team-dl" placeholder="Type or choose a team…"
-              value={bulkTeamVal} onChange={e => setBulkTeamVal(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleBulkTeam()} autoFocus />
-            <datalist id="team-dl">{knownTeams.map(t => <option key={t} value={t} />)}</datalist>
-            <div className="modal-actions" style={{ marginTop: '24px' }}>
-              <button className="secondary-btn" onClick={() => setShowBulkTeam(false)}>Cancel</button>
-              <button className="primary-btn" disabled={!bulkTeamVal.trim()} onClick={handleBulkTeam}>
-                <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>group_work</span> Apply Team
-              </button>
+        <div style={styles.modalOverlay} onClick={() => setShowBulkTeam(false)}>
+          <div style={styles.modalContainer('400px')} onClick={e => e.stopPropagation()}>
+            <div style={{ padding: '32px' }}>
+              <h2 style={styles.modalTitle}>Set Team</h2>
+              <p style={{ fontSize: '14px', color: colors.inkMuted, marginTop: '6px', marginBottom: '24px' }}>Applying to <strong>{sel}</strong> selected participant(s).</p>
+              
+              <label style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', color: colors.inkMuted, marginBottom: '8px', display: 'block' }}>Team Name</label>
+              <input type="text" list="team-dl" placeholder="Type or choose a team…"
+                value={bulkTeamVal} onChange={e => setBulkTeamVal(e.target.value)}
+                style={{ ...styles.searchInput, width: '100%', background: colors.pageBg, paddingLeft: '16px' }}
+                onKeyDown={e => e.key === 'Enter' && handleBulkTeam()} 
+                autoFocus 
+                onFocus={e => { e.target.style.borderColor = colors.accent; e.target.style.background = '#fff'; e.target.style.boxShadow = `0 0 0 3px ${colors.accentGlow}`; }}
+                onBlur={e => { e.target.style.borderColor = colors.border; e.target.style.background = colors.pageBg; e.target.style.boxShadow = 'none'; }}
+              />
+              <datalist id="team-dl">{knownTeams.map(t => <option key={t} value={t} />)}</datalist>
+              
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '32px' }}>
+                <button style={styles.btn(activeBtnHover === 'cancel-bulk')} onClick={() => setShowBulkTeam(false)} onMouseEnter={() => setActiveBtnHover('cancel-bulk')} onMouseLeave={() => setActiveBtnHover(null)}>Cancel</button>
+                <button 
+                  style={styles.btn(activeBtnHover === 'apply-bulk', true)} 
+                  disabled={!bulkTeamVal.trim()} 
+                  onClick={handleBulkTeam}
+                  onMouseEnter={() => setActiveBtnHover('apply-bulk')}
+                  onMouseLeave={() => setActiveBtnHover(null)}
+                >
+                  <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>group_work</span> Apply Team
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -495,23 +767,31 @@ export default function ParticipantsPage() {
 
       {/* ══ VIEW PROFILE MODAL ══ */}
       {viewParticipant && (
-        <div className="modal-overlay" onClick={() => setViewParticipant(null)}>
-          <div className="modal-container" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px' }}>
-            <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-              <div className="user-avatar" style={{ width: '72px', height: '72px', fontSize: '24px', margin: '0 auto 14px' }}>{initials(viewParticipant.name)}</div>
-              <h2 style={{ fontFamily: 'var(--font-head)', fontWeight: 800, fontSize: '22px', color: 'var(--navy)', marginBottom: '4px' }}>{viewParticipant.name}</h2>
-              <p style={{ color: 'var(--ink-muted)', fontSize: '13px' }}>{viewParticipant.team}</p>
-            </div>
-            {[{ label: 'Email', value: viewParticipant.email, icon: 'mail' }, { label: 'Status', value: viewParticipant.status, icon: 'info' }, { label: 'Score', value: viewParticipant.score ?? 'Not scored', icon: 'leaderboard' }].map(({ label, value, icon }) => (
-              <div key={label} style={{ display: 'flex', gap: '12px', alignItems: 'center', padding: '12px', background: 'var(--page-bg)', borderRadius: 'var(--radius-md)', marginBottom: '8px' }}>
-                <span className="material-symbols-rounded" style={{ color: 'var(--ink-muted)', fontSize: '18px' }}>{icon}</span>
-                <div><div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--ink-muted)' }}>{label}</div>
-                <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--navy)' }}>{value}</div></div>
+        <div style={styles.modalOverlay} onClick={() => setViewParticipant(null)}>
+          <div style={styles.modalContainer('400px')} onClick={e => e.stopPropagation()}>
+            <div style={{ padding: '40px 32px' }}>
+              <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+                <div style={{ ...styles.userAvatar(72, 24), margin: '0 auto 16px' }}>{initials(viewParticipant.name)}</div>
+                <h2 style={{ ...styles.modalTitle, marginBottom: '4px' }}>{viewParticipant.name}</h2>
+                <p style={{ color: colors.inkMuted, fontSize: '14px', margin: 0 }}>{viewParticipant.team}</p>
               </div>
-            ))}
-            <div style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
-              <button className="secondary-btn" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setViewParticipant(null)}>Close</button>
-              <button className="primary-btn" style={{ flex: 1, justifyContent: 'center', background: '#DC2626' }} onClick={() => { setConfirmKick(viewParticipant); setViewParticipant(null); }}>Remove</button>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {[{ label: 'Email', value: viewParticipant.email, icon: 'mail' }, { label: 'Status', value: viewParticipant.status, icon: 'verified' }, { label: 'Score', value: viewParticipant.score ?? 'Not scored', icon: 'analytics' }].map(({ label, value, icon }) => (
+                  <div key={label} style={{ display: 'flex', gap: '14px', alignItems: 'center', padding: '14px', background: colors.pageBg, borderRadius: '14px', border: `1px solid ${colors.borderSoft}` }}>
+                    <span className="material-symbols-rounded" style={{ color: colors.accent, fontSize: '20px' }}>{icon}</span>
+                    <div>
+                      <div style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', color: colors.inkMuted, letterSpacing: '0.05em' }}>{label}</div>
+                      <div style={{ fontSize: '14px', fontWeight: 700, color: colors.navy }}>{value}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              <div style={{ marginTop: '32px', display: 'flex', gap: '12px' }}>
+                <button style={{ ...styles.btn(activeBtnHover === 'close-vp'), flex: 1 }} onClick={() => setViewParticipant(null)} onMouseEnter={() => setActiveBtnHover('close-vp')} onMouseLeave={() => setActiveBtnHover(null)}>Close</button>
+                <button style={{ ...styles.btn(activeBtnHover === 'kick-vp', true), flex: 1, background: colors.coral }} onClick={() => { setConfirmKick(viewParticipant); setViewParticipant(null); }} onMouseEnter={() => setActiveBtnHover('kick-vp')} onMouseLeave={() => setActiveBtnHover(null)}>Remove</button>
+              </div>
             </div>
           </div>
         </div>
@@ -519,13 +799,24 @@ export default function ParticipantsPage() {
 
       {/* ══ REMOVE CONFIRM ══ */}
       {confirmKick && (
-        <div className="modal-overlay" onClick={() => setConfirmKick(null)}>
-          <div className="modal-container" onClick={e => e.stopPropagation()} style={{ maxWidth: '420px' }}>
-            <h2 className="modal-title">Remove Participant?</h2>
-            <p className="modal-sub">"<strong>{confirmKick.name}</strong>" will be removed. You get 5 seconds to undo.</p>
-            <div className="modal-actions">
-              <button className="secondary-btn" onClick={() => setConfirmKick(null)}>Cancel</button>
-              <button className="primary-btn" style={{ background: '#DC2626' }} onClick={() => { doRemove([confirmKick.id]); setConfirmKick(null); }}>Remove</button>
+        <div style={styles.modalOverlay} onClick={() => setConfirmKick(null)}>
+          <div style={styles.modalContainer('420px')} onClick={e => e.stopPropagation()}>
+            <div style={{ padding: '32px' }}>
+              <h2 style={styles.modalTitle}>Remove Participant?</h2>
+              <p style={{ fontSize: '14px', color: colors.inkSoft, marginTop: '8px', lineHeight: '1.5' }}>
+                "<strong>{confirmKick.name}</strong>" will be removed from this event. You will have 5 seconds to undo this action.
+              </p>
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '32px' }}>
+                <button style={styles.btn(activeBtnHover === 'cancel-kick')} onClick={() => setConfirmKick(null)} onMouseEnter={() => setActiveBtnHover('cancel-kick')} onMouseLeave={() => setActiveBtnHover(null)}>Cancel</button>
+                <button 
+                  style={{ ...styles.btn(activeBtnHover === 'confirm-kick', true), background: colors.coral }} 
+                  onClick={() => { doRemove([confirmKick.id]); setConfirmKick(null); }}
+                  onMouseEnter={() => setActiveBtnHover('confirm-kick')}
+                  onMouseLeave={() => setActiveBtnHover(null)}
+                >
+                  Remove Participant
+                </button>
+              </div>
             </div>
           </div>
         </div>

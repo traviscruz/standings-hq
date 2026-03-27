@@ -1,0 +1,84 @@
+I need to change my project to use inline styling like the examples below, based on my course requirement.
+
+**Example 1:**
+```jsx
+import React from 'react';
+function StyledHeader() {
+  const headerStyle = {
+    color: 'blue',
+    backgroundColor: 'lightgray',
+    padding: '10px',
+    borderRadius: '5px',
+    textAlign: 'center',
+  };
+  return <h1 style={headerStyle}>This is a styled header!</h1>;
+}
+export default StyledHeader;
+```
+
+**Example 2:**
+```jsx
+const isError = true;
+const styles = {
+  color: isError ? "red" : "green",
+  fontSize: "20px",
+};
+const element = <h1 style={styles}>Dynamic Styling</h1>;
+```
+
+**Other examples:**
+```jsx
+import React from 'react';
+function StyledHeader() {
+  const headerStyle = {
+    color: 'blue',
+    backgroundColor: 'lightgray',
+    padding: '10px',
+    borderRadius: '5px',
+    textAlign: 'center',
+  };
+  return <h1 style={headerStyle}>This is a styled header!</h1>;
+}
+function DynamicStyledText() {
+  const isError = true;
+  const styles = {
+    color: isError ? 'red' : 'green',
+    fontSize: '20px',
+    textAlign: 'center',
+  };
+  return <h2 style={styles}>Dynamic Styling</h2>;
+}
+export default function App() {
+  return (
+    <div>
+      <StyledHeader />
+      <DynamicStyledText />
+    </div>
+  );
+}
+```
+
+```jsx
+import React, { useState } from 'react';
+function ToggleButton() {
+  const [isActive, setIsActive] = useState(false);
+  const buttonStyle = {
+    backgroundColor: isActive ? "purple" : "gray",
+    padding: "10px 15px",
+    color: "white",
+    border: "none",
+    borderRadius: "5px",
+    cursor: "pointer",
+    fontSize: "16px",
+  };
+  return (
+    <button style={buttonStyle} onClick={() => setIsActive(!isActive)}>
+      {isActive ? "Active" : "Inactive"}
+    </button>
+  );
+}
+```
+
+Basically, I don't need you to copy these examples — instead, grasp the logic behind them and update my project with that implementation. Make sure the styling is **dynamic** where applicable, meaning styles should respond to state, props, or conditions rather than being hardcoded. **Keep this in mind throughout the entire refactor** and apply it consistently across all components.
+
+---

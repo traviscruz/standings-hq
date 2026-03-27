@@ -1,12 +1,158 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import '../../styles/auth.css';
+import { colors } from '../../styles/colors';
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isBackHovered, setIsBackHovered] = useState(false);
+  const [isLoginHovered, setIsLoginHovered] = useState(false);
+
+  // Prof's Format: Style constants with colors pulling from colors.js
+  const pageStyle = {
+    minHeight: '100vh',
+    display: 'grid',
+    gridTemplateColumns: window.innerWidth > 1024 ? '1fr 1fr' : '1fr',
+    fontFamily: "'Inter', system-ui, sans-serif",
+  };
+
+  const panelStyle = {
+    background: colors.white,
+    display: 'flex',
+    flexDirection: 'column',
+    padding: window.innerWidth > 1024 ? '36px 48px' : '36px 32px',
+    position: 'relative',
+    overflow: 'hidden',
+  };
+
+  const headerStyle = {
+    marginBottom: '52px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+  };
+
+  const backButtonStyle = {
+    width: '34px',
+    height: '34px',
+    borderRadius: '50%',
+    background: isBackHovered ? colors.white : colors.offWhite,
+    border: `1px solid ${isBackHovered ? colors.accent : colors.border}`,
+    color: isBackHovered ? colors.navy : colors.inkMuted,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    transition: '0.22s ease',
+    textDecoration: 'none',
+    transform: isBackHovered ? 'translateY(-1px)' : 'none',
+    boxShadow: isBackHovered ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+  };
+
+  const logoStyle = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    textDecoration: 'none',
+  };
+
+  const logoMarkStyle = {
+    width: '32px',
+    height: '32px',
+    background: colors.navy,
+    borderRadius: '7px',
+    display: 'grid',
+    placeItems: 'center',
+    flexShrink: 0,
+  };
+
+  const logoTextStyle = {
+    fontSize: '16px',
+    fontWeight: '800',
+    color: colors.ink,
+    letterSpacing: '-0.03em',
+  };
+
+  const eyebrowStyle = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '7px',
+    background: colors.accentBg,
+    border: `1px solid ${colors.accentBgMid}`,
+    color: colors.accentDeep,
+    fontSize: '11px',
+    fontWeight: '700',
+    letterSpacing: '0.08em',
+    textTransform: 'uppercase',
+    padding: '5px 14px',
+    borderRadius: '100px',
+    marginBottom: '20px',
+    width: 'fit-content',
+  };
+
+  const titleStyle = {
+    fontSize: '30px',
+    fontWeight: '800',
+    color: colors.ink,
+    letterSpacing: '-0.03em',
+    lineHeight: '1.15',
+    marginBottom: '6px',
+  };
+
+  const subStyle = {
+    fontSize: '14px',
+    color: colors.inkMuted,
+    marginBottom: '30px',
+    lineHeight: '1.6',
+  };
+
+  const inputStyle = {
+    width: '100%',
+    padding: '12px 14px',
+    border: `1.5px solid ${error ? colors.error : colors.border}`,
+    borderRadius: '8px',
+    fontSize: '14px',
+    color: colors.ink,
+    background: error ? colors.errorBg : colors.offWhite,
+    outline: 'none',
+    transition: '0.22s ease',
+  };
+
+  const labelStyle = {
+    display: 'block',
+    fontSize: '12.5px',
+    fontWeight: '600',
+    color: colors.inkSoft,
+    marginBottom: '6px',
+  };
+
+  const loginButtonStyle = {
+    width: '100%',
+    padding: '12px 24px',
+    borderRadius: '8px',
+    fontSize: '14px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    background: isLoginHovered ? colors.navySoft : colors.navy,
+    color: colors.white,
+    border: 'none',
+    transition: '0.22s ease',
+    marginTop: '20px',
+  };
+
+  const demoButtonStyle = {
+    background: 'transparent',
+    border: `1.5px solid ${colors.border}`,
+    color: colors.ink,
+    padding: '8px 16px',
+    borderRadius: '8px',
+    fontSize: '12px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    width: '100%',
+  };
 
   const handleLogin = () => {
     if (!email || !password) {
@@ -27,148 +173,142 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="auth-page">
-      <div className="auth-panel">
-        <div className="auth-header">
-          <Link to="/" className="auth-panel-back" title="Back to home">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M19 12H5M12 19l-7-7 7-7"/>
-            </svg>
+    <div style={pageStyle}>
+      <div style={panelStyle}>
+        <div style={headerStyle}>
+          <Link 
+            to="/" 
+            style={backButtonStyle} 
+            onMouseEnter={() => setIsBackHovered(true)}
+            onMouseLeave={() => setIsBackHovered(false)}
+            title="Back to home"
+          >
+             <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>arrow_back</span>
           </Link>
-          <Link to="/" className="auth-logo">
-            <div className="logo-mark">
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                <path d="M3 13L6.5 7L10 10.5L12.5 5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <circle cx="12.5" cy="5" r="2" fill="var(--accent)"/>
-              </svg>
-            </div>
-            <span className="logo-text">Standings<span>HQ</span></span>
+          <Link to="/" style={logoStyle}>
+             <div style={logoMarkStyle}>
+                <span className="material-symbols-rounded" style={{ color: colors.white, fontSize: '18px' }}>monitoring</span>
+             </div>
+             <span style={logoTextStyle}>Standings<span style={{ color: colors.accent }}>HQ</span></span>
           </Link>
         </div>
 
-        <div className="auth-form-wrap">
-          <span className="auth-eyebrow">Welcome back</span>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', maxWidth: '420px', margin: '0 auto', width: '100%' }}>
+          <span style={eyebrowStyle}>Welcome back</span>
           
-          <h1 className="auth-title">Sign in to your <em>workspace.</em></h1>
-          <p className="auth-sub">Enter your credentials to continue. Your events, scores, and certificates are waiting.</p>
+          <h1 style={titleStyle}>Sign in to your <em style={{ color: colors.accent, fontStyle: 'normal' }}>workspace.</em></h1>
+          <p style={subStyle}>Enter your credentials to continue. Your events, scores, and certificates are waiting.</p>
 
-          <div className="form-group">
-            <label>Email address</label>
+          <div style={{ marginBottom: '15px' }}>
+            <label style={labelStyle}>Email address</label>
             <input 
               type="email" 
-              placeholder="you@school.edu.ph" 
-              className={error ? 'input-error' : ''}
+              placeholder="name@email.com" 
+              style={inputStyle}
               value={email}
               onChange={(e) => {setEmail(e.target.value); setError('');}}
             />
           </div>
 
-          <div className="form-group">
-            <label>Password</label>
-            <div className="input-wrap">
+          <div style={{ marginBottom: '15px' }}>
+            <label style={labelStyle}>Password</label>
+            <div style={{ position: 'relative' }}>
               <input 
                 type={showPassword ? "text" : "password"} 
                 placeholder="Your password" 
-                className={error ? 'input-error' : ''}
+                style={inputStyle}
                 value={password}
                 onChange={(e) => {setPassword(e.target.value); setError('');}}
               />
               <button 
-                className="input-icon" 
+                style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: colors.inkMuted, display: 'flex', alignItems: 'center' }}
                 onClick={() => setShowPassword(!showPassword)} 
                 type="button"
               >
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <path d="M1 8C1 8 3.5 3 8 3C12.5 3 15 8 15 8C15 8 12.5 13 8 13C3.5 13 1 8 1 8Z" stroke="currentColor" strokeWidth="1.4"/>
-                  <circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.4"/>
-                </svg>
+                <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>
+                  {showPassword ? 'visibility_off' : 'visibility'}
+                </span>
               </button>
             </div>
-            {error && <div className="error-msg">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-              </svg>
+            {error && <div style={{ fontSize: '11.5px', color: colors.error, marginTop: '5px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <span className="material-symbols-rounded" style={{ fontSize: '14px' }}>error</span>
               {error}
             </div>}
           </div>
 
           <div style={{ textAlign: 'right' }}>
-            <Link to="/forgot-password" title="Forgot password?" className="forgot-link">Forgot password?</Link>
+            <Link to="/forgot-password" style={{ display: 'block', fontSize: '12.5px', color: colors.inkMuted, textDecoration: 'none', fontWeight: 500, marginTop: '-10px', marginBottom: '12px' }}>Forgot password?</Link>
           </div>
 
           <button 
-            className="btn btn-navy btn-full btn-lg" 
+            style={loginButtonStyle} 
+            onMouseEnter={() => setIsLoginHovered(true)}
+            onMouseLeave={() => setIsLoginHovered(false)}
             onClick={handleLogin}
           >
             Sign in
           </button>
 
-
-
-          <div className="mock-login-options" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '20px' }}>
-            <Link to="/organizer/dashboard" className="btn btn-ghost btn-full btn-sm" style={{ textAlign: 'center' }}>Demo: Organizer</Link>
-            <Link to="/judge/dashboard" className="btn btn-ghost btn-full btn-sm" style={{ textAlign: 'center' }}>Demo: Judge</Link>
-            <Link to="/participant/dashboard" className="btn btn-ghost btn-full btn-sm" style={{ textAlign: 'center' }}>Demo: Participant</Link>
-            <div style={{ padding: '4px', borderTop: '1px solid rgba(0,0,0,0.05)', gridColumn: '1 / -1', margin: '4px 0' }} />
-            <Link to="/archive" className="btn btn-ghost btn-full btn-sm" style={{ textAlign: 'center', color: '#6366f1' }}>Demo: Public Archive</Link>
-            <Link to="/leaderboard" className="btn btn-ghost btn-full btn-sm" style={{ textAlign: 'center', color: '#10b981' }}>Demo: Public Leaderboard</Link>
-            <Link to="/404-test-page" className="btn btn-ghost btn-full btn-sm" style={{ textAlign: 'center' }}>Test: 404 Page</Link>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '20px' }}>
+            <button style={demoButtonStyle} onClick={() => window.location.href='/organizer/dashboard'}>Demo: Organizer</button>
+            <button style={demoButtonStyle} onClick={() => window.location.href='/judge/dashboard'}>Demo: Judge</button>
+            <button style={demoButtonStyle} onClick={() => window.location.href='/participant/dashboard'}>Demo: Participant</button>
+            <div style={{ padding: '4px', borderTop: `1px solid ${colors.borderSoft}`, gridColumn: '1 / -1', margin: '4px 0' }} />
+            <button style={{ ...demoButtonStyle, color: '#6366f1' }} onClick={() => window.location.href='/archive'}>Demo: Public Archive</button>
+            <button style={{ ...demoButtonStyle, color: '#10b981' }} onClick={() => window.location.href='/leaderboard'}>Demo: Public Leaderboard</button>
+            <button style={demoButtonStyle} onClick={() => window.location.href='/404-test-page'}>Test: 404 Page</button>
           </div>
 
-          <div className="form-footer">
-            No account yet? <Link to="/register" className="form-link">Register here</Link>
+          <div style={{ textAlign: 'center', marginTop: '18px', fontSize: '13px', color: colors.inkMuted }}>
+            No account yet? <Link to="/register" style={{ color: colors.accentDeep, fontWeight: 700, textDecoration: 'none' }}>Register here</Link>
           </div>
         </div>
       </div>
 
-      <div className="auth-visual">
-        <div className="av-bg"></div>
-        <div className="av-grid"></div>
-        <div className="av-content">
-          <div className="av-eyebrow">Live competition platform</div>
-          <h2 className="av-title">Your <em>competition hub</em> is live and ready.</h2>
-          <p className="av-sub">Manage events, judge scores, and publish results — one professional platform built for the pace of competition day.</p>
+      <div style={{ background: colors.navy, position: 'relative', overflow: 'hidden', display: window.innerWidth > 1024 ? 'flex' : 'none', alignItems: 'center', justifyContent: 'center', padding: '48px' }}>
+        <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(ellipse 90% 70% at 20% 20%, rgba(59, 130, 246, 0.1), transparent 55%), radial-gradient(ellipse 60% 60% at 85% 80%, rgba(30, 58, 110, 0.7), transparent 60%), ${colors.navy}` }}></div>
+        <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
+        <div style={{ position: 'relative', zIndex: 2, maxWidth: '400px', width: '100%' }}>
+          <div style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.1em', color: colors.accent, marginBottom: '14px' }}>Live competition platform</div>
+          <h2 style={{ fontSize: 'clamp(21px, 2.2vw, 28px)', fontWeight: '800', color: colors.white, letterSpacing: '-0.03em', lineHeight: '1.2', marginBottom: '10px' }}>Your <em style={{ color: colors.accent, fontStyle: 'normal' }}>competition hub</em> is live and ready.</h2>
+          <p style={{ fontSize: '14px', color: 'rgba(255, 255, 255, 0.4)', lineHeight: '1.65', marginBottom: '30px' }}>Manage events, judge scores, and publish results — one professional platform built for the pace of competition day.</p>
           
-          <div className="av-card">
-            <div className="av-card-head">
-              <span className="av-card-title">Live Standings</span>
-              <span className="av-card-live">Updating</span>
+          <div style={{ background: 'rgba(255, 255, 255, 0.04)', border: '1px solid rgba(255, 255, 255, 0.09)', borderRadius: '14px', overflow: 'hidden', marginBottom: '22px' }}>
+            <div style={{ background: 'rgba(255, 255, 255, 0.05)', borderBottom: '1px solid rgba(255, 255, 255, 0.07)', padding: '11px 15px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '11.5px', fontWeight: '700', color: 'rgba(255, 255, 255, 0.6)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Live Standings</span>
+              <span style={{ fontSize: '10px', fontWeight: '700', color: colors.accent, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: '5px' }}>Updating</span>
             </div>
-            <div className="av-rows">
-              <div className="av-row">
-                <span className="av-rk g">🥇</span>
-                <div><div className="av-rname">Team Alpha</div></div>
-                <span className="av-rscore g">94.6</span>
+            <div style={{ padding: '8px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '28px 1fr auto', alignItems: 'center', gap: '8px', padding: '8px 10px', borderRadius: '8px' }}>
+                <span style={{ fontSize: '20px', textAlign: 'center' }}>🥇</span>
+                <div><div style={{ fontSize: '12.5px', fontWeight: '600', color: 'rgba(255, 255, 255, 0.75)' }}>Team Alpha</div></div>
+                <span style={{ fontSize: '14px', fontWeight: '800', color: colors.accent }}>94.6</span>
               </div>
-              <div className="av-row">
-                <span className="av-rk d">#2</span>
-                <div><div className="av-rname">Team Bravo</div></div>
-                <span className="av-rscore">89.2</span>
+              <div style={{ display: 'grid', gridTemplateColumns: '28px 1fr auto', alignItems: 'center', gap: '8px', padding: '8px 10px', borderRadius: '8px' }}>
+                <span style={{ fontSize: '12px', fontWeight: '800', textAlign: 'center', color: 'rgba(255, 255, 255, 0.3)' }}>#2</span>
+                <div><div style={{ fontSize: '12.5px', fontWeight: '600', color: 'rgba(255, 255, 255, 0.75)' }}>Team Bravo</div></div>
+                <span style={{ fontSize: '14px', fontWeight: '800', color: colors.white }}>89.2</span>
               </div>
-              <div className="av-row">
-                <span className="av-rk d">#3</span>
-                <div><div className="av-rname">Team Delta</div></div>
-                <span className="av-rscore">86.5</span>
+              <div style={{ display: 'grid', gridTemplateColumns: '28px 1fr auto', alignItems: 'center', gap: '8px', padding: '8px 10px', borderRadius: '8px' }}>
+                <span style={{ fontSize: '12px', fontWeight: '800', textAlign: 'center', color: 'rgba(255, 255, 255, 0.3)' }}>#3</span>
+                <div><div style={{ fontSize: '12.5px', fontWeight: '600', color: 'rgba(255, 255, 255, 0.75)' }}>Team Delta</div></div>
+                <span style={{ fontSize: '14px', fontWeight: '800', color: colors.white }}>86.5</span>
               </div>
             </div>
           </div>
 
-          <div className="av-pills">
-            <div className="av-pill">
-              <div className="ap-icon api-accent">
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                  <path d="M2 9L5 4L8 6.5L10 2" stroke="var(--accent)" strokeWidth="1.3" strokeLinecap="round"/>
-                </svg>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '8px', padding: '8px 13px' }}>
+              <div style={{ width: '24px', height: '24px', borderRadius: '5px', background: colors.accentBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span className="material-symbols-rounded" style={{ color: colors.accent, fontSize: '16px' }}>insights</span>
               </div>
-              <span>Real-time scoring</span>
+              <span style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.5)', fontWeight: '500' }}>Real-time scoring</span>
             </div>
-            <div className="av-pill">
-              <div className="ap-icon api-white">
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                  <path d="M2 6L5 9L10 3" stroke="rgba(255,255,255,0.6)" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '8px', padding: '8px 13px' }}>
+              <div style={{ width: '24px', height: '24px', borderRadius: '5px', background: 'rgba(255, 255, 255, 0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span className="material-symbols-rounded" style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '16px' }}>workspace_premium</span>
               </div>
-              <span>1-click certificates</span>
+              <span style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.5)', fontWeight: '500' }}>1-click certificates</span>
             </div>
           </div>
         </div>

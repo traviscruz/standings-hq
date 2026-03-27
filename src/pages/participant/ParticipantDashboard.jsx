@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParticipantContext } from './ParticipantLayout';
 import { Link } from 'react-router-dom';
+import { colors } from '../../styles/colors';
 
 // Template data from Organizer Certificate Builder for uniformity
 const BORDER_TEMPLATES = [
@@ -44,118 +45,255 @@ const MiniCertificate = ({ achievement, eventName }) => {
 
 export default function ParticipantDashboard() {
   const { myEvents, invitations, certificates } = useParticipantContext();
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  const [hoveredCard, setHoveredCard] = useState(null); // id or type
+
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const activeEvents = myEvents.filter(e => e.status === 'Active');
-  
+  const isMobile = windowWidth <= 768;
+
+  const getColSpanStyle = (span) => {
+    if (isMobile) return { gridColumn: 'span 12' };
+    return { gridColumn: `span ${span}` };
+  };
+
+  const pageHeaderStyle = {
+    marginBottom: '40px',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: '24px',
+    flexDirection: isMobile ? 'column' : 'row',
+  };
+
+  const eyebrowBadgeStyle = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '6px 14px',
+    background: 'rgba(59, 130, 246, 0.08)',
+    borderRadius: '100px',
+    fontSize: '11px',
+    fontWeight: '800',
+    color: colors.navy,
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
+    marginBottom: '12px',
+  };
+
+  const pageTitleStyle = {
+    fontSize: isMobile ? '26px' : '32px',
+    fontWeight: '800',
+    color: colors.navy,
+    letterSpacing: '-0.03em',
+    lineHeight: '1.1',
+    marginBottom: '8px',
+    fontFamily: "'DM Sans', system-ui, sans-serif",
+  };
+
+  const pageDescriptionStyle = {
+    color: colors.inkMuted,
+    fontSize: '15px',
+    maxWidth: '600px',
+    lineHeight: '1.55',
+  };
+
+  const cardStyle = (id) => ({
+    background: '#fff',
+    border: `1px solid ${hoveredCard === id ? colors.border : colors.borderSoft}`,
+    borderRadius: '20px',
+    padding: '24px',
+    boxShadow: hoveredCard === id ? '0 10px 15px -3px rgba(0, 0, 0, 0.05)' : 'none',
+    transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+    position: 'relative',
+    overflow: 'hidden',
+    transform: hoveredCard === id ? 'translateY(-2px)' : 'none',
+  });
+
+  const statLabelStyle = {
+    fontSize: '11px',
+    fontWeight: '700',
+    color: colors.inkMuted,
+    textTransform: 'uppercase',
+    letterSpacing: '0.1em',
+    marginBottom: '12px',
+  };
+
+  const statValueStyle = {
+    fontSize: '32px',
+    fontWeight: '800',
+    color: colors.navy,
+    letterSpacing: '-0.02em',
+    fontFamily: "'DM Sans', system-ui, sans-serif",
+  };
+
+  const statMetaStyle = {
+    fontSize: '13px',
+    color: colors.inkMuted,
+    marginTop: '8px',
+  };
+
+  const badgeStyle = {
+    padding: '4px 10px',
+    borderRadius: '100px',
+    fontSize: '11px',
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    background: colors.accentBg,
+    color: colors.accentDeep,
+    marginBottom: '8px',
+    display: 'inline-block',
+  };
+
   return (
-    <div className="dashboard-view">
-      <header className="page-header">
+    <div className="slide-up-anim">
+      <header style={pageHeaderStyle}>
         <div>
-          <div className="eyebrow-badge">
-            <span className="material-symbols-rounded" style={{ fontSize: '14px', color: 'var(--accent)' }}>waving_hand</span>
+          <div style={eyebrowBadgeStyle}>
+            <span className="material-symbols-rounded" style={{ fontSize: '14px', color: colors.accent }}>waving_hand</span>
             Welcome back, Riley!
           </div>
-          <h1 className="page-title">Participant Dashboard</h1>
-          <p className="page-description">Your competition journey at a glance. All live scores, upcoming events, and achievements.</p>
-        </div>
-        <div className="header-actions" style={{ display: 'flex', gap: '12px' }}>
-          <Link to="/participant/events" className="btn-primary">
-            <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>explore</span>
-            Find Events
-          </Link>
+          <h1 style={pageTitleStyle}>Participant Dashboard</h1>
+          <p style={pageDescriptionStyle}>Your competition journey at a glance. All live scores, upcoming events, and achievements.</p>
         </div>
       </header>
 
-      <div className="dashboard-grid">
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '24px' }}>
         {/* Quick Stats */}
-        <div className="card col-span-3 stat-card">
-          <span className="stat-label">Joined Events</span>
-          <span className="stat-value">{myEvents.length}</span>
-          <span className="stat-meta">Across {new Set(myEvents.map(e => e.type)).size} categories</span>
+        <div 
+          style={{ ...cardStyle('stat-1'), ...getColSpanStyle(3) }}
+          onMouseEnter={() => setHoveredCard('stat-1')}
+          onMouseLeave={() => setHoveredCard(null)}
+        >
+          <div style={statLabelStyle}>Joined Events</div>
+          <div style={statValueStyle}>{myEvents.length}</div>
+          <div style={statMetaStyle}>Across {new Set(myEvents.map(e => e.type)).size} categories</div>
         </div>
-        <div className="card col-span-3 stat-card">
-          <span className="stat-label">Active Events</span>
-          <span className="stat-value" style={{ color: 'var(--accent)' }}>{activeEvents.length}</span>
-          <span className="stat-meta">In progress right now</span>
+        <div 
+          style={{ ...cardStyle('stat-2'), ...getColSpanStyle(3) }}
+          onMouseEnter={() => setHoveredCard('stat-2')}
+          onMouseLeave={() => setHoveredCard(null)}
+        >
+          <div style={statLabelStyle}>Active Events</div>
+          <div style={{ ...statValueStyle, color: colors.accent }}>{activeEvents.length}</div>
+          <div style={statMetaStyle}>In progress right now</div>
         </div>
-        <div className="card col-span-3 stat-card">
-          <span className="stat-label">Certificates</span>
-          <span className="stat-value" style={{ color: 'var(--sage)' }}>{certificates.length}</span>
-          <span className="stat-meta">Verified achievements</span>
+        <div 
+          style={{ ...cardStyle('stat-3'), ...getColSpanStyle(3) }}
+          onMouseEnter={() => setHoveredCard('stat-3')}
+          onMouseLeave={() => setHoveredCard(null)}
+        >
+          <div style={statLabelStyle}>Certificates</div>
+          <div style={{ ...statValueStyle, color: colors.success }}>{certificates.length}</div>
+          <div style={statMetaStyle}>Verified achievements</div>
         </div>
-        <div className="card col-span-3 stat-card">
-          <span className="stat-label">Pending Invites</span>
-          <span className="stat-value" style={{ color: 'var(--coral)' }}>{invitations.length}</span>
-          <span className="stat-meta">Waiting for your response</span>
+        <div 
+          style={{ ...cardStyle('stat-4'), ...getColSpanStyle(3) }}
+          onMouseEnter={() => setHoveredCard('stat-4')}
+          onMouseLeave={() => setHoveredCard(null)}
+        >
+          <div style={statLabelStyle}>Pending Invites</div>
+          <div style={{ ...statValueStyle, color: colors.error }}>{invitations.length}</div>
+          <div style={statMetaStyle}>Waiting for your response</div>
         </div>
 
         {/* Currently Participating / Active */}
-        <div className="card col-span-8">
+        <div style={{ ...cardStyle('active-section'), ...getColSpanStyle(8) }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-            <h3 style={{ fontWeight: '800', fontFamily: 'var(--font-head)', color: 'var(--navy)', fontSize: '18px' }}>Active Competition</h3>
-            <Link to="/participant/leaderboard" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent)', textShadow: 'none' }}>View Detailed Stats</Link>
+            <h3 style={{ fontWeight: '800', fontFamily: "'DM Sans', system-ui, sans-serif", color: colors.navy, fontSize: '18px', margin: 0 }}>Active Competition</h3>
+            <Link to="/participant/leaderboard" style={{ fontSize: '12px', fontWeight: 600, color: colors.accent, textDecoration: 'none' }}>View Detailed Stats</Link>
           </div>
           
           {activeEvents.length > 0 ? (
             activeEvents.map(event => (
-              <div key={event.id} className="widget-card" style={{ 
-                background: 'var(--page-bg)', 
+              <div key={event.id} style={{ 
+                background: '#F8FAFC', 
                 display: 'flex',
                 justifyContent: 'space-between',
-                alignItems: 'center',
                 padding: '24px',
-                border: '1px solid var(--border-soft)'
+                borderRadius: '16px',
+                border: `1px solid ${colors.borderSoft}`,
+                flexDirection: isMobile ? 'column' : 'row',
+                gap: isMobile ? '20px' : '0'
               }}>
                 <div>
-                  <div className="badge badge-blue" style={{ marginBottom: '8px' }}>In Progress</div>
-                  <h4 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--navy)', marginBottom: '4px' }}>{event.name}</h4>
-                  <p style={{ fontSize: '14px', color: 'var(--ink-muted)' }}>{event.type} • {event.date}</p>
+                  <div style={badgeStyle}>In Progress</div>
+                  <h4 style={{ fontSize: '20px', fontWeight: 800, color: colors.navy, margin: '0 0 4px 0' }}>{event.name}</h4>
+                  <p style={{ fontSize: '14px', color: colors.inkMuted, margin: 0 }}>{event.type} • {event.date}</p>
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--ink-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>Current Standing</div>
-                  <div style={{ fontSize: '28px', fontWeight: 800, color: 'var(--navy)' }}>{event.rank} <span style={{ fontSize: '14px', color: 'var(--ink-muted)', fontWeight: 600 }}>/ 45</span></div>
-                  <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--accent)' }}>Score: {event.score}</div>
+                <div style={{ textAlign: isMobile ? 'left' : 'right' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: colors.inkMuted, textTransform: 'uppercase', marginBottom: '4px' }}>Current Standing</div>
+                  <div style={{ fontSize: '28px', fontWeight: 800, color: colors.navy }}>{event.rank} <span style={{ fontSize: '14px', color: colors.inkMuted, fontWeight: 600 }}>/ 45</span></div>
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: colors.accent }}>Score: {event.score}</div>
                 </div>
               </div>
             ))
           ) : (
-            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--ink-muted)' }}>
-              <span className="material-symbols-rounded" style={{ fontSize: '48px', color: 'var(--border)', marginBottom: '16px', display: 'block' }}>event_busy</span>
+            <div style={{ textAlign: 'center', padding: '40px', color: colors.inkMuted }}>
+              <span className="material-symbols-rounded" style={{ fontSize: '48px', color: colors.border, marginBottom: '16px', display: 'block' }}>event_busy</span>
               <p>No active competitions at the moment.</p>
             </div>
           )}
         </div>
 
         {/* Fast Action / Invitations */}
-        <div className="card col-span-4">
-          <h3 style={{ fontWeight: '800', fontFamily: 'var(--font-head)', color: 'var(--navy)', fontSize: '18px', marginBottom: '24px' }}>Pending Invitations</h3>
+        <div style={{ ...cardStyle('invites-section'), ...getColSpanStyle(4) }}>
+          <h3 style={{ fontWeight: '800', fontFamily: "'DM Sans', system-ui, sans-serif", color: colors.navy, fontSize: '18px', marginBottom: '24px', margin: 0 }}>Pending Invitations</h3>
           
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {invitations.length > 0 ? (
               invitations.map(invite => (
-                <div key={invite.id} className="widget-card" style={{ 
+                <div key={invite.id} style={{ 
                   padding: '16px', 
-                  border: '1px solid var(--border-soft)',
+                  borderRadius: '12px',
+                  border: `1px solid ${colors.borderSoft}`,
                   background: '#FDFDFD'
                 }}>
-                  <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--navy)', marginBottom: '2px' }}>{invite.eventName}</div>
-                  <div style={{ fontSize: '12px', color: 'var(--ink-muted)', marginBottom: '12px' }}>From: {invite.organizer}</div>
-                  <Link to="/participant/invites" className="btn-outline" style={{ width: '100%', justifyContent: 'center', padding: '8px', fontSize: '12px' }}>Review Invite</Link>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: colors.navy, marginBottom: '2px' }}>{invite.eventName}</div>
+                  <div style={{ fontSize: '12px', color: colors.inkMuted, marginBottom: '12px' }}>From: {invite.organizer}</div>
+                  <Link 
+                    to="/participant/invites" 
+                    style={{ 
+                        width: '100%', 
+                        justifyContent: 'center', 
+                        padding: '10px', 
+                        fontSize: '12px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        borderRadius: '10px',
+                        fontWeight: '600',
+                        color: colors.navy,
+                        border: `1px solid ${colors.border}`,
+                        textDecoration: 'none',
+                        transition: 'all 0.2s',
+                        background: '#fff'
+                    }}
+                    onMouseEnter={(e) => { e.target.style.background = '#F8FAFC'; e.target.style.borderColor = colors.navy; }}
+                    onMouseLeave={(e) => { e.target.style.background = '#fff'; e.target.style.borderColor = colors.border; }}
+                  >
+                    Review Invite
+                  </Link>
                 </div>
               ))
             ) : (
-              <p style={{ fontSize: '13px', color: 'var(--ink-muted)', textAlign: 'center', padding: '20px' }}>You're all caught up!</p>
+              <p style={{ fontSize: '13px', color: colors.inkMuted, textAlign: 'center', padding: '20px' }}>You're all caught up!</p>
             )}
             
-            <Link to="/participant/invites" style={{ textAlign: 'center', fontSize: '12px', color: 'var(--accent)', fontWeight: 600, marginTop: '8px' }}>Manage all invitations</Link>
+            <Link to="/participant/invites" style={{ textAlign: 'center', fontSize: '12px', color: colors.accent, fontWeight: 600, marginTop: '8px', textDecoration: 'none' }}>Manage all invitations</Link>
           </div>
         </div>
 
         {/* Recently Earned */}
-        <div className="card col-span-12">
+        <div style={{ ...cardStyle('certs-section'), ...getColSpanStyle(12) }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-            <h3 style={{ fontWeight: '800', fontFamily: 'var(--font-head)', color: 'var(--navy)', fontSize: '18px' }}>Recent Certificates</h3>
-            <Link to="/participant/certificates" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--accent)' }}>View All Certificates</Link>
+            <h3 style={{ fontWeight: '800', fontFamily: "'DM Sans', system-ui, sans-serif", color: colors.navy, fontSize: '18px', margin: 0 }}>Recent Certificates</h3>
+            <Link to="/participant/certificates" style={{ fontSize: '12px', fontWeight: 600, color: colors.accent, textDecoration: 'none' }}>View All Certificates</Link>
           </div>
           
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '20px' }}>
@@ -168,8 +306,8 @@ export default function ParticipantDashboard() {
             ))}
             
             {certificates.length === 0 && (
-              <div className="widget-card" style={{ gridColumn: '1 / -1', borderStyle: 'dashed', textAlign: 'center', padding: '40px' }}>
-                 <p style={{ color: 'var(--ink-muted)', fontSize: '14px' }}>Participate in events to earn certificates!</p>
+              <div style={{ gridColumn: '1 / -1', border: `1px dashed ${colors.border}`, borderRadius: '16px', textAlign: 'center', padding: '40px' }}>
+                 <p style={{ color: colors.inkMuted, fontSize: '14px' }}>Participate in events to earn certificates!</p>
               </div>
             )}
           </div>
@@ -178,3 +316,4 @@ export default function ParticipantDashboard() {
     </div>
   );
 }
+

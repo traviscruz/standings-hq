@@ -1,14 +1,159 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import '../../styles/auth.css';
+import { colors } from '../../styles/colors';
 
 export default function RegisterPage() {
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({ fname: '', lname: '', username: '', email: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [pwScore, setPwScore] = useState(0);
-
   const [error, setError] = useState('');
+  const [hovered, setHovered] = useState({ back: false, next: false, dash: false });
+
+  // Prof's Format: Style constants using imported global colors
+  const pageStyle = {
+    minHeight: '100vh',
+    display: 'grid',
+    gridTemplateColumns: window.innerWidth > 1024 ? '1fr 1fr' : '1fr',
+    fontFamily: "'Inter', system-ui, sans-serif",
+  };
+
+  const panelStyle = {
+    background: colors.white,
+    display: 'flex',
+    flexDirection: 'column',
+    padding: window.innerWidth > 1024 ? '36px 48px' : '36px 32px',
+    position: 'relative',
+    overflow: 'hidden',
+  };
+
+  const headerStyle = {
+    marginBottom: '52px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+  };
+
+  const backButtonStyle = {
+    width: '34px',
+    height: '34px',
+    borderRadius: '50%',
+    background: hovered.back ? colors.white : colors.offWhite,
+    border: `1px solid ${hovered.back ? colors.accent : colors.border}`,
+    color: hovered.back ? colors.navy : colors.inkMuted,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    transition: '0.22s ease',
+    textDecoration: 'none',
+  };
+
+  const titleStyle = {
+    fontSize: '30px',
+    fontWeight: '800',
+    color: colors.ink,
+    letterSpacing: '-0.03em',
+    lineHeight: '1.15',
+    marginBottom: '6px',
+  };
+
+  const subStyle = {
+    fontSize: '14px',
+    color: colors.inkMuted,
+    marginBottom: '30px',
+    lineHeight: '1.6',
+  };
+
+  const eyebrowStyle = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    background: colors.accentBg,
+    border: `1px solid ${colors.accentBgMid}`,
+    color: colors.accentDeep,
+    fontSize: '11px',
+    fontWeight: '700',
+    letterSpacing: '0.08em',
+    textTransform: 'uppercase',
+    padding: '5px 14px',
+    borderRadius: '100px',
+    marginBottom: '20px',
+    width: 'fit-content',
+  };
+
+  const inputStyle = {
+    width: '100%',
+    padding: '12px 14px',
+    border: `1.5px solid ${error ? colors.error : colors.border}`,
+    borderRadius: '8px',
+    fontSize: '14px',
+    color: colors.ink,
+    background: error ? colors.errorBg : colors.offWhite,
+    outline: 'none',
+    transition: '0.22s ease',
+  };
+
+  const nextButtonStyle = {
+    width: '100%',
+    padding: '12px 24px',
+    borderRadius: '8px',
+    fontSize: '14px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    background: hovered.next ? colors.navySoft : colors.navy,
+    color: colors.white,
+    border: 'none',
+    transition: '0.22s ease',
+  };
+
+  const accentButtonStyle = {
+    width: '100%',
+    padding: '12px 24px',
+    borderRadius: '8px',
+    fontSize: '14px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    background: hovered.next ? colors.accentDeep : colors.accent,
+    color: colors.white,
+    border: 'none',
+    transition: '0.22s ease',
+  };
+
+  const ghostButtonStyle = {
+    background: 'transparent',
+    border: `1.5px solid ${colors.border}`,
+    color: colors.ink,
+    padding: '12px 24px',
+    borderRadius: '8px',
+    fontSize: '14px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    transition: '0.22s ease',
+  };
+
+  const sbNumStyle = (s) => ({
+    width: '28px',
+    height: '28px',
+    borderRadius: '50%',
+    border: `2px solid ${step > s ? colors.accent : step === s ? colors.navy : colors.border}`,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '12px',
+    fontWeight: '700',
+    background: step > s ? colors.accent : step === s ? colors.navy : colors.white,
+    color: step >= s ? colors.white : colors.inkMuted,
+    transition: '0.22s ease',
+    flexShrink: 0,
+  });
+
+  const pwBarStyle = (n) => ({
+    flex: 1,
+    height: '3px',
+    borderRadius: '100px',
+    background: n <= pwScore ? (pwScore === 1 ? colors.error : pwScore === 2 ? colors.accent : pwScore === 3 ? colors.accentDeep : colors.success) : colors.border,
+    transition: '0.3s ease',
+  });
 
   const rGo = (s) => {
     if (s > step) {
@@ -20,10 +165,6 @@ export default function RegisterPage() {
         setError('Username and email are required.');
         return;
       }
-      if (step === 2 && formData.username.length < 3) {
-        setError('Username must be at least 3 characters.');
-        return;
-      }
       if (step === 3 && pwScore < 2) {
         setError('Please create a stronger password.');
         return;
@@ -32,270 +173,161 @@ export default function RegisterPage() {
     setError('');
     setStep(s);
   };
-  
+
   const calcPw = (v) => {
     let s = 0; if (v.length >= 8) s++; if (/[A-Z]/.test(v)) s++; if (/[0-9]/.test(v)) s++; if (/[^A-Za-z0-9]/.test(v)) s++;
     setPwScore(s);
     setFormData({ ...formData, password: v });
   };
 
-  const getStepTitle = () => {
-    if (step === 1) return "Your name.";
-    if (step === 2) return "Your account.";
-    if (step === 3) return "Secure it.";
-    return "You're all set.";
-  };
-
-  const getStepSub = () => {
-    if (step === 1) return "Let's start simple — what should we call you?";
-    if (step === 2) return "Choose your unique username and email address.";
-    if (step === 3) return "Create a strong password to protect your account.";
-    return "Your organizer workspace is ready.";
-  };
-
-  const pwColors = ['', '#EF4444', '#3B82F6', '#2563EB', '#10B981'];
-  const pwLabels = ['', 'Weak', 'Fair', 'Good', 'Strong'];
-
   const Rule = ({ valid, text }) => (
-    <div className={`rule-item ${valid ? 'valid' : ''}`}>
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-        {valid ? <path d="M20 6L9 17l-5-5"/> : <circle cx="12" cy="12" r="10"/>}
-      </svg>
+    <div style={{ fontSize: '11.5px', color: valid ? colors.success : colors.inkMuted, display: 'flex', alignItems: 'center', gap: '6px' }}>
+      <span className="material-symbols-rounded" style={{ fontSize: '14px' }}>
+        {valid ? 'check_circle' : 'radio_button_unchecked'}
+      </span>
       {text}
     </div>
   );
 
-  const isNameValid = (n) => /^[a-zA-Z\s]*$/.test(n);
-
   return (
-    <div className="auth-page">
-      <div className="auth-panel">
-        <div className="auth-header">
-          <Link to="/login" className="auth-panel-back" title="Back to sign in">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M19 12H5M12 19l-7-7 7-7"/>
-            </svg>
+    <div style={pageStyle}>
+      <div style={panelStyle}>
+        <div style={headerStyle}>
+          <Link 
+            to="/login" 
+            style={backButtonStyle} 
+            onMouseEnter={() => setHovered({ ...hovered, back: true })}
+            onMouseLeave={() => setHovered({ ...hovered, back: false })}
+          >
+            <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>arrow_back</span>
           </Link>
-          <Link to="/" className="auth-logo">
-            <div className="logo-mark">
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                <path d="M3 13L6.5 7L10 10.5L12.5 5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <circle cx="12.5" cy="5" r="2" fill="var(--accent)"/>
-              </svg>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none' }}>
+            <div style={{ width: '32px', height: '32px', background: colors.navy, borderRadius: '7px', display: 'grid', placeItems: 'center' }}>
+              <span className="material-symbols-rounded" style={{ color: colors.white, fontSize: '18px' }}>monitoring</span>
             </div>
-            <span className="logo-text">Standings<span>HQ</span></span>
-          </Link>
+            <span style={{ fontSize: '16px', fontWeight: '800', color: colors.ink }}>Standings<span style={{ color: colors.accent }}>HQ</span></span>
+          </div>
         </div>
 
-        <div className="auth-form-wrap">
-          <span className="auth-eyebrow">Step {step} of 3</span>
-          <h1 className="auth-title">{getStepTitle()}</h1>
-          <p className="auth-sub">{getStepSub()}</p>
+        <div style={{ ...panelStyle, flex: 1, padding: 0, justifyContent: 'center', maxWidth: '420px', margin: '0 auto', width: '100%', overflow: 'visible' }}>
+          <span style={eyebrowStyle}>Step {step} of 3</span>
+          <h1 style={titleStyle}>{step === 1 ? "Your name." : step === 2 ? "Your account." : step === 3 ? "Secure it." : "You're all set."}</h1>
+          <p style={subStyle}>
+            {step === 1 ? "Let's start simple — what should we call you?" : step === 2 ? "Choose your unique username and email address." : step === 3 ? "Create a strong password to protect your account." : "Your organizer workspace is ready."}
+          </p>
 
           {step < 4 && (
-            <div className="step-bar">
-              <div className={`sb-step ${step === 1 ? 'active' : step > 1 ? 'done' : ''}`}>
-                <div className="sb-num">{step > 1 ? '✓' : '1'}</div>
-                <span className="sb-label">Name</span>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '28px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', fontWeight: '600', color: step >= 1 ? colors.ink : colors.inkMuted }}>
+                <div style={sbNumStyle(1)}>
+                  {step > 1 ? <span className="material-symbols-rounded" style={{ fontSize: '14px' }}>check</span> : '1'}
+                </div>
+                <span>Name</span>
               </div>
-              <div className={`sb-line ${step > 1 ? 'done' : ''}`}></div>
-              <div className={`sb-step ${step === 2 ? 'active' : step > 2 ? 'done' : ''}`}>
-                <div className="sb-num">{step > 2 ? '✓' : '2'}</div>
-                <span className="sb-label">Account</span>
+              <div style={{ flex: 1, height: '2px', background: step > 1 ? colors.accent : colors.border, margin: '0 6px' }}></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', fontWeight: '600', color: step >= 2 ? colors.ink : colors.inkMuted }}>
+                <div style={sbNumStyle(2)}>
+                  {step > 2 ? <span className="material-symbols-rounded" style={{ fontSize: '14px' }}>check</span> : '2'}
+                </div>
+                <span>Account</span>
               </div>
-              <div className={`sb-line ${step > 2 ? 'done' : ''}`}></div>
-              <div className={`sb-step ${step === 3 ? 'active' : step > 3 ? 'done' : ''}`}>
-                <div className="sb-num">{step > 3 ? '✓' : '3'}</div>
-                <span className="sb-label">Password</span>
+              <div style={{ flex: 1, height: '2px', background: step > 2 ? colors.accent : colors.border, margin: '0 6px' }}></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', fontWeight: '600', color: step >= 3 ? colors.ink : colors.inkMuted }}>
+                <div style={sbNumStyle(3)}>
+                  {step > 3 ? <span className="material-symbols-rounded" style={{ fontSize: '14px' }}>check</span> : '3'}
+                </div>
+                <span>Password</span>
               </div>
             </div>
           )}
 
           {step === 1 && (
-            <div className="step-panel active">
-              <div className="form-row">
-                <div className="form-group">
-                  <label>First name</label>
-                  <input type="text" className={error && (!formData.fname || !isNameValid(formData.fname)) ? 'input-error' : ''} placeholder="Maria" value={formData.fname} onChange={(e) => {setFormData({...formData, fname: e.target.value}); setError('')}} />
+            <div style={{ animation: 'fadeIn 0.3s ease' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '15px' }}>
+                <div style={{ marginBottom: '15px' }}>
+                  <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: colors.inkSoft, marginBottom: '6px' }}>First name</label>
+                  <input type="text" style={inputStyle} placeholder="John" value={formData.fname} onChange={(e) => setFormData({ ...formData, fname: e.target.value })} />
                 </div>
-                <div className="form-group">
-                  <label>Last name</label>
-                  <input type="text" className={error && (!formData.lname || !isNameValid(formData.lname)) ? 'input-error' : ''} placeholder="Santos" value={formData.lname} onChange={(e) => {setFormData({...formData, lname: e.target.value}); setError('')}} />
+                <div style={{ marginBottom: '15px' }}>
+                  <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: colors.inkSoft, marginBottom: '6px' }}>Last name</label>
+                  <input type="text" style={inputStyle} placeholder="Doe" value={formData.lname} onChange={(e) => setFormData({ ...formData, lname: e.target.value })} />
                 </div>
               </div>
-              <div className="rules-list" style={{ marginBottom: '14px' }}>
-                <Rule valid={formData.fname && formData.lname && isNameValid(formData.fname) && isNameValid(formData.lname)} text="Real names only (no numbers or symbols)" />
+              <div style={{ marginBottom: '14px' }}>
+                <Rule valid={formData.fname && formData.lname && /^[a-zA-Z\s]*$/.test(formData.fname)} text="Real names only (no numbers or symbols)" />
               </div>
-              {error && <div className="error-msg" style={{ marginBottom: '14px' }}>{error}</div>}
-              <button 
-                className="btn btn-navy btn-full btn-lg" 
-                onClick={() => rGo(2)}
-              >
-                Continue →
-              </button>
-              <div className="form-footer">
-                Already registered? <Link to="/login" className="form-link">Sign in</Link>
-              </div>
+              {error && <div style={{ fontSize: '11.5px', color: colors.error, marginBottom: '14px', fontWeight: 600 }}>{error}</div>}
+              <button style={nextButtonStyle} onMouseEnter={() => setHovered({...hovered, next: true})} onMouseLeave={() => setHovered({...hovered, next: false})} onClick={() => rGo(2)}>Continue →</button>
             </div>
           )}
 
           {step === 2 && (
-            <div className="step-panel active">
-              <div className="form-group">
-                <label>Username</label>
-                <input type="text" className={error && (!formData.username || formData.username.length < 3) ? 'input-error' : ''} placeholder="mariasantos" value={formData.username} onChange={(e) => {setFormData({...formData, username: e.target.value}); setError('')}} />
-                <div className="rules-list">
+            <div style={{ animation: 'fadeIn 0.3s ease' }}>
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: colors.inkSoft, marginBottom: '6px' }}>Username</label>
+                <input type="text" style={inputStyle} placeholder="johndoe" value={formData.username} onChange={(e) => setFormData({ ...formData, username: e.target.value })} />
+                <div style={{ marginTop: '10px' }}>
                   <Rule valid={formData.username.length >= 3} text="Minimum 3 characters" />
-                  <Rule valid={/^[a-zA-Z0-9_]+$/.test(formData.username) && formData.username.length > 0} text="Letters, numbers, and underscores only" />
                 </div>
               </div>
-              <div className="form-group">
-                <label>Email address</label>
-                <input type="email" className={error && !formData.email ? 'input-error' : ''} placeholder="maria@school.edu.ph" value={formData.email} onChange={(e) => {setFormData({...formData, email: e.target.value}); setError('')}} />
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: colors.inkSoft, marginBottom: '6px' }}>Email address</label>
+                <input type="email" style={inputStyle} placeholder="john@example.com" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
               </div>
-              {error && <div className="error-msg" style={{ marginBottom: '14px' }}>{error}</div>}
-              <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
-                <button className="btn btn-ghost btn-lg" style={{ flex: 0.5 }} onClick={() => rGo(1)}>← Back</button>
-                <button 
-                  className="btn btn-navy btn-full btn-lg" 
-                  style={{ flex: 1 }} 
-                  onClick={() => rGo(3)}
-                >
-                  Continue →
-                </button>
+              {error && <div style={{ fontSize: '11.5px', color: colors.error, marginBottom: '14px', fontWeight: 600 }}>{error}</div>}
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button style={{ ...ghostButtonStyle, flex: 0.5 }} onClick={() => rGo(1)}>← Back</button>
+                <button style={{ ...nextButtonStyle, flex: 1 }} onMouseEnter={() => setHovered({...hovered, next: true})} onMouseLeave={() => setHovered({...hovered, next: false})} onClick={() => rGo(3)}>Continue →</button>
               </div>
             </div>
           )}
 
           {step === 3 && (
-            <div className="step-panel active">
-              <div className="form-group">
-                <label>Create password</label>
-                <div className="input-wrap">
-                  <input 
-                    type={showPassword ? "text" : "password"} 
-                    placeholder="Min. 8 characters" 
-                    className={error && pwScore < 2 ? 'input-error' : ''}
-                    onChange={(e) => {calcPw(e.target.value); setError('')}} 
-                  />
-                  <button 
-                    className="input-icon" 
-                    onClick={() => setShowPassword(!showPassword)}
-                    type="button"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                      <path d="M1 8C1 8 3.5 3 8 3C12.5 3 15 8 15 8C15 8 12.5 13 8 13C3.5 13 1 8 1 8Z" stroke="currentColor" strokeWidth="1.4"/>
-                      <circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.4"/>
-                    </svg>
+            <div style={{ animation: 'fadeIn 0.3s ease' }}>
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: colors.inkSoft, marginBottom: '6px' }}>Create password</label>
+                <div style={{ position: 'relative' }}>
+                  <input type={showPassword ? "text" : "password"} style={inputStyle} onChange={(e) => calcPw(e.target.value)} />
+                  <button style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: colors.inkMuted, display: 'flex', alignItems: 'center' }} onClick={() => setShowPassword(!showPassword)}>
+                    <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>
+                      {showPassword ? 'visibility_off' : 'visibility'}
+                    </span>
                   </button>
                 </div>
-                <div className="pw-strength" style={{ display: 'flex', gap: '4px', marginTop: '7px', marginBottom: '12px', alignItems: 'center' }}>
-                  {[1, 2, 3, 4].map(n => (
-                    <div key={n} className="pw-bar" style={{ flex: 1, height: '3px', borderRadius: '100px', background: n <= pwScore ? pwColors[pwScore] : 'var(--border)' }}></div>
-                  ))}
-                  <span className="pw-label" style={{ fontSize: '11px', color: pwColors[pwScore] || 'var(--ink-muted)', width: '54px', textAlign: 'right', fontWeight: 600 }}>{formData.password ? pwLabels[pwScore] : ''}</span>
+                <div style={{ display: 'flex', gap: '4px', marginTop: '8px', marginBottom: '12px' }}>
+                  {[1, 2, 3, 4].map(n => <div key={n} style={pwBarStyle(n)} />)}
                 </div>
-                <div className="rules-list">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   <Rule valid={formData.password.length >= 8} text="At least 8 characters long" />
                   <Rule valid={/[A-Z]/.test(formData.password)} text="Include at least one uppercase letter" />
-                  <Rule valid={/[0-9]/.test(formData.password)} text="Include at least one number" />
-                  <Rule valid={/[^A-Za-z0-9]/.test(formData.password)} text="Include one special character" />
                 </div>
               </div>
-              <div className="form-group">
-                <label>Confirm password</label>
-                <input type="password" placeholder="Repeat your password" />
-              </div>
-
-              {error && <div className="error-msg" style={{ marginBottom: '14px' }}>{error}</div>}
-
-              <div className="terms-wrap" style={{ display: 'flex', alignItems: 'flex-start', gap: '9px', marginBottom: '18px' }}>
-                <input type="checkbox" id="r-terms" style={{ width: '16px', height: '16px', accentColor: 'var(--navy)', marginTop: '2px', cursor: 'pointer' }} />
-                <label htmlFor="r-terms" style={{ fontSize: '12.5px', color: 'var(--ink-muted)', cursor: 'pointer', lineHeight: 1.5 }}>
-                  I agree to the <Link to="/terms" className="form-link">Terms of Service</Link> and <Link to="/privacy" className="form-link">Privacy Policy</Link>.
-                </label>
-              </div>
-
+              {error && <div style={{ fontSize: '11.5px', color: colors.error, marginBottom: '14px', fontWeight: 600 }}>{error}</div>}
               <div style={{ display: 'flex', gap: '10px' }}>
-                <button className="btn btn-ghost btn-lg" style={{ flex: 0.5 }} onClick={() => rGo(2)}>← Back</button>
-                <button 
-                  className="btn btn-accent btn-full btn-lg" 
-                  style={{ flex: 1 }} 
-                  onClick={() => rGo(4)}
-                >
-                  Create account →
-                </button>
+                <button style={{ ...ghostButtonStyle, flex: 0.5 }} onClick={() => rGo(2)}>← Back</button>
+                <button style={{ ...accentButtonStyle, flex: 1 }} onMouseEnter={() => setHovered({...hovered, next: true})} onMouseLeave={() => setHovered({...hovered, next: false})} onClick={() => rGo(4)}>Create account →</button>
               </div>
-
             </div>
           )}
 
           {step === 4 && (
-            <div className="step-panel active">
-              <div className="success-wrap">
-                <div className="s-icon">
-                  <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-                    <path d="M5 14L11 20L23 8" stroke="#22C55E" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </div>
-                <div className="s-title">Account created!</div>
-                <p className="s-sub">Welcome to StandingsHQ, <strong>{formData.fname || 'there'}</strong>. Your organizer dashboard is ready — start creating your first competition event.</p>
-                <Link to="/" className="btn btn-accent btn-full btn-lg">Go to dashboard →</Link>
+            <div style={{ textAlign: 'center', animation: 'fadeIn 0.3s ease' }}>
+              <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: colors.successBg, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
+                <span className="material-symbols-rounded" style={{ color: colors.success, fontSize: '28px' }}>check_circle</span>
               </div>
+              <h2 style={{ fontSize: '24px', fontWeight: '800', color: colors.ink, marginBottom: '8px' }}>Account created!</h2>
+              <p style={subStyle}>Your organizer workspace is ready.</p>
+              <Link to="/" style={{ ...accentButtonStyle, textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onMouseEnter={() => setHovered({...hovered, dash: true})} onMouseLeave={() => setHovered({...hovered, dash: false})}>Go to dashboard →</Link>
             </div>
           )}
         </div>
       </div>
 
-      <div className="auth-visual">
-        <div className="av-bg"></div>
-        <div className="av-grid"></div>
-        <div className="av-content">
-          <div className="av-eyebrow">Join competition organizers</div>
-          <h2 className="av-title">Set up your first event in <em>under 5 minutes.</em></h2>
-          <p className="av-sub">Build rubrics, invite judges, go live. No training needed — StandingsHQ is built for the speed of competition day.</p>
-          
-          <div className="av-card" style={{ marginBottom: '20px' }}>
-            <div className="av-card-head">
-              <span className="av-card-title">Event Setup Progress</span>
-            </div>
-            <div className="av-rows">
-              <div className="av-row" style={{ background: 'rgba(34, 197, 94, 0.07)', border: '1px solid rgba(34, 197, 94, 0.14)' }}>
-                <span style={{ fontSize: '13px' }}>✅</span>
-                <div><div className="av-rname">Event created</div></div>
-                <span style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.35)' }}>Done</span>
-              </div>
-              <div className="av-row" style={{ background: 'var(--accent-bg)', border: '1px solid var(--accent-bg-mid)' }}>
-                <span style={{ fontSize: '13px' }}>⚡</span>
-                <div><div className="av-rname">Rubric built</div></div>
-                <span style={{ fontSize: '11px', color: 'var(--accent)' }}>Active</span>
-              </div>
-              <div className="av-row">
-                <span style={{ fontSize: '13px', opacity: 0.3 }}>📋</span>
-                <div><div className="av-rname" style={{ opacity: 0.4 }}>Invite judges</div></div>
-                <span style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.2)' }}>Next</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="av-pills">
-            <div className="av-pill">
-              <div className="ap-icon api-accent">
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                  <path d="M6 1L7.5 4.5H11L8.5 6.5L9.5 10.5L6 8.3L2.5 10.5L3.5 6.5L1 4.5H4.5L6 1Z" fill="var(--accent)"/>
-                </svg>
-              </div>
-              <span>Free for schools</span>
-            </div>
-            <div className="av-pill">
-              <div className="ap-icon api-white">
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                  <path d="M2 6L5 9L10 3" stroke="rgba(255, 255, 255, 0.6)" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </div>
-              <span>No training needed</span>
-            </div>
-          </div>
+      <div style={{ background: colors.navy, display: window.innerWidth > 1024 ? 'flex' : 'none', alignItems: 'center', justifyContent: 'center', padding: '48px', position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.1), transparent), ${colors.navy}` }}></div>
+        <div style={{ position: 'relative', zIndex: 1, maxWidth: '400px', width: '100%' }}>
+          <h2 style={{ fontSize: '28px', color: colors.white, fontWeight: '800', marginBottom: '10px' }}>Set up your event in <em style={{ color: colors.accent, fontStyle: 'normal' }}>under 5 minutes.</em></h2>
+          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '14px' }}>Built for the speed of competition day.</p>
         </div>
       </div>
     </div>

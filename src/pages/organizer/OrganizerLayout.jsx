@@ -1,9 +1,10 @@
 import React, { useState, createContext, useContext, useEffect, useRef } from 'react';
 import { NavLink, Outlet, useNavigate, Link, useLocation } from 'react-router-dom';
-import '../../styles/organizer.css';
+import { colors } from '../../styles/colors';
 
 const EventContext = createContext();
 export const useEventContext = () => useContext(EventContext);
+// ... SEED DATA REMAINS UNCHANGED ...
 
 // ─── INITIAL SEED DATA ───────────────────────────────────────────────────────
 const SEED_EVENTS = [
@@ -113,10 +114,14 @@ export default function OrganizerLayout() {
   const location = useLocation();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isSwitcherSearchOpen, setIsSwitcherSearchOpen] = useState(false);
   const [switcherSearch, setSwitcherSearch] = useState('');
-  const timeoutRef = useRef(null);
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  const [hoveredLink, setHoveredLink] = useState(null);
+  const [isLogoutHovered, setIsLogoutHovered] = useState(false);
+  const [isMenuHovered, setIsMenuHovered] = useState(false);
+  const [isSearchHovered, setIsSearchHovered] = useState(false);
   const dropdownRef = useRef(null);
+  const timeoutRef = useRef(null);
 
   const [eventsList, setEventsList] = useState(SEED_EVENTS);
   const [participantsData, setParticipantsData] = useState(SEED_PARTICIPANTS);
@@ -186,6 +191,13 @@ export default function OrganizerLayout() {
     timeoutRef.current = setTimeout(() => setToast(null), 5000);
   };
 
+  // Window Resize
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   // Close sidebar/dropdown on navigation
   useEffect(() => {
     setIsSidebarOpen(false);
@@ -202,6 +214,249 @@ export default function OrganizerLayout() {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
+
+  const isMobile = windowWidth <= 768;
+
+  /* ── Styles ── */
+  const styles = {
+    layout: {
+      display: 'flex',
+      height: '100vh',
+      width: '100vw',
+      overflow: 'hidden',
+      backgroundColor: colors.pageBg,
+      fontFamily: "'Inter', system-ui, sans-serif",
+      color: colors.inkSoft,
+      flexDirection: isMobile ? 'column' : 'row',
+    },
+    sidebar: {
+      width: '280px',
+      backgroundColor: '#FFFFFF',
+      borderRight: `1px solid ${colors.borderSoft}`,
+      display: 'flex',
+      flexDirection: 'column',
+      flexShrink: 0,
+      zIndex: 100,
+      transition: 'transform 0.22s cubic-bezier(0.4, 0, 0.2, 1)',
+      position: isMobile ? 'fixed' : 'relative',
+      top: 0,
+      left: 0,
+      bottom: 0,
+      transform: (isMobile && !isSidebarOpen) ? 'translateX(-100%)' : 'translateX(0)',
+      boxShadow: (isMobile && isSidebarOpen) ? '20px 0 50px rgba(15, 23, 42, 0.15)' : 'none',
+    },
+    sidebarHeader: {
+      padding: '24px',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '20px',
+    },
+    brand: {
+      fontSize: '18px',
+      fontWeight: '800',
+      color: colors.navy,
+      letterSpacing: '-0.03em',
+      fontFamily: "'DM Sans', system-ui, sans-serif",
+    },
+    eventSwitcher: {
+      position: 'relative',
+      width: '100%',
+    },
+    eventSwitcherBtn: (hovered) => ({
+      display: 'flex',
+      alignItems: 'center',
+      gap: '12px',
+      width: '100%',
+      padding: '10px 12px',
+      backgroundColor: hovered ? '#FFFFFF' : colors.pageBg,
+      border: `1px solid ${hovered ? colors.accentGlow : colors.borderSoft}`,
+      borderRadius: '14px',
+      cursor: 'pointer',
+      transition: 'all 0.22s cubic-bezier(0.4, 0, 0.2, 1)',
+      boxShadow: hovered ? '0 4px 12px rgba(26,24,20,0.06)' : 'none',
+      transform: hovered ? 'translateY(-1px)' : 'none',
+    }),
+    eventSwitcherIcon: {
+      width: '32px',
+      height: '32px',
+      borderRadius: '8px',
+      background: colors.navy,
+      color: '#fff',
+      display: 'grid',
+      placeItems: 'center',
+      fontFamily: "'DM Sans', system-ui, sans-serif",
+      fontWeight: '700',
+      fontSize: '14px',
+    },
+    eventSwitcherLabel: {
+      fontSize: '10px',
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: '0.05em',
+      color: colors.inkMuted,
+      marginBottom: '1px',
+    },
+    eventSwitcherName: {
+      fontSize: '13.5px',
+      fontWeight: '600',
+      color: colors.navy,
+      whiteSpace: 'nowrap',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      textAlign: 'left',
+    },
+    dropdown: {
+      position: 'absolute',
+      top: 'calc(100% + 8px)',
+      left: 0,
+      right: 0,
+      background: '#fff',
+      border: `1px solid ${colors.borderSoft}`,
+      borderRadius: '16px',
+      boxShadow: '0 16px 48px rgba(26,24,20,0.12)',
+      zIndex: 110,
+      overflow: 'hidden',
+      padding: '6px',
+      animation: 'pillDrop 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+    },
+    eventOption: (selected, hovered) => ({
+      padding: '10px 12px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '12px',
+      borderRadius: '10px',
+      cursor: 'pointer',
+      transition: 'all 0.2s',
+      background: selected ? colors.accentBg : (hovered ? colors.pageBg : 'transparent'),
+    }),
+    sidebarNav: {
+      flex: 1,
+      overflowY: 'auto',
+      padding: '12px 14px',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '2px',
+    },
+    navSectionTitle: {
+      fontSize: '10.5px',
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: '0.08em',
+      color: colors.inkMuted,
+      margin: '20px 0 8px 12px',
+    },
+    sidebarLink: (isActive, linkId) => ({
+      display: 'flex',
+      alignItems: 'center',
+      gap: '12px',
+      padding: '11px 12px',
+      borderRadius: '8px',
+      color: isActive ? '#fff' : (hoveredLink === linkId ? colors.navy : colors.inkMid),
+      textDecoration: 'none',
+      fontSize: '14px',
+      fontWeight: isActive ? '600' : '500',
+      background: isActive ? colors.navy : (hoveredLink === linkId ? colors.pageBg : 'transparent'),
+      transition: 'all 0.2s ease',
+      boxShadow: isActive ? '0 4px 12px rgba(15, 31, 61, 0.15)' : 'none',
+      position: 'relative',
+    }),
+    sidebarBadge: {
+      marginLeft: 'auto',
+      background: colors.accent,
+      color: '#fff',
+      fontSize: '10px',
+      fontWeight: '800',
+      minWidth: '18px',
+      height: '18px',
+      borderRadius: '100px',
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '0 5px',
+    },
+    sidebarFooter: {
+      padding: '16px',
+      borderTop: `1px solid ${colors.borderSoft}`,
+    },
+    userProfile: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '10px',
+      padding: '10px',
+      borderRadius: '14px',
+      background: colors.pageBg,
+    },
+    userAvatar: {
+      width: '36px',
+      height: '36px',
+      borderRadius: '50%',
+      background: colors.accent,
+      color: '#fff',
+      display: 'grid',
+      placeItems: 'center',
+      fontSize: '13px',
+      fontWeight: '700',
+    },
+    userName: {
+      fontSize: '13px',
+      fontWeight: '600',
+      color: colors.navy,
+      display: 'block',
+      whiteSpace: 'nowrap',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+    },
+    userRole: {
+      fontSize: '11px',
+      color: colors.inkMuted,
+    },
+    mobileHeader: {
+      display: isMobile ? 'flex' : 'none',
+      padding: '14px 20px',
+      background: '#fff',
+      borderBottom: `1px solid ${colors.borderSoft}`,
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      zIndex: 50,
+      flexShrink: 0,
+    },
+    main: {
+      flex: 1,
+      padding: isMobile ? '24px 20px' : '48px',
+      overflowY: 'auto',
+      position: 'relative',
+    },
+    notificationContainer: {
+      position: 'fixed',
+      top: isMobile ? '16px' : '32px',
+      left: '50%',
+      transform: 'translateX(-50%)',
+      zIndex: 10000,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '12px',
+      alignItems: 'center',
+      width: isMobile ? 'calc(100% - 32px)' : 'auto',
+      pointerEvents: 'none',
+    },
+    notificationPill: (type) => ({
+      pointerEvents: 'auto',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '16px',
+      padding: '10px 20px',
+      background: 'rgba(15, 23, 42, 0.85)',
+      backdropFilter: 'blur(16px)',
+      border: '1px solid rgba(255, 255, 255, 0.1)',
+      borderRadius: '100px',
+      color: '#fff',
+      minWidth: isMobile ? '100%' : '320px',
+      boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+      animation: 'pillDrop 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28)',
+      position: 'relative',
+      overflow: 'hidden',
+    }),
+  };
 
   const filteredEvents = eventsList.filter(e =>
     e.name.toLowerCase().includes(switcherSearch.toLowerCase())
@@ -224,26 +479,40 @@ export default function OrganizerLayout() {
 
   return (
     <EventContext.Provider value={contextValue}>
-      <div className="organizer-layout">
+      <style>
+        {`
+          @keyframes pillDrop { from { opacity: 0; transform: translateY(-20px) scale(0.9); } to { opacity: 1; transform: translateY(0) scale(1); } }
+          @keyframes pillTimer { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+          @keyframes slideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+          .pill-timer-anim { animation: pillTimer 5s linear forwards; }
+          .slide-up-anim { animation: slideUp 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
+        `}
+      </style>
+      <div style={styles.layout}>
 
         {/* Mobile Header */}
-        <div className="mobile-header">
-          <Link to="/" className="sidebar-logo" style={{ textDecoration: 'none' }}>
-            <div style={{ background: 'var(--navy)', width: '28px', height: '28px', borderRadius: '6px', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-              <svg width="14" height="14" viewBox="0 0 18 18" fill="none">
-                <path d="M3 13L6.5 7L10 10.5L12.5 5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <circle cx="12.5" cy="5" r="2" fill="var(--accent)"/>
+        <div style={styles.mobileHeader}>
+          <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}>
+            <div style={{ background: colors.navy, width: '28px', height: '28px', borderRadius: '8px', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                <path d="M3 13L6.5 7L10 10.5L12.5 5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                <circle cx="12.5" cy="5" r="2" fill={colors.accent} />
               </svg>
             </div>
-            <span className="sidebar-brand">Standings<span>HQ</span></span>
+            <span style={{ ...styles.brand, fontSize: '18px' }}>Standings<span style={{ color: colors.accent }}>HQ</span></span>
           </Link>
-          <button className="btn-icon" onClick={() => setIsSidebarOpen(true)}>
+          <button 
+            style={{ background: isMenuHovered ? colors.borderSoft : 'none', border: 'none', color: colors.inkMuted, cursor: 'pointer', padding: '6px', borderRadius: '50%', display: 'grid', placeItems: 'center', transition: 'all 0.22s' }} 
+            onClick={() => setIsSidebarOpen(true)}
+            onMouseEnter={() => setIsMenuHovered(true)}
+            onMouseLeave={() => setIsMenuHovered(false)}
+          >
             <span className="material-symbols-rounded" style={{ fontSize: '26px' }}>menu</span>
           </button>
         </div>
 
         {/* Mobile Overlay */}
-        {isSidebarOpen && (
+        {isSidebarOpen && isMobile && (
           <div onClick={() => setIsSidebarOpen(false)} style={{
             position: 'fixed', inset: 0, background: 'rgba(15,31,61,0.45)',
             backdropFilter: 'blur(4px)', zIndex: 90
@@ -251,82 +520,113 @@ export default function OrganizerLayout() {
         )}
 
         {/* ── SIDEBAR ── */}
-        <aside className={`organizer-sidebar ${isSidebarOpen ? 'open' : ''}`}>
-          <div className="sidebar-header">
-            {/* Logo */}
+        <aside style={styles.sidebar}>
+          <div style={styles.sidebarHeader}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Link to="/" className="sidebar-logo" style={{ textDecoration: 'none' }}>
-                <div style={{ background: 'var(--navy)', width: '32px', height: '32px', borderRadius: '8px', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+              <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none' }}>
+                <div style={{ background: colors.navy, width: '32px', height: '32px', borderRadius: '8px', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
                   <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                    <path d="M3 13L6.5 7L10 10.5L12.5 5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    <circle cx="12.5" cy="5" r="2" fill="var(--accent)"/>
+                    <path d="M3 13L6.5 7L10 10.5L12.5 5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    <circle cx="12.5" cy="5" r="2" fill={colors.accent} />
                   </svg>
                 </div>
-                <span className="sidebar-brand">Standings<span>HQ</span></span>
+                <span style={{ ...styles.brand, fontSize: '20px' }}>Standings<span style={{ color: colors.accent }}>HQ</span></span>
               </Link>
-              {isSidebarOpen && (
-                <button className="btn-icon" onClick={() => setIsSidebarOpen(false)} style={{ marginLeft: 'auto' }}>
+              {isSidebarOpen && isMobile && (
+                <button 
+                  style={{ background: isMenuHovered ? colors.borderSoft : 'none', border: 'none', color: colors.inkMuted, cursor: 'pointer', padding: '6px', borderRadius: '50%', display: 'grid', placeItems: 'center', transition: 'all 0.22s', marginLeft: 'auto' }} 
+                  onClick={() => setIsSidebarOpen(false)}
+                  onMouseEnter={() => setIsMenuHovered(true)}
+                  onMouseLeave={() => setIsMenuHovered(false)}
+                >
                   <span className="material-symbols-rounded">close</span>
                 </button>
               )}
             </div>
 
             {/* Event Switcher */}
-            <div className="event-switcher" ref={dropdownRef}>
-              <div className="event-switcher-btn" onClick={() => { setIsDropdownOpen(!isDropdownOpen); setSwitcherSearch(''); }}>
-                <div className="event-switcher-icon">{selectedEvent.name.substring(0, 1)}</div>
-                <div className="event-switcher-info">
-                  <div className="event-switcher-label">Workspace</div>
-                  <div className="event-switcher-name">{selectedEvent.name}</div>
+            <div style={styles.eventSwitcher} ref={dropdownRef}>
+              <div 
+                style={styles.eventSwitcherBtn(hoveredLink === 'switcher')} 
+                onMouseEnter={() => setHoveredLink('switcher')}
+                onMouseLeave={() => setHoveredLink(null)}
+                onClick={() => { setIsDropdownOpen(!isDropdownOpen); setSwitcherSearch(''); }}
+              >
+                <div style={styles.eventSwitcherIcon}>{selectedEvent.name.substring(0, 1)}</div>
+                <div style={{ flex: 1, overflow: 'hidden' }}>
+                  <div style={styles.eventSwitcherLabel}>Workspace</div>
+                  <div style={styles.eventSwitcherName}>{selectedEvent.name}</div>
                 </div>
-                <span className="material-symbols-rounded" style={{ color: 'var(--ink-muted)', fontSize: '18px' }}>unfold_more</span>
+                <span className="material-symbols-rounded" style={{ color: colors.inkMuted, fontSize: '18px' }}>unfold_more</span>
               </div>
 
               {isDropdownOpen && (
-                <div className="event-switcher-dropdown">
+                <div style={styles.dropdown}>
                   <div style={{ padding: '8px 8px 4px' }}>
                     <div style={{ position: 'relative' }}>
-                      <span className="material-symbols-rounded" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '16px', color: 'var(--ink-muted)' }}>search</span>
+                      <span className="material-symbols-rounded" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '16px', color: colors.inkMuted }}>search</span>
                       <input
                         type="text"
                         value={switcherSearch}
                         onChange={e => setSwitcherSearch(e.target.value)}
                         placeholder="Search events..."
-                        style={{ width: '100%', padding: '8px 10px 8px 32px', border: '1px solid var(--border-soft)', borderRadius: 'var(--radius-sm)', fontSize: '13px', outline: 'none' }}
+                        onMouseEnter={() => setIsSearchHovered(true)}
+                        onMouseLeave={() => setIsSearchHovered(false)}
+                        style={{ 
+                          width: '100%', 
+                          padding: '8px 10px 8px 32px', 
+                          border: `1px solid ${isSearchHovered ? colors.accent : colors.borderSoft}`, 
+                          borderRadius: '10px', 
+                          fontSize: '13px', 
+                          outline: 'none',
+                          transition: 'all 0.2s'
+                        }}
                         autoFocus
                       />
                     </div>
                   </div>
                   <div style={{ maxHeight: '220px', overflowY: 'auto' }}>
                     {filteredEvents.length === 0 && (
-                      <div style={{ padding: '12px 16px', color: 'var(--ink-muted)', fontSize: '13px', textAlign: 'center' }}>No events found</div>
+                      <div style={{ padding: '12px 16px', color: colors.inkMuted, fontSize: '13px', textAlign: 'center' }}>No events found</div>
                     )}
-                    {filteredEvents.map(ev => (
-                      <div
-                        key={ev.id}
-                        className={`event-option ${ev.id === selectedEventId ? 'selected' : ''}`}
-                        onClick={() => {
-                          setSelectedEventId(ev.id);
-                          setIsDropdownOpen(false);
-                          navigate('/organizer/dashboard');
-                          showToast(`Switched to "${ev.name}"`, 'info');
-                        }}
-                      >
-                        <div className="event-switcher-icon" style={{ background: ev.id === selectedEventId ? 'var(--accent)' : 'var(--navy)', width: '28px', height: '28px', fontSize: '12px' }}>
-                          {ev.name.substring(0, 1)}
+                    {filteredEvents.map(ev => {
+                      const isSelected = ev.id === selectedEventId;
+                      const isThisHovered = hoveredLink === `ev-${ev.id}`;
+                      return (
+                        <div
+                          key={ev.id}
+                          style={styles.eventOption(isSelected, isThisHovered)}
+                          onMouseEnter={() => setHoveredLink(`ev-${ev.id}`)}
+                          onMouseLeave={() => setHoveredLink(null)}
+                          onClick={() => {
+                            setSelectedEventId(ev.id);
+                            setIsDropdownOpen(false);
+                            navigate('/organizer/dashboard');
+                            showToast(`Switched to "${ev.name}"`, 'info');
+                          }}
+                        >
+                          <div style={{ ...styles.eventSwitcherIcon, background: isSelected ? colors.accent : (isThisHovered ? colors.navySoft : colors.navy), width: '28px', height: '28px', fontSize: '12px' }}>
+                            {ev.name.substring(0, 1)}
+                          </div>
+                          <div style={{ flex: 1, overflow: 'hidden' }}>
+                            <div style={{ fontSize: '13px', fontWeight: 600, color: colors.navy, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ev.name}</div>
+                            <div style={{ fontSize: '11px', color: colors.inkMuted }}>{ev.status}</div>
+                          </div>
+                          {isSelected && <span className="material-symbols-rounded" style={{ color: colors.accent, fontSize: '16px' }}>check</span>}
                         </div>
-                        <div style={{ flex: 1, overflow: 'hidden' }}>
-                          <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--navy)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ev.name}</div>
-                          <div style={{ fontSize: '11px', color: 'var(--ink-muted)' }}>{ev.status}</div>
-                        </div>
-                        {ev.id === selectedEventId && <span className="material-symbols-rounded" style={{ color: 'var(--accent)', fontSize: '16px' }}>check</span>}
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
-                  <div style={{ padding: '4px 8px 8px', borderTop: '1px solid var(--border-soft)' }}>
+                  <div style={{ padding: '4px 8px 8px', borderTop: `1px solid ${colors.borderSoft}` }}>
                     <div
-                      className="event-option"
-                      style={{ color: 'var(--accent)', fontWeight: 600 }}
+                      style={{ 
+                        ...styles.eventOption(false, hoveredLink === 'create-ev'), 
+                        color: colors.accent, 
+                        fontWeight: 600,
+                        gap: '10px'
+                      }}
+                      onMouseEnter={() => setHoveredLink('create-ev')}
+                      onMouseLeave={() => setHoveredLink(null)}
                       onClick={() => { setIsDropdownOpen(false); navigate('/organizer/events/create'); }}
                     >
                       <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>add_circle</span>
@@ -339,61 +639,112 @@ export default function OrganizerLayout() {
           </div>
 
           {/* Nav Links */}
-          <nav className="sidebar-nav">
-            <div className="nav-section-title">Overview</div>
-            <NavLink to="/organizer/dashboard" className={({ isActive }) => isActive ? 'sidebar-link active' : 'sidebar-link'}>
-              <span className="material-symbols-rounded">space_dashboard</span>
+          <nav style={styles.sidebarNav}>
+            <div style={styles.navSectionTitle}>Overview</div>
+            <NavLink 
+              to="/organizer/dashboard" 
+              style={({ isActive }) => styles.sidebarLink(isActive, 'dashboard')}
+              onMouseEnter={() => setHoveredLink('dashboard')}
+              onMouseLeave={() => setHoveredLink(null)}
+            >
+              <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>space_dashboard</span>
               Dashboard
             </NavLink>
 
-            <div className="nav-section-title">Event Configuration</div>
-            <NavLink to="/organizer/events/manage" className={({ isActive }) => isActive ? 'sidebar-link active' : 'sidebar-link'}>
-              <span className="material-symbols-rounded">calendar_month</span>
+            <div style={styles.navSectionTitle}>Event Configuration</div>
+            <NavLink 
+              to="/organizer/events/manage" 
+              style={({ isActive }) => styles.sidebarLink(isActive, 'manage')}
+              onMouseEnter={() => setHoveredLink('manage')}
+              onMouseLeave={() => setHoveredLink(null)}
+            >
+              <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>calendar_month</span>
               My Events
             </NavLink>
-            <NavLink to="/organizer/events/settings" className={({ isActive }) => isActive ? 'sidebar-link active' : 'sidebar-link'}>
-              <span className="material-symbols-rounded">settings</span>
+            <NavLink 
+              to="/organizer/events/settings" 
+              style={({ isActive }) => styles.sidebarLink(isActive, 'settings')}
+              onMouseEnter={() => setHoveredLink('settings')}
+              onMouseLeave={() => setHoveredLink(null)}
+            >
+              <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>settings</span>
               Event Settings
             </NavLink>
-            <NavLink to="/organizer/rubrics" className={({ isActive }) => isActive ? 'sidebar-link active' : 'sidebar-link'}>
-              <span className="material-symbols-rounded">rule</span>
+            <NavLink 
+              to="/organizer/rubrics" 
+              style={({ isActive }) => styles.sidebarLink(isActive, 'rubrics')}
+              onMouseEnter={() => setHoveredLink('rubrics')}
+              onMouseLeave={() => setHoveredLink(null)}
+            >
+              <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>rule</span>
               Rubrics & Scoring
             </NavLink>
 
-            <div className="nav-section-title">People & Scoring</div>
-            <NavLink to="/organizer/participants" className={({ isActive }) => isActive ? 'sidebar-link active' : 'sidebar-link'}>
-              <span className="material-symbols-rounded">groups</span>
-              Participants {pCount > 0 && <span className="sidebar-badge">{pCount}</span>}
+            <div style={styles.navSectionTitle}>People & Scoring</div>
+            <NavLink 
+              to="/organizer/participants" 
+              style={({ isActive }) => styles.sidebarLink(isActive, 'participants')}
+              onMouseEnter={() => setHoveredLink('participants')}
+              onMouseLeave={() => setHoveredLink(null)}
+            >
+              <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>groups</span>
+              Participants {pCount > 0 && <span style={styles.sidebarBadge}>{pCount}</span>}
             </NavLink>
-            <NavLink to="/organizer/judges" className={({ isActive }) => isActive ? 'sidebar-link active' : 'sidebar-link'}>
-              <span className="material-symbols-rounded">gavel</span>
-              Judges {jCount > 0 && <span className="sidebar-badge">{jCount}</span>}
+            <NavLink 
+              to="/organizer/judges" 
+              style={({ isActive }) => styles.sidebarLink(isActive, 'judges')}
+              onMouseEnter={() => setHoveredLink('judges')}
+              onMouseLeave={() => setHoveredLink(null)}
+            >
+              <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>gavel</span>
+              Judges {jCount > 0 && <span style={styles.sidebarBadge}>{jCount}</span>}
             </NavLink>
 
-            <div className="nav-section-title">Post-Event</div>
-            <NavLink to="/organizer/results" className={({ isActive }) => isActive ? 'sidebar-link active' : 'sidebar-link'}>
-              <span className="material-symbols-rounded">leaderboard</span>
+            <div style={styles.navSectionTitle}>Post-Event</div>
+            <NavLink 
+              to="/organizer/results" 
+              style={({ isActive }) => styles.sidebarLink(isActive, 'results')}
+              onMouseEnter={() => setHoveredLink('results')}
+              onMouseLeave={() => setHoveredLink(null)}
+            >
+              <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>leaderboard</span>
               Results & Standings
             </NavLink>
-            <NavLink to="/organizer/certificates" className={({ isActive }) => isActive ? 'sidebar-link active' : 'sidebar-link'}>
-              <span className="material-symbols-rounded">workspace_premium</span>
+            <NavLink 
+              to="/organizer/certificates" 
+              style={({ isActive }) => styles.sidebarLink(isActive, 'certs')}
+              onMouseEnter={() => setHoveredLink('certs')}
+              onMouseLeave={() => setHoveredLink(null)}
+            >
+              <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>workspace_premium</span>
               Certificates
             </NavLink>
-            <NavLink to="/organizer/publish" className={({ isActive }) => isActive ? 'sidebar-link active' : 'sidebar-link'}>
-              <span className="material-symbols-rounded">campaign</span>
+            <NavLink 
+              to="/organizer/publish" 
+              style={({ isActive }) => styles.sidebarLink(isActive, 'publish')}
+              onMouseEnter={() => setHoveredLink('publish')}
+              onMouseLeave={() => setHoveredLink(null)}
+            >
+              <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>campaign</span>
               Publish Hub
             </NavLink>
           </nav>
 
           {/* User Footer */}
-          <div className="sidebar-footer">
-            <div className="user-profile-sm">
-              <div className="user-avatar">JD</div>
-              <div className="user-info">
-                <span className="user-name">Juan Dela Cruz</span>
-                <span className="user-role">Organizer</span>
+          <div style={styles.sidebarFooter}>
+            <div style={styles.userProfile}>
+              <div style={styles.userAvatar}>JD</div>
+              <div style={{ flex: 1, overflow: 'hidden' }}>
+                <span style={styles.userName}>Juan Dela Cruz</span>
+                <span style={styles.userRole}>Organizer</span>
               </div>
-              <button className="btn-icon" onClick={() => { navigate('/'); showToast('Signed out. See you!', 'info'); }} title="Sign out">
+              <button 
+                style={{ background: isLogoutHovered ? colors.borderSoft : 'none', border: 'none', cursor: 'pointer', display: 'flex', color: colors.inkMuted, padding: '6px', borderRadius: '50%', transition: 'all 0.22s' }}
+                onClick={() => { navigate('/'); showToast('Signed out. See you!', 'info'); }}
+                onMouseEnter={() => setIsLogoutHovered(true)}
+                onMouseLeave={() => setIsLogoutHovered(false)}
+                title="Sign out"
+              >
                 <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>logout</span>
               </button>
             </div>
@@ -401,34 +752,56 @@ export default function OrganizerLayout() {
         </aside>
 
         {/* ── MAIN CONTENT ── */}
-        <main className="organizer-main">
+        <main style={styles.main}>
           <Outlet />
         </main>
       </div>
 
-      {/* ── GLOBAL NOTIFICATIONS (HUD Style) ── */}
+      {/* ── TOAST HUD ── */}
       {toast && (
-        <div className="notification-container">
-          <div className={`notification-pill pill-${toast.type || 'info'}`} style={{ '--duration': '5s' }}>
-            <div className={`pill-icon ${toast.type || 'info'}`}>
-              <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>
-                {toast.type === 'success' ? 'check_circle' : toast.type === 'error' ? 'error' : 'info'}
-              </span>
-            </div>
-            <span className="pill-message">{toast.message}</span>
+        <div style={styles.notificationContainer}>
+          <div style={styles.notificationPill(toast.type)}>
+            <span className="material-symbols-rounded" style={{ 
+              color: toast.type === 'success' ? '#4ade80' : toast.type === 'error' ? '#f87171' : '#60a5fa' 
+            }}>
+              {toast.type === 'success' ? 'check_circle' : toast.type === 'error' ? 'error' : 'info'}
+            </span>
+            <span style={{ fontSize: '13.5px', fontWeight: 500, flex: 1 }}>{toast.message}</span>
             {toast.onUndo && (
               <button 
-                className="pill-action-btn" 
+                style={{ 
+                  background: 'rgba(255, 255, 255, 0.15)', 
+                  border: '1px solid rgba(255, 255, 255, 0.2)', 
+                  color: '#fff', 
+                  padding: '4px 12px', 
+                  borderRadius: '100px', 
+                  fontSize: '11px', 
+                  fontWeight: 700, 
+                  cursor: 'pointer', 
+                  transition: 'all 0.2s', 
+                  marginLeft: '8px' 
+                }}
                 onClick={() => { toast.onUndo(); setToast(null); }}
               >
                 Undo
               </button>
             )}
-            <button className="pill-close-btn" onClick={() => setToast(null)}>
+            <button 
+              onClick={() => setToast(null)}
+              style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', marginLeft: 'auto', display: 'flex' }}
+            >
               <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>close</span>
             </button>
-            <div className="pill-progress">
-              <div className="pill-progress-bar" />
+            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '2px', background: 'rgba(255,255,255,0.05)' }}>
+              <div 
+                className="pill-timer-anim" 
+                style={{ 
+                  height: '100%', 
+                  width: '100%', 
+                  background: toast.type === 'success' ? '#22c55e' : (toast.type === 'error' ? '#ef4444' : colors.accent), 
+                  transformOrigin: 'left' 
+                }} 
+              />
             </div>
           </div>
         </div>

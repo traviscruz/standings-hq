@@ -1,11 +1,109 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import '../../styles/auth.css';
+import { colors } from '../../styles/colors';
 
 export default function ForgotPassword() {
   const [step, setStep] = useState(1);
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
+  const [hovered, setHovered] = useState({ back: false, send: false });
+
+  // Prof's Format: Style constants using imported global colors
+  const pageStyle = {
+    minHeight: '100vh',
+    display: 'grid',
+    gridTemplateColumns: window.innerWidth > 1024 ? '1fr 1fr' : '1fr',
+    fontFamily: "'Inter', system-ui, sans-serif",
+  };
+
+  const panelStyle = {
+    background: colors.white,
+    display: 'flex',
+    flexDirection: 'column',
+    padding: window.innerWidth > 1024 ? '36px 48px' : '36px 32px',
+    position: 'relative',
+    overflow: 'hidden',
+  };
+
+  const headerStyle = {
+    marginBottom: '52px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+  };
+
+  const backButtonStyle = {
+    width: '34px',
+    height: '34px',
+    borderRadius: '50%',
+    background: hovered.back ? colors.white : colors.offWhite,
+    border: `1px solid ${hovered.back ? colors.accent : colors.border}`,
+    color: hovered.back ? colors.navy : colors.inkMuted,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    transition: '0.22s ease',
+    textDecoration: 'none',
+  };
+
+  const titleStyle = {
+    fontSize: '30px',
+    fontWeight: '800',
+    color: colors.ink,
+    letterSpacing: '-0.03em',
+    lineHeight: '1.15',
+    marginBottom: '6px',
+  };
+
+  const subStyle = {
+    fontSize: '14px',
+    color: colors.inkMuted,
+    marginBottom: '30px',
+    lineHeight: '1.6',
+  };
+
+  const inputStyle = {
+    width: '100%',
+    padding: '12px 14px',
+    border: `1.5px solid ${error ? colors.error : colors.border}`,
+    borderRadius: '8px',
+    fontSize: '14px',
+    color: colors.ink,
+    background: error ? colors.errorBg : colors.offWhite,
+    outline: 'none',
+    transition: '0.22s ease',
+  };
+
+  const sendButtonStyle = {
+    width: '100%',
+    padding: '12px 24px',
+    borderRadius: '8px',
+    fontSize: '14px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    background: hovered.send ? colors.navySoft : colors.navy,
+    color: colors.white,
+    border: 'none',
+    transition: '0.22s ease',
+    marginTop: '20px',
+  };
+
+  const ghostButtonStyle = {
+    background: 'transparent',
+    border: `1.5px solid ${colors.border}`,
+    color: colors.ink,
+    padding: '12px 24px',
+    borderRadius: '8px',
+    fontSize: '14px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    transition: '0.22s ease',
+    textDecoration: 'none',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  };
 
   const handleSend = () => {
     if (!email) {
@@ -21,100 +119,77 @@ export default function ForgotPassword() {
   };
 
   return (
-    <div className="auth-page">
-      <div className="auth-panel">
-        <div className="auth-header">
-          <Link to="/login" className="auth-panel-back" title="Back to sign in">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M19 12H5M12 19l-7-7 7-7"/>
-            </svg>
+    <div style={pageStyle}>
+      <div style={panelStyle}>
+        <div style={headerStyle}>
+          <Link 
+            to="/login" 
+            style={backButtonStyle} 
+            onMouseEnter={() => setHovered({ ...hovered, back: true })}
+            onMouseLeave={() => setHovered({ ...hovered, back: false })}
+          >
+            <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>arrow_back</span>
           </Link>
-          <Link to="/" className="auth-logo">
-            <div className="logo-mark">
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                <path d="M3 13L6.5 7L10 10.5L12.5 5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <circle cx="12.5" cy="5" r="2" fill="var(--accent)"/>
-              </svg>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none' }}>
+            <div style={{ width: '32px', height: '32px', background: colors.navy, borderRadius: '7px', display: 'grid', placeItems: 'center' }}>
+              <span className="material-symbols-rounded" style={{ color: colors.white, fontSize: '18px' }}>monitoring</span>
             </div>
-            <span className="logo-text">Standings<span>HQ</span></span>
-          </Link>
+            <span style={{ fontSize: '16px', fontWeight: '800', color: colors.ink }}>Standings<span style={{ color: colors.accent }}>HQ</span></span>
+          </div>
         </div>
 
-        <div className="auth-form-wrap">
-          <div className={`step-panel ${step === 1 ? 'active' : ''}`}>
-            <span className="auth-eyebrow">Account recovery</span>
-            <h1 className="auth-title">Reset your <em>password.</em></h1>
-            <p className="auth-sub">Enter your registered email and we'll send a secure, single-use reset link. It expires in 15 minutes.</p>
-            
-            <div className="form-group" style={{ marginBottom: '22px' }}>
-              <label>Email address</label>
-              <input 
-                type="email" 
-                placeholder="you@school.edu.ph" 
-                className={error ? 'input-error' : ''}
-                value={email}
-                onChange={(e) => {setEmail(e.target.value); setError('');}}
-              />
-              {error && <div className="error-msg">{error}</div>}
-            </div>
-            
-            <button 
-              className="btn btn-navy btn-full btn-lg" 
-              onClick={handleSend}
-            >
-              Send reset link
-            </button>
+        <div style={{ ...panelStyle, flex: 1, padding: 0, justifyContent: 'center', maxWidth: '420px', margin: '0 auto', width: '100%', overflow: 'visible' }}>
+          {step === 1 && (
+            <div style={{ animation: 'fadeIn 0.3s ease' }}>
+              <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: colors.accentDeep, background: colors.accentBg, padding: '5px 14px', borderRadius: '100px', marginBottom: '20px', display: 'inline-block' }}>Account recovery</span>
+              <h1 style={titleStyle}>Reset your <em style={{ color: colors.accent, fontStyle: 'normal' }}>password.</em></h1>
+              <p style={subStyle}>Enter your email to receive a secure reset link.</p>
 
-            
-            <div className="form-footer">
-              Remembered it? <Link to="/login" className="form-link">Back to sign in</Link>
-            </div>
-          </div>
-
-          <div className={`step-panel ${step === 2 ? 'active' : ''}`}>
-            <div className="success-wrap">
-              <div className="s-icon">
-                <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-                  <rect x="4" y="9" width="20" height="14" rx="2.5" stroke="#22C55E" strokeWidth="2"/>
-                  <path d="M4 13L14 19L24 13" stroke="#22C55E" strokeWidth="2" strokeLinecap="round"/>
-                </svg>
+              <div style={{ marginBottom: '22px' }}>
+                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: colors.inkSoft, marginBottom: '6px' }}>Email address</label>
+                <input
+                  type="email"
+                  placeholder="name@email.com"
+                  style={inputStyle}
+                  value={email}
+                  onChange={(e) => { setEmail(e.target.value); setError(''); }}
+                />
+                {error && <div style={{ fontSize: '11.5px', color: colors.error, marginTop: '5px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <span className="material-symbols-rounded" style={{ fontSize: '14px' }}>error</span>
+                  {error}
+                </div>}
               </div>
-              <div className="s-title">Check your inbox.</div>
-              <p className="s-sub">A password reset link has been sent to <strong>{email || 'your email'}</strong>. It's single-use and expires in 15 minutes.</p>
-              <Link to="/login" className="btn btn-ghost btn-full btn-lg" style={{ border: '1.5px solid var(--border)' }}>← Return to sign in</Link>
+
+              <button
+                style={sendButtonStyle}
+                onMouseEnter={() => setHovered({ ...hovered, send: true })}
+                onMouseLeave={() => setHovered({ ...hovered, send: false })}
+                onClick={handleSend}
+              >
+                Send reset link
+              </button>
+
+              <div style={{ textAlign: 'center', marginTop: '18px', fontSize: '13px', color: colors.inkMuted }}>
+                Remembered it? <Link to="/login" style={{ color: colors.accentDeep, fontWeight: 700, textDecoration: 'none' }}>Back to sign in</Link>
+              </div>
             </div>
-          </div>
+          )}
+
+          {step === 2 && (
+            <div style={{ textAlign: 'center', animation: 'fadeIn 0.3s ease' }}>
+              <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: colors.successBg, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
+                <span className="material-symbols-rounded" style={{ color: colors.success, fontSize: '28px' }}>mail</span>
+              </div>
+              <h1 style={titleStyle}>Check your inbox.</h1>
+              <p style={subStyle}>A password reset link has been sent to <strong>{email}</strong>.</p>
+              <Link to="/login" style={ghostButtonStyle}>Back to sign in</Link>
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="auth-visual">
-        <div className="av-bg"></div>
-        <div className="av-grid"></div>
-        <div className="av-content">
-          <div className="av-eyebrow">Account security</div>
-          <h2 className="av-title">Your account and <em>event data</em> stay protected.</h2>
-          <p className="av-sub">Reset links are single-use and expire quickly. Your competitions, rubrics, and scores are always safe on StandingsHQ.</p>
-          
-          <div className="av-pills" style={{ flexDirection: 'column', gap: '10px' }}>
-            <div className="av-pill">
-              <div className="ap-icon api-accent">
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                  <rect x="2.5" y="6" width="7" height="5" rx="1" stroke="var(--accent)" strokeWidth="1.2"/>
-                  <path d="M4 6V4.5C4 3.4 4.9 2.5 6 2.5C7.1 2.5 8 3.4 8 4.5V6" stroke="var(--accent)" strokeWidth="1.2" strokeLinecap="round"/>
-                </svg>
-              </div>
-              <span>Link expires in 15 minutes</span>
-            </div>
-            <div className="av-pill">
-              <div className="ap-icon api-white">
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                  <path d="M2 6L5 9L10 3" stroke="rgba(255,255,255,0.6)" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </div>
-              <span>Single-use secure token</span>
-            </div>
-          </div>
-        </div>
+      <div style={{ background: colors.navy, display: window.innerWidth > 1024 ? 'flex' : 'none', alignItems: 'center', justifyContent: 'center', padding: '48px', position: 'relative', overflow: 'hidden' }}>
+        <h2 style={{ fontSize: '28px', color: colors.white, fontWeight: '800', marginBottom: '10px' }}>Account security is our <em style={{ color: colors.accent, fontStyle: 'normal' }}>priority.</em></h2>
       </div>
     </div>
   );
