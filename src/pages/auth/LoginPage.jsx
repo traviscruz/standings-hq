@@ -13,9 +13,16 @@ export default function LoginPage() {
       setError('Please enter both email and password.');
       return;
     }
-    if (email !== 'juan@email.com') {
+    
+    // Mock login logic
+    if (email === 'juan@email.com' && password === 'password') {
+      window.location.href = '/organizer/dashboard';
+    } else if (email === 'judge@email.com' && password === 'password') {
+      window.location.href = '/judge/dashboard';
+    } else if (email === 'riley@email.com' && password === 'password') {
+      window.location.href = '/participant/dashboard';
+    } else {
       setError('Invalid email or password. Please try again.');
-      return;
     }
   };
 
@@ -98,9 +105,14 @@ export default function LoginPage() {
 
 
 
-          <div className="mock-login-options" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '20px' }}>
-            <Link to="/organizer/dashboard" className="btn btn-ghost btn-full btn-sm">Demo: Login as Organizer</Link>
-            <Link to="/judge/dashboard" className="btn btn-ghost btn-full btn-sm">Demo: Login as Judge</Link>
+          <div className="mock-login-options" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '20px' }}>
+            <Link to="/organizer/dashboard" className="btn btn-ghost btn-full btn-sm" style={{ textAlign: 'center' }}>Demo: Organizer</Link>
+            <Link to="/judge/dashboard" className="btn btn-ghost btn-full btn-sm" style={{ textAlign: 'center' }}>Demo: Judge</Link>
+            <Link to="/participant/dashboard" className="btn btn-ghost btn-full btn-sm" style={{ textAlign: 'center' }}>Demo: Participant</Link>
+            <div style={{ padding: '4px', borderTop: '1px solid rgba(0,0,0,0.05)', gridColumn: '1 / -1', margin: '4px 0' }} />
+            <Link to="/archive" className="btn btn-ghost btn-full btn-sm" style={{ textAlign: 'center', color: '#6366f1' }}>Demo: Public Archive</Link>
+            <Link to="/leaderboard" className="btn btn-ghost btn-full btn-sm" style={{ textAlign: 'center', color: '#10b981' }}>Demo: Public Leaderboard</Link>
+            <Link to="/404-test-page" className="btn btn-ghost btn-full btn-sm" style={{ textAlign: 'center' }}>Test: 404 Page</Link>
           </div>
 
           <div className="form-footer">

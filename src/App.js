@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import './App.css';
 
 import LandingPage from './pages/public/LandingPage';
@@ -8,6 +8,9 @@ import RegisterPage from './pages/auth/RegisterPage';
 import ForgotPassword from './pages/auth/ForgotPassword';
 import PrivacyPolicy from './pages/public/PrivacyPolicy';
 import TermsPage from './pages/public/TermsPage';
+import ArchivePage from './pages/public/ArchivePage';
+import LeaderboardPagePublic from './pages/public/LeaderboardPage';
+import NotFoundPage from './pages/public/NotFoundPage';
 
 // Organizer Pages
 import OrganizerLayout from './pages/organizer/OrganizerLayout';
@@ -29,6 +32,14 @@ import ScoringPage from './pages/judge/ScoringPage';
 import RubricReviewPage from './pages/judge/RubricReviewPage';
 import InvitePage from './pages/judge/InvitePage';
 
+// Participant Pages
+import ParticipantLayout from './pages/participant/ParticipantLayout';
+import ParticipantDashboard from './pages/participant/ParticipantDashboard';
+import MyEventsPage from './pages/participant/MyEventsPage';
+import LeaderboardPage from './pages/participant/LeaderboardPage';
+import CertificatesPageParticipant from './pages/participant/CertificatesPage';
+import AcceptInvitePage from './pages/participant/AcceptInvitePage';
+
 function App() {
   return (
     <Router>
@@ -40,6 +51,10 @@ function App() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/terms" element={<TermsPage />} />
+        
+        {/* New Public Pages */}
+        <Route path="/archive" element={<ArchivePage />} />
+        <Route path="/leaderboard" element={<LeaderboardPagePublic />} />
 
         {/* Organizer Routes */}
         <Route path="/organizer" element={<OrganizerLayout />}>
@@ -62,6 +77,18 @@ function App() {
           <Route path="rubric" element={<RubricReviewPage />} />
           <Route path="invites" element={<InvitePage />} />
         </Route>
+
+        {/* Participant Routes */}
+        <Route path="/participant" element={<ParticipantLayout />}>
+          <Route path="dashboard" element={<ParticipantDashboard />} />
+          <Route path="events" element={<MyEventsPage />} />
+          <Route path="leaderboard" element={<LeaderboardPage />} />
+          <Route path="certificates" element={<CertificatesPageParticipant />} />
+          <Route path="invites" element={<AcceptInvitePage />} />
+        </Route>
+
+        {/* 404 Route */}
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Router>
   );
