@@ -84,6 +84,8 @@ export default function ParticipantLayout() {
   const [toast, setToast] = useState(null);
   const timeoutRef = useRef(null);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  const userName = localStorage.getItem('username') || 'Member';
+  const userInitials = userName.split(' ').map(n => n[0]).join('').toUpperCase();
   const [hoveredLink, setHoveredLink] = useState(null);
   const [isLogoutHovered, setIsLogoutHovered] = useState(false);
   const [isMenuHovered, setIsMenuHovered] = useState(false);
@@ -362,11 +364,13 @@ export default function ParticipantLayout() {
 
           <div style={{ padding: '16px', borderTop: `1px solid ${colors.borderSoft}` }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px', borderRadius: '14px', background: '#F8FAFC' }}>
-              <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: colors.accent, color: '#fff', display: 'grid', placeItems: 'center', fontSize: '13px', fontWeight: '700' }}>RC</div>
-              <div style={{ flex: 1, overflow: 'hidden' }}>
-                <span style={{ fontSize: '13px', fontWeight: '600', color: colors.navy, display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Riley Cruz</span>
-                <span style={{ fontSize: '11px', color: colors.inkMuted }}>Participant</span>
-              </div>
+              <Link to="/participant/profile" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none', flex: 1, overflow: 'hidden' }}>
+                <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: colors.accent, color: '#fff', display: 'grid', placeItems: 'center', fontSize: '13px', fontWeight: '700' }}>{userInitials}</div>
+                <div style={{ flex: 1, overflow: 'hidden' }}>
+                  <span style={{ fontSize: '13px', fontWeight: '600', color: colors.navy, display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{userName}</span>
+                  <span style={{ fontSize: '11px', color: colors.inkMuted }}>Competitor</span>
+                </div>
+              </Link>
               <button 
                 style={{ background: isLogoutHovered ? colors.borderSoft : 'none', border: 'none', cursor: 'pointer', display: 'flex', color: colors.inkMuted, padding: '6px', borderRadius: '50%', transition: 'all 0.22s' }}
                 onClick={() => { navigate('/'); showToast('Signed out', 'info'); }}

@@ -20,6 +20,7 @@ export default function EventSettingsPage() {
     description: selectedEvent.description,
     visibility: selectedEvent.visibility,
     status: selectedEvent.status,
+    location: selectedEvent.location || '',
   });
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -41,6 +42,7 @@ export default function EventSettingsPage() {
       startDate: selectedEvent.startDate, startTime: selectedEvent.startTime,
       endDate: selectedEvent.endDate, endTime: selectedEvent.endTime,
       description: selectedEvent.description, visibility: selectedEvent.visibility, status: selectedEvent.status,
+      location: selectedEvent.location || '',
     });
   }, [selectedEvent.id]);
 
@@ -249,6 +251,18 @@ export default function EventSettingsPage() {
                 <textarea
                   style={{ ...styles.input, height: 'auto', padding: '12px 14px', resize: 'vertical', fontFamily: 'inherit', lineHeight: '1.5' }}
                   rows={3} value={form.description} onChange={e => set('description', e.target.value)} onFocus={inputFocus} onBlur={inputBlur}
+                />
+              </div>
+              <div>
+                <label style={styles.label}>Venue / Address</label>
+                <input 
+                  type="text" 
+                  style={styles.input} 
+                  value={form.location} 
+                  onChange={e => set('location', e.target.value)} 
+                  onFocus={inputFocus} 
+                  onBlur={inputBlur} 
+                  placeholder="Official event location..."
                 />
               </div>
             </div>

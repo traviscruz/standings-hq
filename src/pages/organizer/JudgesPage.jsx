@@ -153,6 +153,7 @@ export default function JudgesPage() {
   const [confirmRev, setConfirmRev] = useState(null);
   const [showBulkRole, setShowBulkRole] = useState(false);
   const [bulkRoleVal, setBulkRoleVal] = useState(ROLES[0]);
+  const [showCsvHelp, setShowCsvHelp] = useState(false);
 
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const [activeBtnHover, setActiveBtnHover] = useState(null);
@@ -288,8 +289,8 @@ export default function JudgesPage() {
       gap: '24px',
       marginBottom: '28px',
     },
-    widgetCard: (span) => ({
-      background: '#fff',
+    widgetCard: (span, gradient = 'none') => ({
+      background: gradient !== 'none' ? gradient : '#fff',
       border: `1.5px solid ${colors.borderSoft}`,
       borderRadius: '24px',
       padding: '28px',
@@ -298,6 +299,8 @@ export default function JudgesPage() {
       display: 'flex',
       flexDirection: 'column',
       gap: '12px',
+      transition: 'transform 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28), box-shadow 0.3s ease',
+      cursor: 'default',
     }),
     iconWrapper: (bg, color) => ({
       width: '40px',
@@ -307,6 +310,7 @@ export default function JudgesPage() {
       color: color,
       display: 'grid',
       placeItems: 'center',
+      boxShadow: '0 4px 10px rgba(0,0,0,0.05)',
     }),
     statLabel: {
       fontSize: '11px',
@@ -466,15 +470,26 @@ export default function JudgesPage() {
           <p style={styles.pageDescription}>Manage evaluators for <strong style={{ color: colors.navy }}>{selectedEvent.name}</strong>.</p>
         </div>
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-          <label 
-            style={styles.btn(activeBtnHover === 'import')}
-            onMouseEnter={() => setActiveBtnHover('import')}
-            onMouseLeave={() => setActiveBtnHover(null)}
-          >
-            <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>upload_file</span>
-            Import CSV
-            <input type="file" accept=".csv" style={{ display: 'none' }} onChange={handleFileImport} />
-          </label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <label 
+              style={styles.btn(activeBtnHover === 'import')}
+              onMouseEnter={() => setActiveBtnHover('import')}
+              onMouseLeave={() => setActiveBtnHover(null)}
+            >
+              <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>upload_file</span>
+              Import CSV
+              <input type="file" accept=".csv" style={{ display: 'none' }} onChange={handleFileImport} />
+            </label>
+            <button 
+              style={styles.btn(activeBtnHover === 'csv-help')}
+              onClick={() => setShowCsvHelp(true)}
+              onMouseEnter={() => setActiveBtnHover('csv-help')}
+              onMouseLeave={() => setActiveBtnHover(null)}
+            >
+              <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>help</span>
+              Format Guide
+            </button>
+          </div>
           <button 
             style={styles.btn(activeBtnHover === 'invite', true)} 
             onMouseEnter={() => setActiveBtnHover('invite')}
@@ -489,17 +504,17 @@ export default function JudgesPage() {
 
       {/* ── KPI Strip ── */}
       <div style={styles.dashboardGrid}>
-        <div style={styles.widgetCard(4)}>
+        <div style={{ ...styles.widgetCard(4, `linear-gradient(135deg, #fff 40%, ${colors.accentBg} 100%)`), transform: activeBtnHover === 'kpi-t' ? 'translateY(-4px)' : 'none', boxShadow: activeBtnHover === 'kpi-t' ? '0 12px 30px rgba(0,0,0,0.06)' : styles.widgetCard(4).boxShadow }} onMouseEnter={() => setActiveBtnHover('kpi-t')} onMouseLeave={() => setActiveBtnHover(null)}>
           <div style={styles.iconWrapper(colors.accentBg, colors.accent)}><span className="material-symbols-rounded" style={{ fontSize: '20px' }}>gavel</span></div>
           <span style={styles.statLabel}>Total Invited</span>
           <div style={styles.statValue}>{judges.length}</div>
         </div>
-        <div style={styles.widgetCard(4)}>
+        <div style={{ ...styles.widgetCard(4, 'linear-gradient(135deg, #fff 40%, #F0FDF4 100%)'), transform: activeBtnHover === 'kpi-a' ? 'translateY(-4px)' : 'none', boxShadow: activeBtnHover === 'kpi-a' ? '0 12px 30px rgba(0,0,0,0.06)' : styles.widgetCard(4).boxShadow }} onMouseEnter={() => setActiveBtnHover('kpi-a')} onMouseLeave={() => setActiveBtnHover(null)}>
           <div style={styles.iconWrapper('#F0FDF4', colors.success)}><span className="material-symbols-rounded" style={{ fontSize: '20px' }}>how_to_reg</span></div>
           <span style={styles.statLabel}>Accepted</span>
           <div style={{ ...styles.statValue, color: colors.success }}>{accepted}</div>
         </div>
-        <div style={styles.widgetCard(4)}>
+        <div style={{ ...styles.widgetCard(4, 'linear-gradient(135deg, #fff 40%, #FEF3C7 100%)'), transform: activeBtnHover === 'kpi-p' ? 'translateY(-4px)' : 'none', boxShadow: activeBtnHover === 'kpi-p' ? '0 12px 30px rgba(0,0,0,0.06)' : styles.widgetCard(4).boxShadow }} onMouseEnter={() => setActiveBtnHover('kpi-p')} onMouseLeave={() => setActiveBtnHover(null)}>
           <div style={styles.iconWrapper('#FFF7ED', '#D97706')}><span className="material-symbols-rounded" style={{ fontSize: '20px' }}>schedule</span></div>
           <span style={styles.statLabel}>Pending RSVP</span>
           <div style={{ ...styles.statValue, color: '#D97706' }}>{pendingCount}</div>
@@ -784,6 +799,70 @@ export default function JudgesPage() {
                   onMouseLeave={() => setActiveBtnHover(null)}
                 >
                   <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>badge</span> Apply Role
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══ CSV HELP MODAL ══ */}
+      {showCsvHelp && (
+        <div style={styles.modalOverlay} onClick={() => setShowCsvHelp(false)}>
+          <div style={styles.modalContainer('540px')} onClick={e => e.stopPropagation()}>
+            <div style={{ padding: '32px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
+                <div>
+                  <h2 style={styles.modalTitle}>CSV Import Guide</h2>
+                  <p style={{ fontSize: '14px', color: colors.inkMuted, marginTop: '6px', margin: 0 }}>Ensure your file has these exact column headers.</p>
+                </div>
+                <button style={styles.btnIcon(activeBtnHover === 'help-close')} onClick={() => setShowCsvHelp(false)} onMouseEnter={() => setActiveBtnHover('help-close')} onMouseLeave={() => setActiveBtnHover(null)}>
+                  <span className="material-symbols-rounded">close</span>
+                </button>
+              </div>
+
+              <div style={{ background: colors.pageBg, borderRadius: '16px', padding: '20px', border: `1px solid ${colors.borderSoft}`, marginBottom: '24px' }}>
+                <div style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: colors.inkMuted, marginBottom: '12px' }}>Required Columns</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {['name', 'email', 'expertise', 'role'].map(col => (
+                    <code key={col} style={{ background: '#fff', border: `1px solid ${colors.border}`, padding: '4px 10px', borderRadius: '8px', fontSize: '13px', fontWeight: 600, color: colors.navy }}>{col}</code>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: colors.inkMuted, marginBottom: '12px' }}>Sample Data</div>
+              <div style={{ border: `1px solid ${colors.borderSoft}`, borderRadius: '16px', overflow: 'hidden' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                  <thead>
+                    <tr style={{ background: colors.pageBg }}>
+                      <th style={{ padding: '10px 14px', textAlign: 'left', borderBottom: `1px solid ${colors.borderSoft}`, color: colors.inkMuted }}>name</th>
+                      <th style={{ padding: '10px 14px', textAlign: 'left', borderBottom: `1px solid ${colors.borderSoft}`, color: colors.inkMuted }}>email</th>
+                      <th style={{ padding: '10px 14px', textAlign: 'left', borderBottom: `1px solid ${colors.borderSoft}`, color: colors.inkMuted }}>expertise</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td style={{ padding: '10px 14px', borderBottom: `1px solid ${colors.borderSoft}`, color: colors.navy, fontWeight: 500 }}>Juan dela Cruz</td>
+                      <td style={{ padding: '10px 14px', borderBottom: `1px solid ${colors.borderSoft}` }}>juan@example.ph</td>
+                      <td style={{ padding: '10px 14px', borderBottom: `1px solid ${colors.borderSoft}` }}>Mathematics</td>
+                    </tr>
+                    <tr>
+                      <td style={{ padding: '10px 14px', color: colors.navy, fontWeight: 500 }}>Maria Santos</td>
+                      <td style={{ padding: '10px 14px' }}>maria@univ.edu.ph</td>
+                      <td style={{ padding: '10px 14px' }}>Arts</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div style={{ marginTop: '32px', display: 'flex', justifyContent: 'flex-end' }}>
+                <button 
+                  style={styles.btn(activeBtnHover === 'help-ok', true)} 
+                  onClick={() => setShowCsvHelp(false)}
+                  onMouseEnter={() => setActiveBtnHover('help-ok')}
+                  onMouseLeave={() => setActiveBtnHover(null)}
+                >
+                  Got it
                 </button>
               </div>
             </div>

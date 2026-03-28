@@ -5,6 +5,7 @@ import { colors } from '../../styles/colors';
 
 export default function JudgeDashboard() {
   const { event, participants, segments, scores, submittedSegments } = useJudgeContext();
+  const userName = localStorage.getItem('username') || 'Judge';
   const navigate = useNavigate();
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const [hoveredSegment, setHoveredSegment] = useState(null);
@@ -102,16 +103,16 @@ export default function JudgeDashboard() {
     gap: '24px',
   };
 
-  const widgetCardStyle = (id) => ({
-    background: '#fff',
-    border: `1px solid ${hoveredCard === id ? colors.border : colors.borderSoft}`,
-    borderRadius: '20px',
-    padding: '24px',
-    boxShadow: hoveredCard === id ? '0 10px 15px -3px rgba(0, 0, 0, 0.05)' : '0 1px 3px rgba(0,0,0,0.02), 0 1px 2px rgba(0,0,0,0.04)',
-    transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+  const widgetCardStyle = (id, gradient = 'none') => ({
+    background: hoveredCard === id ? '#fff' : (gradient !== 'none' ? gradient : '#fff'),
+    border: `1px solid ${hoveredCard === id ? colors.accent : colors.borderSoft}`,
+    borderRadius: '24px',
+    padding: '28px',
+    boxShadow: hoveredCard === id ? '0 25px 50px -12px rgba(15, 23, 42, 0.12)' : '0 1px 3px rgba(0,0,0,0.02)',
+    transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
     position: 'relative',
     overflow: 'hidden',
-    transform: hoveredCard === id ? 'translateY(-2px)' : 'none',
+    transform: hoveredCard === id ? 'translateY(-6px)' : 'none',
   });
 
   const statLabelStyle = {
@@ -200,10 +201,10 @@ export default function JudgeDashboard() {
       <div style={pageHeaderStyle}>
         <div>
           <div style={eyebrowBadgeStyle}>
-            <span className="material-symbols-rounded" style={{ fontSize: '14px', color: colors.accent }}>visibility</span>
-            Judge Command Center
+            <span className="material-symbols-rounded" style={{ fontSize: '14px', color: colors.accent }}>waving_hand</span>
+            Welcome back, {userName.split(' ')[0]}!
           </div>
-          <h1 style={pageTitleStyle}>Welcome back, Marian</h1>
+          <h1 style={pageTitleStyle}>Judge Dashboard</h1>
           <p style={pageDescriptionStyle}>
             Your evaluation manifest for <span style={{ fontWeight: 700, color: colors.navy }}>{event.name}</span> is ready for review.
           </p>
@@ -222,13 +223,13 @@ export default function JudgeDashboard() {
       {/* ── KPI Grid ── */}
       <div style={{ ...dashboardGridStyle, marginBottom: '40px' }}>
         <div 
-          style={{ ...widgetCardStyle('stat-1'), ...getColSpanStyle(3) }}
+          style={{ ...widgetCardStyle('stat-1', `linear-gradient(135deg, #fff 40%, ${colors.accentBg} 100%)`), ...getColSpanStyle(3) }}
           onMouseEnter={() => setHoveredCard('stat-1')}
           onMouseLeave={() => setHoveredCard(null)}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
             <span style={statLabelStyle}>Participants Scored</span>
-            <span className="material-symbols-rounded" style={{ color: colors.inkMuted, fontSize: '20px' }}>groups</span>
+            <span className="material-symbols-rounded" style={{ color: colors.accent, fontSize: '20px' }}>groups</span>
           </div>
           <div style={statValueStyle}>{participants.filter(p => hasScored(p.id)).length}<span style={{ fontSize: '18px', opacity: 0.5, fontWeight: 400 }}>/{participants.length}</span></div>
           <div style={{ ...statTrendStyle, color: colors.success }}>
@@ -238,28 +239,28 @@ export default function JudgeDashboard() {
         </div>
 
         <div 
-          style={{ ...widgetCardStyle('stat-2'), ...getColSpanStyle(3) }}
+          style={{ ...widgetCardStyle('stat-2', 'linear-gradient(135deg, #fff 40%, #EEF2FF 100%)'), ...getColSpanStyle(3) }}
           onMouseEnter={() => setHoveredCard('stat-2')}
           onMouseLeave={() => setHoveredCard(null)}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
             <span style={statLabelStyle}>Segment Progress</span>
-            <span className="material-symbols-rounded" style={{ color: colors.inkMuted, fontSize: '20px' }}>layers</span>
+            <span className="material-symbols-rounded" style={{ color: '#6366F1', fontSize: '20px' }}>layers</span>
           </div>
           <div style={statValueStyle}>{submittedCount}<span style={{ fontSize: '18px', opacity: 0.5, fontWeight: 400 }}>/{totalSegments}</span></div>
-          <div style={{ marginTop: '12px', height: '6px', background: '#F8FAFC', borderRadius: '100px', overflow: 'hidden' }}>
+          <div style={{ marginTop: '12px', height: '6px', background: 'rgba(241, 245, 249, 0.5)', borderRadius: '100px', overflow: 'hidden' }}>
             <div style={{ height: '100%', width: `${(submittedCount / totalSegments) * 100}%`, background: colors.accent, borderRadius: '100px', transition: 'width 1s ease-out' }} />
           </div>
         </div>
 
         <div 
-          style={{ ...widgetCardStyle('stat-3'), ...getColSpanStyle(3) }}
+          style={{ ...widgetCardStyle('stat-3', 'linear-gradient(135deg, #fff 40%, #F0FDF4 100%)'), ...getColSpanStyle(3) }}
           onMouseEnter={() => setHoveredCard('stat-3')}
           onMouseLeave={() => setHoveredCard(null)}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
             <span style={statLabelStyle}>Total Weightage</span>
-            <span className="material-symbols-rounded" style={{ color: colors.inkMuted, fontSize: '20px' }}>balance</span>
+            <span className="material-symbols-rounded" style={{ color: '#16A34A', fontSize: '20px' }}>balance</span>
           </div>
           <div style={{ ...statValueStyle, color: colors.navy }}>100%</div>
           <div style={{ ...statTrendStyle, color: colors.success }}>
@@ -269,15 +270,15 @@ export default function JudgeDashboard() {
         </div>
 
         <div 
-          style={{ ...widgetCardStyle('stat-4'), ...getColSpanStyle(3) }}
+          style={{ ...widgetCardStyle('stat-4', 'linear-gradient(135deg, #fff 40%, #FFF7ED 100%)'), ...getColSpanStyle(3) }}
           onMouseEnter={() => setHoveredCard('stat-4')}
           onMouseLeave={() => setHoveredCard(null)}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
             <span style={statLabelStyle}>Live Status</span>
-            <span className="material-symbols-rounded" style={{ color: '#16A34A', fontSize: '20px' }}>sensors</span>
+            <span className="material-symbols-rounded" style={{ color: '#EA580C', fontSize: '20px' }}>sensors</span>
           </div>
-          <div style={{ ...statValueStyle, fontSize: '24px', color: '#16A34A' }}>Active Flow</div>
+          <div style={{ ...statValueStyle, fontSize: '24px', color: '#EA580C' }}>Active Flow</div>
           <div style={{ ...statTrendStyle, color: colors.inkMuted }}>
             Real-time scoring sync
           </div>

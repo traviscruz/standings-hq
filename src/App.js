@@ -27,6 +27,7 @@ import ResultsPage from './pages/organizer/ResultsPage';
 import CertificatesPage from './pages/organizer/CertificatesPage';
 import PublishPage from './pages/organizer/PublishPage';
 import EventSettingsPage from './pages/organizer/EventSettingsPage';
+import OrganizerAnalyticsPage from './pages/organizer/OrganizerAnalyticsPage';
 
 // Judge Pages
 import JudgeLayout from './pages/judge/JudgeLayout';
@@ -43,13 +44,15 @@ import LeaderboardPage from './pages/participant/LeaderboardPage';
 import CertificatesPageParticipant from './pages/participant/CertificatesPage';
 import AcceptInvitePage from './pages/participant/AcceptInvitePage';
 
+// Shared Pages
+import ProfilePage from './pages/auth/ProfilePage';
+
 function App() {
   return (
     <Router>
       <Routes>
         {/* Public / Auth Routes */}
         <Route path="/" element={<LandingPage />} />
-        <Route path="/" element={<LoginPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -72,6 +75,8 @@ function App() {
           <Route path="results" element={<ResultsPage />} />
           <Route path="certificates" element={<CertificatesPage />} />
           <Route path="publish" element={<PublishPage />} />
+          <Route path="analytics" element={<OrganizerAnalyticsPage />} />
+          <Route path="profile" element={<ProfilePage />} />
         </Route>
 
         {/* Judge Routes */}
@@ -80,6 +85,7 @@ function App() {
           <Route path="scoring" element={<ScoringPage />} />
           <Route path="rubric" element={<RubricReviewPage />} />
           <Route path="invites" element={<InvitePage />} />
+          <Route path="profile" element={<ProfilePage />} />
         </Route>
 
         {/* Participant Routes */}
@@ -89,6 +95,7 @@ function App() {
           <Route path="leaderboard" element={<LeaderboardPage />} />
           <Route path="certificates" element={<CertificatesPageParticipant />} />
           <Route path="invites" element={<AcceptInvitePage />} />
+          <Route path="profile" element={<ProfilePage />} />
         </Route>
 
         {/* 404 Route */}

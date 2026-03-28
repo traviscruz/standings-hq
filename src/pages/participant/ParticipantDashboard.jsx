@@ -45,6 +45,7 @@ const MiniCertificate = ({ achievement, eventName }) => {
 
 export default function ParticipantDashboard() {
   const { myEvents, invitations, certificates } = useParticipantContext();
+  const userName = localStorage.getItem('username') || 'Participant';
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const [hoveredCard, setHoveredCard] = useState(null); // id or type
 
@@ -103,16 +104,16 @@ export default function ParticipantDashboard() {
     lineHeight: '1.55',
   };
 
-  const cardStyle = (id) => ({
-    background: '#fff',
-    border: `1px solid ${hoveredCard === id ? colors.border : colors.borderSoft}`,
-    borderRadius: '20px',
-    padding: '24px',
-    boxShadow: hoveredCard === id ? '0 10px 15px -3px rgba(0, 0, 0, 0.05)' : 'none',
-    transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+  const cardStyle = (id, gradient = 'none') => ({
+    background: hoveredCard === id ? '#fff' : (gradient !== 'none' ? gradient : '#fff'),
+    border: `1px solid ${hoveredCard === id ? colors.accent : colors.borderSoft}`,
+    borderRadius: '24px',
+    padding: '28px',
+    boxShadow: hoveredCard === id ? '0 25px 50px -12px rgba(15, 23, 42, 0.12)' : '0 1px 3px rgba(0,0,0,0.02)',
+    transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
     position: 'relative',
     overflow: 'hidden',
-    transform: hoveredCard === id ? 'translateY(-2px)' : 'none',
+    transform: hoveredCard === id ? 'translateY(-6px)' : 'none',
   });
 
   const statLabelStyle = {
@@ -156,7 +157,7 @@ export default function ParticipantDashboard() {
         <div>
           <div style={eyebrowBadgeStyle}>
             <span className="material-symbols-rounded" style={{ fontSize: '14px', color: colors.accent }}>waving_hand</span>
-            Welcome back, Riley!
+            Welcome back, {userName.split(' ')[0]}!
           </div>
           <h1 style={pageTitleStyle}>Participant Dashboard</h1>
           <p style={pageDescriptionStyle}>Your competition journey at a glance. All live scores, upcoming events, and achievements.</p>
@@ -166,38 +167,50 @@ export default function ParticipantDashboard() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '24px' }}>
         {/* Quick Stats */}
         <div 
-          style={{ ...cardStyle('stat-1'), ...getColSpanStyle(3) }}
+          style={{ ...cardStyle('stat-1', 'linear-gradient(135deg, #fff 40%, #EEF2FF 100%)'), ...getColSpanStyle(3) }}
           onMouseEnter={() => setHoveredCard('stat-1')}
           onMouseLeave={() => setHoveredCard(null)}
         >
-          <div style={statLabelStyle}>Joined Events</div>
+          <div style={{ ...statLabelStyle, display: 'flex', justifyContent: 'space-between' }}>
+            Joined Events
+            <span className="material-symbols-rounded" style={{ fontSize: '18px', opacity: 0.5 }}>event_note</span>
+          </div>
           <div style={statValueStyle}>{myEvents.length}</div>
           <div style={statMetaStyle}>Across {new Set(myEvents.map(e => e.type)).size} categories</div>
         </div>
         <div 
-          style={{ ...cardStyle('stat-2'), ...getColSpanStyle(3) }}
+          style={{ ...cardStyle('stat-2', `linear-gradient(135deg, #fff 40%, ${colors.accentBg} 100%)`), ...getColSpanStyle(3) }}
           onMouseEnter={() => setHoveredCard('stat-2')}
           onMouseLeave={() => setHoveredCard(null)}
         >
-          <div style={statLabelStyle}>Active Events</div>
+          <div style={{ ...statLabelStyle, color: colors.accent, display: 'flex', justifyContent: 'space-between' }}>
+            Active Events
+            <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>sensors</span>
+          </div>
           <div style={{ ...statValueStyle, color: colors.accent }}>{activeEvents.length}</div>
           <div style={statMetaStyle}>In progress right now</div>
         </div>
         <div 
-          style={{ ...cardStyle('stat-3'), ...getColSpanStyle(3) }}
+          style={{ ...cardStyle('stat-3', 'linear-gradient(135deg, #fff 40%, #F0FDF4 100%)'), ...getColSpanStyle(3) }}
           onMouseEnter={() => setHoveredCard('stat-3')}
           onMouseLeave={() => setHoveredCard(null)}
         >
-          <div style={statLabelStyle}>Certificates</div>
+          <div style={{ ...statLabelStyle, color: colors.success, display: 'flex', justifyContent: 'space-between' }}>
+            Certificates
+            <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>verified</span>
+          </div>
           <div style={{ ...statValueStyle, color: colors.success }}>{certificates.length}</div>
           <div style={statMetaStyle}>Verified achievements</div>
         </div>
         <div 
-          style={{ ...cardStyle('stat-4'), ...getColSpanStyle(3) }}
+          style={{ ...cardStyle('stat-4', 'linear-gradient(135deg, #fff 40%, #FEF2F2 100%)'), ...getColSpanStyle(3) }}
           onMouseEnter={() => setHoveredCard('stat-4')}
           onMouseLeave={() => setHoveredCard(null)}
         >
-          <div style={statLabelStyle}>Pending Invites</div>
+          <div style={{ ...statLabelStyle, color: colors.error, display: 'flex', justifyContent: 'space-between' }}>
+            Pending Invites
+            <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>forward_to_inbox</span>
+          </div>
           <div style={{ ...statValueStyle, color: colors.error }}>{invitations.length}</div>
           <div style={statMetaStyle}>Waiting for your response</div>
         </div>

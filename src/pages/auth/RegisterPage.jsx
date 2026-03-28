@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom';
 import { colors } from '../../styles/colors';
 
 export default function RegisterPage() {
-  const [step, setStep] = useState(1);
-  const [formData, setFormData] = useState({ fname: '', lname: '', username: '', email: '', password: '' });
+  const [step, setStep] = useState(0);
+  const [formData, setFormData] = useState({ fname: '', lname: '', username: '', email: '', password: '', confirmPassword: '', role: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [pwScore, setPwScore] = useState(0);
   const [error, setError] = useState('');
@@ -22,6 +22,10 @@ export default function RegisterPage() {
 
   const rGo = (s) => {
     if (s > step) {
+      if (step === 0 && !formData.role) {
+        setError('Please select your role in the ecosystem.');
+        return;
+      }
       if (step === 1 && (!formData.fname || !formData.lname)) {
         setError('Please enter your full name.');
         return;
@@ -30,8 +34,9 @@ export default function RegisterPage() {
         setError('Username and email are required.');
         return;
       }
-      if (step === 3 && pwScore < 2) {
-        setError('Please create a stronger password.');
+      if (step === 3 && (pwScore < 2 || formData.password !== formData.confirmPassword)) {
+        if (pwScore < 2) setError('Please create a stronger password.');
+        else setError('Passwords do not match.');
         return;
       }
     }
@@ -44,6 +49,12 @@ export default function RegisterPage() {
     setPwScore(s);
     setFormData({ ...formData, password: v });
   };
+
+  const roles = [
+    { title: 'Organizer', icon: 'shield_person', desc: 'Create events, manage staff, and publish final standings.' },
+    { title: 'Judge', icon: 'gavel', desc: 'Real-time mobile scoring, rubric evaluation, and consensus building.' },
+    { title: 'Participant', icon: 'person_celebrate', desc: 'Track rankings, view live results, and download certificates.' }
+  ];
 
   /* ── Styles ── */
   const styles = {
@@ -106,7 +117,7 @@ export default function RegisterPage() {
     },
     contentWrapper: {
       width: '100%',
-      maxWidth: '460px',
+      maxWidth: '520px',
       margin: '0 auto',
       animation: 'fadeInUp 0.6s cubic-bezier(0.23, 1, 0.32, 1)',
     },
@@ -165,29 +176,31 @@ export default function RegisterPage() {
       transition: 'all 0.4s ease',
     }),
     formGroup: {
-      marginBottom: '20px',
+      marginBottom: '24px',
     },
-    label: {
-      display: 'block',
-      fontSize: '11.5px',
-      fontWeight: '700',
-      color: colors.inkMuted,
-      marginBottom: '10px',
-      textTransform: 'uppercase',
-      letterSpacing: '0.05em',
-    },
-    input: (focused, hasError) => ({
-      width: '100%',
+    roleCard: (selected, hovered) => ({
+      padding: '20px',
+      borderRadius: '20px',
+      background: selected ? 'rgba(59, 130, 246, 0.03)' : (hovered ? colors.pageBg : '#fff'),
+      border: `2px solid ${selected ? colors.accent : (hovered ? colors.border : colors.borderSoft)}`,
+      cursor: 'pointer',
+      transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '20px',
+      marginBottom: '16px',
+      boxShadow: selected ? `0 12px 24px -8px ${colors.accentGlow}` : 'none',
+      transform: hovered ? 'translateX(6px)' : 'none',
+    }),
+    roleIcon: (selected) => ({
+      width: '52px',
       height: '52px',
-      padding: '0 16px',
-      background: colors.pageBg,
-      border: `1.5px solid ${hasError ? colors.error : (focused ? colors.accent : colors.borderSoft)}`,
       borderRadius: '14px',
-      fontSize: '15px',
-      color: colors.navy,
-      outline: 'none',
-      transition: 'all 0.2s',
-      fontFamily: "'Inter', sans-serif",
+      background: selected ? colors.accent : colors.pageBg,
+      color: selected ? '#fff' : colors.navy,
+      display: 'grid',
+      placeItems: 'center',
+      flexShrink: 0,
     }),
     primaryBtn: (hovered, variant = 'navy') => ({
       width: '100%',
@@ -206,6 +219,7 @@ export default function RegisterPage() {
       gap: '10px',
       boxShadow: hovered ? '0 12px 24px -8px rgba(15, 23, 42, 0.3)' : 'none',
       transform: hovered ? 'translateY(-2px)' : 'none',
+      marginTop: '12px',
     }),
     ghostBtn: (hovered) => ({
       height: '54px',
@@ -223,23 +237,28 @@ export default function RegisterPage() {
       justifyContent: 'center',
       gap: '8px',
     }),
-    pwBadge: (n) => ({
-      flex: 1,
-      height: '5px',
-      borderRadius: '10px',
-      background: n <= pwScore ? (pwScore < 2 ? colors.error : pwScore < 4 ? colors.warning : colors.success) : colors.borderSoft,
-      transition: 'all 0.3s ease',
-    }),
-    ruleItem: (valid) => ({
-      display: 'flex',
-      alignItems: 'center',
-      gap: '10px',
-      fontSize: '13px',
-      color: valid ? colors.success : colors.inkMid,
-      fontWeight: valid ? '600' : '400',
-      marginBottom: '8px',
+    input: (focused, hasError) => ({
+      width: '100%',
+      height: '52px',
+      padding: '0 16px',
+      background: colors.pageBg,
+      border: `1.5px solid ${hasError ? colors.error : (focused ? colors.accent : colors.borderSoft)}`,
+      borderRadius: '14px',
+      fontSize: '15px',
+      color: colors.navy,
+      outline: 'none',
       transition: 'all 0.2s',
+      fontFamily: "'Inter', sans-serif",
     }),
+    label: {
+      display: 'block',
+      fontSize: '11.5px',
+      fontWeight: '700',
+      color: colors.inkMuted,
+      marginBottom: '10px',
+      textTransform: 'uppercase',
+      letterSpacing: '0.05em',
+    },
     visualPanel: {
       background: colors.navy,
       position: 'relative',
@@ -282,16 +301,23 @@ export default function RegisterPage() {
       transition: 'all 0.3s ease',
       marginBottom: '16px',
     },
-    featureIcon: {
-      width: '44px',
-      height: '44px',
-      borderRadius: '12px',
-      background: 'rgba(59, 130, 246, 0.1)',
-      color: colors.accent,
-      display: 'grid',
-      placeItems: 'center',
-      flexShrink: 0,
-    }
+    pwBadge: (n) => ({
+      flex: 1,
+      height: '5px',
+      borderRadius: '10px',
+      background: n <= pwScore ? (pwScore < 2 ? colors.error : pwScore < 4 ? colors.warning : colors.success) : colors.borderSoft,
+      transition: 'all 0.3s ease',
+    }),
+    ruleItem: (valid) => ({
+      display: 'flex',
+      alignItems: 'center',
+      gap: '10px',
+      fontSize: '13px',
+      color: valid ? colors.success : colors.inkMid,
+      fontWeight: valid ? '600' : '400',
+      marginBottom: '8px',
+      transition: 'all 0.2s',
+    }),
   };
 
   const Rule = ({ valid, text }) => (
@@ -316,7 +342,8 @@ export default function RegisterPage() {
       <div style={styles.authPanel}>
         <div style={styles.header}>
           <Link
-            to="/login"
+            to={step === 0 ? "/login" : "#"}
+            onClick={(e) => { if (step > 0) { e.preventDefault(); rGo(step - 1); } }}
             style={styles.backLink(activeHover === 'back')}
             onMouseEnter={() => setActiveHover('back')}
             onMouseLeave={() => setActiveHover(null)}
@@ -334,27 +361,72 @@ export default function RegisterPage() {
         <div style={styles.contentWrapper}>
           {step < 4 && (
             <>
-              <span style={styles.eyebrow}>Step {step} of 3</span>
+              <span style={styles.eyebrow}>
+                {step === 0 ? 'Getting Started' : `Step ${step} of 3`}
+              </span>
               <h1 style={styles.pageTitle}>
-                {step === 1 ? "Let's start with your name." : step === 2 ? "Create your unique profile." : "Secure your workspace."}
+                {step === 0 ? "First, who are you?" 
+                 : step === 1 ? "What's your name?" 
+                 : step === 2 ? "Create your profile." 
+                 : "Secure your workspace."}
               </h1>
               <p style={styles.pageSub}>
-                {step === 1 ? "Start your journey toward simplified event management." : step === 2 ? "This is how you'll be identified in the ecosystem." : "Use a strong password to protect your event data."}
+                {step === 0 ? "Select your role in the StandingsHQ ecosystem to customize your experience." 
+                 : step === 1 ? "Let's get the basics down before we configure your dashboard." 
+                 : step === 2 ? "This is how you'll be identified across all portals." 
+                 : "Use a strong password to protect your event data and integrity."}
               </p>
 
-              <div style={styles.stepIndicator}>
-                <div style={styles.stepDot(step === 1, step > 1)}>{step > 1 ? '✓' : '1'}</div>
-                <div style={styles.stepLine(step > 1)}></div>
-                <div style={styles.stepDot(step === 2, step > 2)}>{step > 2 ? '✓' : '2'}</div>
-                <div style={styles.stepLine(step > 2)}></div>
-                <div style={styles.stepDot(step === 3, step > 3)}>{step > 3 ? '✓' : '3'}</div>
-              </div>
+              {step > 0 && (
+                <div style={styles.stepIndicator}>
+                  <div style={styles.stepDot(step === 1, step > 1)}>{step > 1 ? '✓' : '1'}</div>
+                  <div style={styles.stepLine(step > 1)}></div>
+                  <div style={styles.stepDot(step === 2, step > 2)}>{step > 2 ? '✓' : '2'}</div>
+                  <div style={styles.stepLine(step > 2)}></div>
+                  <div style={styles.stepDot(step === 3, step > 3)}>{step > 3 ? '✓' : '3'}</div>
+                </div>
+              )}
             </>
+          )}
+
+          {step === 0 && (
+            <div style={{ animation: 'fadeIn 0.3s ease' }}>
+              {roles.map((r) => (
+                <div 
+                  key={r.title}
+                  style={styles.roleCard(formData.role === r.title, activeHover === r.title)}
+                  onMouseEnter={() => setActiveHover(r.title)}
+                  onMouseLeave={() => setActiveHover(null)}
+                  onClick={() => setFormData({ ...formData, role: r.title })}
+                >
+                  <div style={styles.roleIcon(formData.role === r.title)}>
+                    <span className="material-symbols-rounded">{r.icon}</span>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <h3 style={{ fontSize: '16px', fontWeight: '800', color: colors.navy, marginBottom: '4px' }}>{r.title}</h3>
+                    <p style={{ fontSize: '13.5px', color: colors.inkMid, lineHeight: '1.4' }}>{r.desc}</p>
+                  </div>
+                  {formData.role === r.title && (
+                    <span className="material-symbols-rounded" style={{ color: colors.accent }}>check_circle</span>
+                  )}
+                </div>
+              ))}
+              {error && <p style={{ color: colors.error, fontSize: '13px', fontWeight: '600', marginBottom: '16px' }}>{error}</p>}
+              <button
+                style={styles.primaryBtn(activeHover === 'role-next')}
+                onMouseEnter={() => setActiveHover('role-next')}
+                onMouseLeave={() => setActiveHover(null)}
+                onClick={() => rGo(1)}
+              >
+                Continue as {formData.role || '...'}
+                <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>arrow_forward</span>
+              </button>
+            </div>
           )}
 
           {step === 1 && (
             <div style={{ animation: 'fadeIn 0.3s ease' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '8px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
                 <div style={styles.formGroup}>
                   <label style={styles.label}>First Name</label>
                   <input type="text" style={styles.input(activeHover === 'fn', !!error)} onFocus={() => setActiveHover('fn')} onBlur={() => setActiveHover(null)} placeholder="John" value={formData.fname} onChange={(e) => setFormData({ ...formData, fname: e.target.value })} />
@@ -364,9 +436,6 @@ export default function RegisterPage() {
                   <input type="text" style={styles.input(activeHover === 'ln', !!error)} onFocus={() => setActiveHover('ln')} onBlur={() => setActiveHover(null)} placeholder="Doe" value={formData.lname} onChange={(e) => setFormData({ ...formData, lname: e.target.value })} />
                 </div>
               </div>
-              <div style={{ marginBottom: '24px' }}>
-                <Rule valid={formData.fname.length > 0 && formData.lname.length > 0} text="Full legal name required for organizers" />
-              </div>
               {error && <p style={{ color: colors.error, fontSize: '13px', fontWeight: '600', marginBottom: '16px' }}>{error}</p>}
               <button
                 style={styles.primaryBtn(activeHover === 'next')}
@@ -374,7 +443,7 @@ export default function RegisterPage() {
                 onMouseLeave={() => setActiveHover(null)}
                 onClick={() => rGo(2)}
               >
-                Continue to Account
+                Account Details
                 <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>arrow_forward</span>
               </button>
             </div>
@@ -383,34 +452,30 @@ export default function RegisterPage() {
           {step === 2 && (
             <div style={{ animation: 'fadeIn 0.3s ease' }}>
               <div style={styles.formGroup}>
-                <label style={styles.label}>Unique Username</label>
+                <label style={styles.label}>Username</label>
                 <input type="text" style={styles.input(activeHover === 'un', !!error)} onFocus={() => setActiveHover('un')} onBlur={() => setActiveHover(null)} placeholder="johndoe_hq" value={formData.username} onChange={(e) => setFormData({ ...formData, username: e.target.value })} />
               </div>
               <div style={styles.formGroup}>
-                <label style={styles.label}>Professional Email</label>
+                <label style={styles.label}>Email Address</label>
                 <input type="email" style={styles.input(activeHover === 'em', !!error)} onFocus={() => setActiveHover('em')} onBlur={() => setActiveHover(null)} placeholder="john@events.com" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
               </div>
-              <div style={{ marginBottom: '24px' }}>
-                <Rule valid={formData.username.length >= 3 && formData.email.includes('@')} text="Valid credentials required for workspace verification" />
-              </div>
               {error && <p style={{ color: colors.error, fontSize: '13px', fontWeight: '600', marginBottom: '16px' }}>{error}</p>}
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <button style={{ ...styles.ghostBtn(activeHover === 'back-btn'), flex: '0.4' }} onMouseEnter={() => setActiveHover('back-btn')} onMouseLeave={() => setActiveHover(null)} onClick={() => rGo(1)}>
-                  <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>arrow_back</span>
-                  Back
-                </button>
-                <button style={{ ...styles.primaryBtn(activeHover === 'next'), flex: '1' }} onMouseEnter={() => setActiveHover('next')} onMouseLeave={() => setActiveHover(null)} onClick={() => rGo(3)}>
-                  Next Step
-                  <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>arrow_forward</span>
-                </button>
-              </div>
+              <button
+                style={styles.primaryBtn(activeHover === 'next')}
+                onMouseEnter={() => setActiveHover('next')}
+                onMouseLeave={() => setActiveHover(null)}
+                onClick={() => rGo(3)}
+              >
+                Security Setup
+                <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>arrow_forward</span>
+              </button>
             </div>
           )}
 
           {step === 3 && (
             <div style={{ animation: 'fadeIn 0.3s ease' }}>
               <div style={styles.formGroup}>
-                <label style={styles.label}>Create Password</label>
+                <label style={styles.label}>Password</label>
                 <div style={{ position: 'relative' }}>
                   <input
                     type={showPassword ? "text" : "password"}
@@ -429,20 +494,36 @@ export default function RegisterPage() {
                 </div>
                 <div style={{ marginBottom: '24px' }}>
                   <Rule valid={formData.password.length >= 8} text="Minimum 8 characters" />
-                  <Rule valid={/[A-Z]/.test(formData.password) && /[0-9]/.test(formData.password)} text="Include uppercase and numbers" />
+                  <Rule valid={/[A-Z]/.test(formData.password) && /[0-9]/.test(formData.password)} text="Uppercase & numbers" />
                 </div>
+                <label style={styles.label}>Confirm Password</label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    style={styles.input(activeHover === 'cpw', !!error && formData.password !== formData.confirmPassword)}
+                    onFocus={() => setActiveHover('cpw')}
+                    onBlur={() => setActiveHover(null)}
+                    placeholder="••••••••"
+                    value={formData.confirmPassword}
+                    onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                  />
+                </div>
+                {formData.confirmPassword && (
+                   <div style={{ marginTop: '12px' }}>
+                     <Rule valid={formData.password === formData.confirmPassword} text="Passwords match" />
+                   </div>
+                )}
               </div>
               {error && <p style={{ color: colors.error, fontSize: '13px', fontWeight: '600', marginBottom: '16px' }}>{error}</p>}
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <button style={{ ...styles.ghostBtn(activeHover === 'back-btn'), flex: '0.4' }} onMouseEnter={() => setActiveHover('back-btn')} onMouseLeave={() => setActiveHover(null)} onClick={() => rGo(2)}>
-                  <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>arrow_back</span>
-                  Back
-                </button>
-                <button style={{ ...styles.primaryBtn(activeHover === 'finish', 'accent'), flex: '1' }} onMouseEnter={() => setActiveHover('finish')} onMouseLeave={() => setActiveHover(null)} onClick={() => rGo(4)}>
-                  Complete Activation
-                  <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>verified</span>
-                </button>
-              </div>
+              <button
+                style={styles.primaryBtn(activeHover === 'finish', 'accent')}
+                onMouseEnter={() => setActiveHover('finish')}
+                onMouseLeave={() => setActiveHover(null)}
+                onClick={() => rGo(4)}
+              >
+                Complete Registration
+                <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>verified</span>
+              </button>
             </div>
           )}
 
@@ -451,10 +532,15 @@ export default function RegisterPage() {
               <div style={{ width: '80px', height: '80px', borderRadius: '24px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', display: 'grid', placeItems: 'center', marginBottom: '32px', color: colors.success, boxShadow: `0 12px 24px rgba(16, 185, 129, 0.15)` }}>
                 <span className="material-symbols-rounded" style={{ fontSize: '40px' }}>verified_user</span>
               </div>
-              <h2 style={{ ...styles.pageTitle, fontSize: '32px' }}>Workspace Activated</h2>
-              <p style={{ ...styles.pageSub, marginBottom: '32px' }}>Your organizer account has been successfully configured. Welcome to the elite tier of professional event management.</p>
-              <Link to="/organizer/dashboard" style={{ ...styles.primaryBtn(activeHover === 'dash'), textDecoration: 'none' }} onMouseEnter={() => setActiveHover('dash')} onMouseLeave={() => setActiveHover(null)}>
-                Enter Your Workspace
+              <h2 style={{ ...styles.pageTitle, fontSize: '32px' }}>Welcome, {formData.role}.</h2>
+              <p style={{ ...styles.pageSub, marginBottom: '32px' }}>Your {formData.role.toLowerCase()} profile has been activated. You now have full access to the StandingsHQ high-precision ecosystem.</p>
+              <Link 
+                to={formData.role === 'Organizer' ? "/organizer/dashboard" : formData.role === 'Judge' ? "/judge/dashboard" : "/participant/dashboard"} 
+                style={{ ...styles.primaryBtn(activeHover === 'dash'), textDecoration: 'none' }} 
+                onMouseEnter={() => setActiveHover('dash')} 
+                onMouseLeave={() => setActiveHover(null)}
+              >
+                Enter Your Hub
                 <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>dashboard_customize</span>
               </Link>
             </div>
@@ -473,10 +559,10 @@ export default function RegisterPage() {
               <span className="material-symbols-rounded" style={{ fontSize: '48px', color: colors.accent }}>shield_with_heart</span>
             </div>
             <h2 style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '40px', fontWeight: '800', color: '#fff', letterSpacing: '-0.03em', lineHeight: '1.15', marginBottom: '20px' }}>
-              The gold standard in <br /> <span style={{ color: colors.accent }}>event integrity.</span>
+              The ecosystem for <br /> <span style={{ color: colors.accent }}>Competitions.</span>
             </h2>
             <p style={{ fontSize: '17px', color: 'rgba(255,255,255,0.5)', lineHeight: '1.6', margin: 0 }}>
-              End-to-end encryption for every score, automated certificate generation, and live syncing across all portals.
+              Elite standings infrastructure for professional events. Automate ranking, evaluation, and certification in real-time.
             </p>
           </div>
           

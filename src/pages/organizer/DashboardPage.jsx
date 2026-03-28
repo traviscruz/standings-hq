@@ -39,6 +39,7 @@ const StatusBadge = ({ status }) => {
 
 export default function DashboardPage() {
   const { selectedEvent, participants, judges, rubrics, showToast, updateEvent } = useEventContext();
+  const userName = localStorage.getItem('username') || 'Organizer';
   const navigate = useNavigate();
   const [showLogModal, setShowLogModal] = useState(false);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
@@ -109,17 +110,20 @@ export default function DashboardPage() {
       boxShadow: hovered ? '0 8px 24px -6px rgba(15, 31, 61, 0.2)' : 'none',
       transform: hovered ? 'translateY(-2px)' : 'none',
     }),
-    widgetCard: (id, span) => ({
-      background: '#fff',
-      border: `1.5px solid ${hoveredCard === id ? colors.accentGlow : colors.borderSoft}`,
+    widgetCard: (id, span, gradient = 'none') => ({
+      background: hoveredCard === id ? '#fff' : (gradient !== 'none' ? gradient : '#fff'),
+      border: `1.5px solid ${hoveredCard === id ? colors.accent : colors.borderSoft}`,
       borderRadius: '24px',
       padding: '28px',
-      boxShadow: hoveredCard === id ? '0 20px 40px -12px rgba(0,0,0,0.08)' : '0 1px 3px rgba(0,0,0,0.02)',
-      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+      boxShadow: hoveredCard === id ? '0 25px 50px -12px rgba(15, 23, 42, 0.12)' : '0 1px 3px rgba(0,0,0,0.02)',
+      transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
       gridColumn: isMobile ? 'span 1' : `span ${span}`,
       display: 'flex',
       flexDirection: 'column',
       gap: '16px',
+      position: 'relative',
+      overflow: 'hidden',
+      transform: hoveredCard === id ? 'translateY(-6px)' : 'none',
     }),
     iconWrapper: (bg, color) => ({
       width: '44px',
@@ -130,6 +134,7 @@ export default function DashboardPage() {
       display: 'grid',
       placeItems: 'center',
       marginBottom: '8px',
+      boxShadow: '0 4px 10px rgba(0,0,0,0.05)',
     })
   };
 
@@ -144,8 +149,17 @@ export default function DashboardPage() {
     <div style={styles.pageContainer}>
       <header style={styles.pageHeader}>
         <div>
-          <div style={{ marginBottom: '16px' }}>
+          <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
             <StatusBadge status={selectedEvent.status} />
+            <div style={{ 
+               display: 'inline-flex', alignItems: 'center', gap: '8px', 
+               padding: '6px 14px', background: 'rgba(59, 130, 246, 0.08)', borderRadius: '100px', 
+               fontSize: '11px', fontWeight: '800', color: colors.navy, 
+               textTransform: 'uppercase', letterSpacing: '0.05em' 
+            }}>
+               <span className="material-symbols-rounded" style={{ fontSize: '14px', color: colors.accent }}>waving_hand</span>
+               Welcome, {userName.split(' ')[0]}!
+            </div>
           </div>
           <h1 style={styles.pageTitle}>{selectedEvent.name}</h1>
           <p style={{ color: colors.inkSoft, fontSize: '16px', maxWidth: '600px' }}>
@@ -165,7 +179,7 @@ export default function DashboardPage() {
 
       {/* KPI GRID */}
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(12, 1fr)', gap: '24px', marginBottom: '32px' }}>
-        <div style={styles.widgetCard('kpi-p', 3)} onMouseEnter={() => setHoveredCard('kpi-p')} onMouseLeave={() => setHoveredCard(null)}>
+        <div style={styles.widgetCard('kpi-p', 3, `linear-gradient(135deg, #fff 40%, ${colors.accentBg} 100%)`)} onMouseEnter={() => setHoveredCard('kpi-p')} onMouseLeave={() => setHoveredCard(null)}>
           <div style={styles.iconWrapper(colors.accentBg, colors.accent)}>
             <span className="material-symbols-rounded">groups</span>
           </div>
@@ -174,7 +188,7 @@ export default function DashboardPage() {
           <div style={{ fontSize: '13px', color: colors.success, fontWeight: 700 }}>+{pending} pending</div>
         </div>
 
-        <div style={styles.widgetCard('kpi-j', 3)} onMouseEnter={() => setHoveredCard('kpi-j')} onMouseLeave={() => setHoveredCard(null)}>
+        <div style={styles.widgetCard('kpi-j', 3, 'linear-gradient(135deg, #fff 40%, #F0FDF4 100%)')} onMouseEnter={() => setHoveredCard('kpi-j')} onMouseLeave={() => setHoveredCard(null)}>
           <div style={styles.iconWrapper('#F0FDF4', '#16A34A')}>
             <span className="material-symbols-rounded">gavel</span>
           </div>
@@ -183,7 +197,7 @@ export default function DashboardPage() {
           <div style={{ fontSize: '13px', color: colors.inkMuted, fontWeight: 600 }}>{accepted} accepted</div>
         </div>
 
-        <div style={styles.widgetCard('kpi-s', 3)} onMouseEnter={() => setHoveredCard('kpi-s')} onMouseLeave={() => setHoveredCard(null)}>
+        <div style={styles.widgetCard('kpi-s', 3, 'linear-gradient(135deg, #fff 40%, #FFF7ED 100%)')} onMouseEnter={() => setHoveredCard('kpi-s')} onMouseLeave={() => setHoveredCard(null)}>
           <div style={styles.iconWrapper('#FFF7ED', '#EA580C')}>
             <span className="material-symbols-rounded">edit_note</span>
           </div>
@@ -194,7 +208,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div style={styles.widgetCard('kpi-r', 3)} onMouseEnter={() => setHoveredCard('kpi-r')} onMouseLeave={() => setHoveredCard(null)}>
+        <div style={styles.widgetCard('kpi-r', 3, 'linear-gradient(135deg, #fff 40%, #EEF2FF 100%)')} onMouseEnter={() => setHoveredCard('kpi-r')} onMouseLeave={() => setHoveredCard(null)}>
           <div style={styles.iconWrapper('#EFF6FF', '#2563EB')}>
             <span className="material-symbols-rounded">analytics</span>
           </div>

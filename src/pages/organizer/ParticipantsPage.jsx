@@ -167,6 +167,7 @@ export default function ParticipantsPage() {
   const [confirmKick, setConfirmKick] = useState(null);
   const [showBulkTeam, setShowBulkTeam] = useState(false);
   const [bulkTeamVal, setBulkTeamVal] = useState('');
+  const [showCsvHelp, setShowCsvHelp] = useState(false);
 
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const [activeBtnHover, setActiveBtnHover] = useState(null);
@@ -303,16 +304,18 @@ export default function ParticipantsPage() {
       gap: '24px',
       marginBottom: '28px',
     },
-    widgetCard: (span, bg = '#fff') => ({
-      background: '#fff',
+    widgetCard: (span, gradient = 'none') => ({
+      background: gradient !== 'none' ? gradient : '#fff',
       border: `1.5px solid ${colors.borderSoft}`,
-      borderRadius: '20px',
-      padding: '24px',
+      borderRadius: '24px',
+      padding: '28px',
       boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
       gridColumn: isMobile ? 'span 1' : `span ${span}`,
       display: 'flex',
       flexDirection: 'column',
       gap: '12px',
+      transition: 'transform 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28), box-shadow 0.3s ease',
+      cursor: 'default',
     }),
     iconWrapper: (bg, color) => ({
       width: '40px',
@@ -322,6 +325,7 @@ export default function ParticipantsPage() {
       color: color,
       display: 'grid',
       placeItems: 'center',
+      boxShadow: '0 4px 10px rgba(0,0,0,0.05)',
     }),
     statLabel: {
       fontSize: '11px',
@@ -481,15 +485,26 @@ export default function ParticipantsPage() {
           <p style={styles.pageDescription}>Manage competitors for <strong style={{ color: colors.navy }}>{selectedEvent.name}</strong>.</p>
         </div>
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-          <label
-            style={styles.btn(activeBtnHover === 'import')}
-            onMouseEnter={() => setActiveBtnHover('import')}
-            onMouseLeave={() => setActiveBtnHover(null)}
-          >
-            <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>upload_file</span>
-            Import CSV
-            <input type="file" accept=".csv" style={{ display: 'none' }} onChange={handleFileImport} />
-          </label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <label
+              style={styles.btn(activeBtnHover === 'import')}
+              onMouseEnter={() => setActiveBtnHover('import')}
+              onMouseLeave={() => setActiveBtnHover(null)}
+            >
+              <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>upload_file</span>
+              Import CSV
+              <input type="file" accept=".csv" style={{ display: 'none' }} onChange={handleFileImport} />
+            </label>
+            <button 
+              style={styles.btn(activeBtnHover === 'csv-help')}
+              onClick={() => setShowCsvHelp(true)}
+              onMouseEnter={() => setActiveBtnHover('csv-help')}
+              onMouseLeave={() => setActiveBtnHover(null)}
+            >
+              <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>help</span>
+              Format Guide
+            </button>
+          </div>
           <button
             style={styles.btn(activeBtnHover === 'invite', true)}
             onMouseEnter={() => setActiveBtnHover('invite')}
@@ -504,17 +519,17 @@ export default function ParticipantsPage() {
 
       {/* ── KPI Strip ── */}
       <div style={styles.dashboardGrid}>
-        <div style={styles.widgetCard(4)}>
+        <div style={{ ...styles.widgetCard(4, `linear-gradient(135deg, #fff 40%, ${colors.accentBg} 100%)`), transform: activeBtnHover === 'kpi-t' ? 'translateY(-4px)' : 'none', boxShadow: activeBtnHover === 'kpi-t' ? '0 12px 30px rgba(0,0,0,0.06)' : styles.widgetCard(4).boxShadow }} onMouseEnter={() => setActiveBtnHover('kpi-t')} onMouseLeave={() => setActiveBtnHover(null)}>
           <div style={styles.iconWrapper(colors.accentBg, colors.accent)}><span className="material-symbols-rounded" style={{ fontSize: '20px' }}>groups</span></div>
           <span style={styles.statLabel}>Total</span>
           <div style={styles.statValue}>{participants.length}</div>
         </div>
-        <div style={styles.widgetCard(4)}>
+        <div style={{ ...styles.widgetCard(4, 'linear-gradient(135deg, #fff 40%, #F0FDF4 100%)'), transform: activeBtnHover === 'kpi-r' ? 'translateY(-4px)' : 'none', boxShadow: activeBtnHover === 'kpi-r' ? '0 12px 30px rgba(0,0,0,0.06)' : styles.widgetCard(4).boxShadow }} onMouseEnter={() => setActiveBtnHover('kpi-r')} onMouseLeave={() => setActiveBtnHover(null)}>
           <div style={styles.iconWrapper('#F0FDF4', colors.success)}><span className="material-symbols-rounded" style={{ fontSize: '20px' }}>how_to_reg</span></div>
           <span style={styles.statLabel}>Registered</span>
           <div style={{ ...styles.statValue, color: colors.success }}>{registered}</div>
         </div>
-        <div style={styles.widgetCard(4)}>
+        <div style={{ ...styles.widgetCard(4, 'linear-gradient(135deg, #fff 40%, #FFF7ED 100%)'), transform: activeBtnHover === 'kpi-p' ? 'translateY(-4px)' : 'none', boxShadow: activeBtnHover === 'kpi-p' ? '0 12px 30px rgba(0,0,0,0.06)' : styles.widgetCard(4).boxShadow }} onMouseEnter={() => setActiveBtnHover('kpi-p')} onMouseLeave={() => setActiveBtnHover(null)}>
           <div style={styles.iconWrapper('#FFF7ED', '#D97706')}><span className="material-symbols-rounded" style={{ fontSize: '20px' }}>person_outline</span></div>
           <span style={styles.statLabel}>Pending Invite</span>
           <div style={{ ...styles.statValue, color: '#D97706' }}>{pendingCount}</div>
@@ -765,6 +780,70 @@ export default function ParticipantsPage() {
                 <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>send</span>
                 Send Invites ({pending.length})
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══ CSV HELP MODAL ══ */}
+      {showCsvHelp && (
+        <div style={styles.modalOverlay} onClick={() => setShowCsvHelp(false)}>
+          <div style={styles.modalContainer('540px')} onClick={e => e.stopPropagation()}>
+            <div style={{ padding: '32px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
+                <div>
+                  <h2 style={styles.modalTitle}>CSV Import Guide</h2>
+                  <p style={{ fontSize: '14px', color: colors.inkMuted, marginTop: '6px', margin: 0 }}>Ensure your file has these exact column headers.</p>
+                </div>
+                <button style={styles.btnIcon(activeBtnHover === 'help-close')} onClick={() => setShowCsvHelp(false)} onMouseEnter={() => setActiveBtnHover('help-close')} onMouseLeave={() => setActiveBtnHover(null)}>
+                  <span className="material-symbols-rounded">close</span>
+                </button>
+              </div>
+
+              <div style={{ background: colors.pageBg, borderRadius: '16px', padding: '20px', border: `1px solid ${colors.borderSoft}`, marginBottom: '24px' }}>
+                <div style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: colors.inkMuted, marginBottom: '12px' }}>Required Columns</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {['name', 'email', 'team'].map(col => (
+                    <code key={col} style={{ background: '#fff', border: `1px solid ${colors.border}`, padding: '4px 10px', borderRadius: '8px', fontSize: '13px', fontWeight: 600, color: colors.navy }}>{col}</code>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: colors.inkMuted, marginBottom: '12px' }}>Sample Data</div>
+              <div style={{ border: `1px solid ${colors.borderSoft}`, borderRadius: '16px', overflow: 'hidden' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                  <thead>
+                    <tr style={{ background: colors.pageBg }}>
+                      <th style={{ padding: '10px 14px', textAlign: 'left', borderBottom: `1px solid ${colors.borderSoft}`, color: colors.inkMuted }}>name</th>
+                      <th style={{ padding: '10px 14px', textAlign: 'left', borderBottom: `1px solid ${colors.borderSoft}`, color: colors.inkMuted }}>email</th>
+                      <th style={{ padding: '10px 14px', textAlign: 'left', borderBottom: `1px solid ${colors.borderSoft}`, color: colors.inkMuted }}>team</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td style={{ padding: '10px 14px', borderBottom: `1px solid ${colors.borderSoft}`, color: colors.navy, fontWeight: 500 }}>Lapu-Lapu</td>
+                      <td style={{ padding: '10px 14px', borderBottom: `1px solid ${colors.borderSoft}` }}>lapu@mactan.ph</td>
+                      <td style={{ padding: '10px 14px', borderBottom: `1px solid ${colors.borderSoft}` }}>Kadato-an Warriors</td>
+                    </tr>
+                    <tr>
+                      <td style={{ padding: '10px 14px', color: colors.navy, fontWeight: 500 }}>Diego Cera</td>
+                      <td style={{ padding: '10px 14px' }}>diego@manila.ph</td>
+                      <td style={{ padding: '10px 14px' }}>Tondo FC</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div style={{ marginTop: '32px', display: 'flex', justifyContent: 'flex-end' }}>
+                <button 
+                  style={styles.btn(activeBtnHover === 'help-ok', true)} 
+                  onClick={() => setShowCsvHelp(false)}
+                  onMouseEnter={() => setActiveBtnHover('help-ok')}
+                  onMouseLeave={() => setActiveBtnHover(null)}
+                >
+                  Got it
+                </button>
+              </div>
             </div>
           </div>
         </div>

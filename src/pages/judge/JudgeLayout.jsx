@@ -109,6 +109,8 @@ export default function JudgeLayout() {
     }
   ]);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  const userName = localStorage.getItem('username') || 'Official Judge';
+  const userInitials = userName.split(' ').map(n => n[0]).join('').toUpperCase();
   const [hoveredLink, setHoveredLink] = useState(null);
   const [isLogoutHovered, setIsLogoutHovered] = useState(false);
   const [isMenuHovered, setIsMenuHovered] = useState(false);
@@ -389,8 +391,8 @@ export default function JudgeLayout() {
             </div>
             <span style={brandStyle}>Standings<span style={{ color: colors.accent }}>HQ</span></span>
           </Link>
-          <button 
-            style={{ background: isMenuHovered ? colors.borderSoft : 'none', border: 'none', color: colors.inkMuted, cursor: 'pointer', padding: '6px', borderRadius: '50%', display: 'grid', placeItems: 'center', transition: 'all 0.22s' }} 
+          <button
+            style={{ background: isMenuHovered ? colors.borderSoft : 'none', border: 'none', color: colors.inkMuted, cursor: 'pointer', padding: '6px', borderRadius: '50%', display: 'grid', placeItems: 'center', transition: 'all 0.22s' }}
             onClick={() => setIsSidebarOpen(true)}
             onMouseEnter={() => setIsMenuHovered(true)}
             onMouseLeave={() => setIsMenuHovered(false)}
@@ -421,8 +423,8 @@ export default function JudgeLayout() {
                 <span style={{ ...brandStyle, fontSize: '18px' }}>Standings<span style={{ color: colors.accent }}>HQ</span></span>
               </Link>
               {isSidebarOpen && isMobile && (
-                <button 
-                  style={{ background: isCloseHovered ? colors.borderSoft : 'none', border: 'none', color: colors.inkMuted, cursor: 'pointer', padding: '6px', borderRadius: '50%', display: 'grid', placeItems: 'center', transition: 'all 0.22s', marginLeft: 'auto' }} 
+                <button
+                  style={{ background: isCloseHovered ? colors.borderSoft : 'none', border: 'none', color: colors.inkMuted, cursor: 'pointer', padding: '6px', borderRadius: '50%', display: 'grid', placeItems: 'center', transition: 'all 0.22s', marginLeft: 'auto' }}
                   onClick={() => setIsSidebarOpen(false)}
                   onMouseEnter={() => setIsCloseHovered(true)}
                   onMouseLeave={() => setIsCloseHovered(false)}
@@ -446,8 +448,8 @@ export default function JudgeLayout() {
 
           <nav style={navStyle}>
             <div style={sectionTitleStyle}>Overview</div>
-            <NavLink 
-              to="/judge/dashboard" 
+            <NavLink
+              to="/judge/dashboard"
               style={({ isActive }) => getSidebarLinkStyle(isActive, 'dashboard')}
               onMouseEnter={() => setHoveredLink('dashboard')}
               onMouseLeave={() => setHoveredLink(null)}
@@ -455,8 +457,8 @@ export default function JudgeLayout() {
               <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>space_dashboard</span>
               <span>Dashboard</span>
             </NavLink>
-            <NavLink 
-              to="/judge/invites" 
+            <NavLink
+              to="/judge/invites"
               style={({ isActive }) => getSidebarLinkStyle(isActive, 'invites')}
               onMouseEnter={() => setHoveredLink('invites')}
               onMouseLeave={() => setHoveredLink(null)}
@@ -469,8 +471,8 @@ export default function JudgeLayout() {
             </NavLink>
 
             <div style={sectionTitleStyle}>Scoring Loop</div>
-            <NavLink 
-              to="/judge/scoring" 
+            <NavLink
+              to="/judge/scoring"
               style={({ isActive }) => getSidebarLinkStyle(isActive, 'scoring')}
               onMouseEnter={() => setHoveredLink('scoring')}
               onMouseLeave={() => setHoveredLink(null)}
@@ -478,8 +480,8 @@ export default function JudgeLayout() {
               <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>edit_note</span>
               <span>Scoring Sheet</span>
             </NavLink>
-            <NavLink 
-              to="/judge/rubric" 
+            <NavLink
+              to="/judge/rubric"
               style={({ isActive }) => getSidebarLinkStyle(isActive, 'rubric')}
               onMouseEnter={() => setHoveredLink('rubric')}
               onMouseLeave={() => setHoveredLink(null)}
@@ -491,13 +493,15 @@ export default function JudgeLayout() {
 
           <div style={footerStyle}>
             <div style={userProfileStyle}>
-              <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: colors.navy, color: '#fff', display: 'grid', placeItems: 'center', fontSize: '12px', fontWeight: '700' }}>MR</div>
-              <div style={{ flex: 1, overflow: 'hidden' }}>
-                <span style={{ fontSize: '13px', fontWeight: '600', color: colors.navy, display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Marian Rivera</span>
-                <span style={{ fontSize: '11px', color: colors.inkMuted }}>Official Judge</span>
-              </div>
-              <button 
-                style={{ background: isLogoutHovered ? colors.borderSoft : 'none', border: 'none', color: colors.inkMuted, cursor: 'pointer', padding: '6px', borderRadius: '50%', display: 'grid', placeItems: 'center', transition: 'all 0.22s' }} 
+              <Link to="/judge/profile" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none', flex: 1, overflow: 'hidden' }}>
+                <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: colors.navy, color: '#fff', display: 'grid', placeItems: 'center', fontSize: '12px', fontWeight: '700' }}>{userInitials}</div>
+                <div style={{ flex: 1, overflow: 'hidden' }}>
+                  <span style={{ fontSize: '13px', fontWeight: '600', color: colors.navy, display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{userName}</span>
+                  <span style={{ fontSize: '11px', color: colors.inkMuted }}>Official Judge</span>
+                </div>
+              </Link>
+              <button
+                style={{ background: isLogoutHovered ? colors.borderSoft : 'none', border: 'none', color: colors.inkMuted, cursor: 'pointer', padding: '6px', borderRadius: '50%', display: 'grid', placeItems: 'center', transition: 'all 0.22s' }}
                 onClick={() => navigate('/')}
                 onMouseEnter={() => setIsLogoutHovered(true)}
                 onMouseLeave={() => setIsLogoutHovered(false)}
@@ -524,8 +528,8 @@ export default function JudgeLayout() {
             </div>
             <span style={{ fontSize: '13.5px', fontWeight: '500', color: 'rgba(255, 255, 255, 0.95)', flex: 1, whiteSpace: isMobile ? 'normal' : 'nowrap', lineHeight: isMobile ? '1.4' : 'normal' }}>{toast.message}</span>
             {toast.onUndo && (
-              <button 
-                style={{ background: 'rgba(255, 255, 255, 0.08)', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff', padding: '4px 14px', borderRadius: '100px', fontSize: '11.5px', fontWeight: '700', cursor: 'pointer', transition: 'all 0.22s' }} 
+              <button
+                style={{ background: 'rgba(255, 255, 255, 0.08)', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff', padding: '4px 14px', borderRadius: '100px', fontSize: '11.5px', fontWeight: '700', cursor: 'pointer', transition: 'all 0.22s' }}
                 onClick={() => { toast.onUndo(); setToast(null); }}
               >
                 Undo
@@ -535,9 +539,9 @@ export default function JudgeLayout() {
               <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>close</span>
             </button>
             <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '2px', background: 'rgba(255, 255, 255, 0.05)' }}>
-              <div 
+              <div
                 className="pill-progress-bar-anim"
-                style={{ height: '100%', width: '100%', background: toast.type === 'success' ? '#22c55e' : toast.type === 'error' ? '#ef4444' : colors.accent, transformOrigin: 'left' }} 
+                style={{ height: '100%', width: '100%', background: toast.type === 'success' ? '#22c55e' : toast.type === 'error' ? '#ef4444' : colors.accent, transformOrigin: 'left' }}
               />
             </div>
           </div>

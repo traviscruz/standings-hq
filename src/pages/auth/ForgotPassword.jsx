@@ -294,7 +294,7 @@ export default function ForgotPassword() {
               <p style={styles.pageSub}>Don't worry, even the best organizers need a reset sometimes. Enter your email to recover your workspace.</p>
 
               <div style={styles.formGroup}>
-                <label style={styles.label}>Corporate Email</label>
+                <label style={styles.label}>Email Address</label>
                 <input
                   type="email"
                   placeholder="organizer@organization.com"
@@ -350,10 +350,10 @@ export default function ForgotPassword() {
               <span className="material-symbols-rounded" style={{ fontSize: '48px', color: colors.accent }}>shield_with_heart</span>
             </div>
             <h2 style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '40px', fontWeight: '800', color: '#fff', letterSpacing: '-0.03em', lineHeight: '1.15', marginBottom: '20px' }}>
-              The gold standard in <br /> <span style={{ color: colors.accent }}>event integrity.</span>
+              The ecosystem for <br /> <span style={{ color: colors.accent }}>Competitions.</span>
             </h2>
             <p style={{ fontSize: '17px', color: 'rgba(255,255,255,0.5)', lineHeight: '1.6', margin: 0 }}>
-              End-to-end encryption for every score, automated certificate generation, and live syncing across all portals.
+              Elite standings infrastructure for professional events. Automate ranking, evaluation, and certification in real-time.
             </p>
           </div>
           

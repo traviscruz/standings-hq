@@ -17,6 +17,7 @@ const SEED_EVENTS = [
     endDate: '2026-12-06',
     endTime: '17:00',
     description: 'Annual national athletic competition for students across the Philippines.',
+    location: 'Cebu City Sports Center, Cebu',
     visibility: 'Public',
     status: 'Upcoming',
     createdAt: '2026-03-10',
@@ -30,6 +31,7 @@ const SEED_EVENTS = [
     endDate: '2026-10-15',
     endTime: '18:00',
     description: 'An open debate championship for collegiate teams across Metro Manila.',
+    location: 'UP Diliman, Quezon City',
     visibility: 'Private',
     status: 'Active',
     createdAt: '2026-02-20',
@@ -43,6 +45,7 @@ const SEED_EVENTS = [
     endDate: '2026-11-21',
     endTime: '16:00',
     description: 'A battle of tech skills including coding, networking, and cybersecurity.',
+    location: 'SMX Convention Center, Pasay',
     visibility: 'Public',
     status: 'Upcoming',
     createdAt: '2026-03-01',
@@ -56,6 +59,7 @@ const SEED_EVENTS = [
     endDate: '2025-08-11',
     endTime: '17:00',
     description: 'Concluded annual Science Fair for the region. Archived.',
+    location: 'University of Science & Tech, Davao',
     visibility: 'Public',
     status: 'Completed',
     createdAt: '2025-06-01',
@@ -131,6 +135,8 @@ export default function OrganizerLayout() {
   const [selectedEventId, setSelectedEventId] = useState(2); // Start on the active one
 
   const selectedEvent = eventsList.find(e => e.id === selectedEventId) || eventsList[0];
+  const userName = localStorage.getItem('username') || 'Event Admin';
+  const userInitials = userName.split(' ').map(n => n[0]).join('').toUpperCase();
 
   const getParticipants = (id = selectedEventId) => participantsData[id] || [];
   const getJudges = (id = selectedEventId) => judgesData[id] || [];
@@ -501,8 +507,8 @@ export default function OrganizerLayout() {
             </div>
             <span style={{ ...styles.brand, fontSize: '18px' }}>Standings<span style={{ color: colors.accent }}>HQ</span></span>
           </Link>
-          <button 
-            style={{ background: isMenuHovered ? colors.borderSoft : 'none', border: 'none', color: colors.inkMuted, cursor: 'pointer', padding: '6px', borderRadius: '50%', display: 'grid', placeItems: 'center', transition: 'all 0.22s' }} 
+          <button
+            style={{ background: isMenuHovered ? colors.borderSoft : 'none', border: 'none', color: colors.inkMuted, cursor: 'pointer', padding: '6px', borderRadius: '50%', display: 'grid', placeItems: 'center', transition: 'all 0.22s' }}
             onClick={() => setIsSidebarOpen(true)}
             onMouseEnter={() => setIsMenuHovered(true)}
             onMouseLeave={() => setIsMenuHovered(false)}
@@ -533,8 +539,8 @@ export default function OrganizerLayout() {
                 <span style={{ ...styles.brand, fontSize: '20px' }}>Standings<span style={{ color: colors.accent }}>HQ</span></span>
               </Link>
               {isSidebarOpen && isMobile && (
-                <button 
-                  style={{ background: isMenuHovered ? colors.borderSoft : 'none', border: 'none', color: colors.inkMuted, cursor: 'pointer', padding: '6px', borderRadius: '50%', display: 'grid', placeItems: 'center', transition: 'all 0.22s', marginLeft: 'auto' }} 
+                <button
+                  style={{ background: isMenuHovered ? colors.borderSoft : 'none', border: 'none', color: colors.inkMuted, cursor: 'pointer', padding: '6px', borderRadius: '50%', display: 'grid', placeItems: 'center', transition: 'all 0.22s', marginLeft: 'auto' }}
                   onClick={() => setIsSidebarOpen(false)}
                   onMouseEnter={() => setIsMenuHovered(true)}
                   onMouseLeave={() => setIsMenuHovered(false)}
@@ -546,8 +552,8 @@ export default function OrganizerLayout() {
 
             {/* Event Switcher */}
             <div style={styles.eventSwitcher} ref={dropdownRef}>
-              <div 
-                style={styles.eventSwitcherBtn(hoveredLink === 'switcher')} 
+              <div
+                style={styles.eventSwitcherBtn(hoveredLink === 'switcher')}
                 onMouseEnter={() => setHoveredLink('switcher')}
                 onMouseLeave={() => setHoveredLink(null)}
                 onClick={() => { setIsDropdownOpen(!isDropdownOpen); setSwitcherSearch(''); }}
@@ -572,12 +578,12 @@ export default function OrganizerLayout() {
                         placeholder="Search events..."
                         onMouseEnter={() => setIsSearchHovered(true)}
                         onMouseLeave={() => setIsSearchHovered(false)}
-                        style={{ 
-                          width: '100%', 
-                          padding: '8px 10px 8px 32px', 
-                          border: `1px solid ${isSearchHovered ? colors.accent : colors.borderSoft}`, 
-                          borderRadius: '10px', 
-                          fontSize: '13px', 
+                        style={{
+                          width: '100%',
+                          padding: '8px 10px 8px 32px',
+                          border: `1px solid ${isSearchHovered ? colors.accent : colors.borderSoft}`,
+                          borderRadius: '10px',
+                          fontSize: '13px',
                           outline: 'none',
                           transition: 'all 0.2s'
                         }}
@@ -619,9 +625,9 @@ export default function OrganizerLayout() {
                   </div>
                   <div style={{ padding: '4px 8px 8px', borderTop: `1px solid ${colors.borderSoft}` }}>
                     <div
-                      style={{ 
-                        ...styles.eventOption(false, hoveredLink === 'create-ev'), 
-                        color: colors.accent, 
+                      style={{
+                        ...styles.eventOption(false, hoveredLink === 'create-ev'),
+                        color: colors.accent,
                         fontWeight: 600,
                         gap: '10px'
                       }}
@@ -641,8 +647,8 @@ export default function OrganizerLayout() {
           {/* Nav Links */}
           <nav style={styles.sidebarNav}>
             <div style={styles.navSectionTitle}>Overview</div>
-            <NavLink 
-              to="/organizer/dashboard" 
+            <NavLink
+              to="/organizer/dashboard"
               style={({ isActive }) => styles.sidebarLink(isActive, 'dashboard')}
               onMouseEnter={() => setHoveredLink('dashboard')}
               onMouseLeave={() => setHoveredLink(null)}
@@ -650,10 +656,19 @@ export default function OrganizerLayout() {
               <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>space_dashboard</span>
               Dashboard
             </NavLink>
+            <NavLink
+              to="/organizer/analytics"
+              style={({ isActive }) => styles.sidebarLink(isActive, 'analytics')}
+              onMouseEnter={() => setHoveredLink('analytics')}
+              onMouseLeave={() => setHoveredLink(null)}
+            >
+              <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>analytics</span>
+              Analytics & Insights
+            </NavLink>
 
             <div style={styles.navSectionTitle}>Event Configuration</div>
-            <NavLink 
-              to="/organizer/events/manage" 
+            <NavLink
+              to="/organizer/events/manage"
               style={({ isActive }) => styles.sidebarLink(isActive, 'manage')}
               onMouseEnter={() => setHoveredLink('manage')}
               onMouseLeave={() => setHoveredLink(null)}
@@ -661,8 +676,8 @@ export default function OrganizerLayout() {
               <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>calendar_month</span>
               My Events
             </NavLink>
-            <NavLink 
-              to="/organizer/events/settings" 
+            <NavLink
+              to="/organizer/events/settings"
               style={({ isActive }) => styles.sidebarLink(isActive, 'settings')}
               onMouseEnter={() => setHoveredLink('settings')}
               onMouseLeave={() => setHoveredLink(null)}
@@ -670,8 +685,8 @@ export default function OrganizerLayout() {
               <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>settings</span>
               Event Settings
             </NavLink>
-            <NavLink 
-              to="/organizer/rubrics" 
+            <NavLink
+              to="/organizer/rubrics"
               style={({ isActive }) => styles.sidebarLink(isActive, 'rubrics')}
               onMouseEnter={() => setHoveredLink('rubrics')}
               onMouseLeave={() => setHoveredLink(null)}
@@ -681,8 +696,8 @@ export default function OrganizerLayout() {
             </NavLink>
 
             <div style={styles.navSectionTitle}>People & Scoring</div>
-            <NavLink 
-              to="/organizer/participants" 
+            <NavLink
+              to="/organizer/participants"
               style={({ isActive }) => styles.sidebarLink(isActive, 'participants')}
               onMouseEnter={() => setHoveredLink('participants')}
               onMouseLeave={() => setHoveredLink(null)}
@@ -690,8 +705,8 @@ export default function OrganizerLayout() {
               <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>groups</span>
               Participants {pCount > 0 && <span style={styles.sidebarBadge}>{pCount}</span>}
             </NavLink>
-            <NavLink 
-              to="/organizer/judges" 
+            <NavLink
+              to="/organizer/judges"
               style={({ isActive }) => styles.sidebarLink(isActive, 'judges')}
               onMouseEnter={() => setHoveredLink('judges')}
               onMouseLeave={() => setHoveredLink(null)}
@@ -701,8 +716,8 @@ export default function OrganizerLayout() {
             </NavLink>
 
             <div style={styles.navSectionTitle}>Post-Event</div>
-            <NavLink 
-              to="/organizer/results" 
+            <NavLink
+              to="/organizer/results"
               style={({ isActive }) => styles.sidebarLink(isActive, 'results')}
               onMouseEnter={() => setHoveredLink('results')}
               onMouseLeave={() => setHoveredLink(null)}
@@ -710,8 +725,8 @@ export default function OrganizerLayout() {
               <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>leaderboard</span>
               Results & Standings
             </NavLink>
-            <NavLink 
-              to="/organizer/certificates" 
+            <NavLink
+              to="/organizer/certificates"
               style={({ isActive }) => styles.sidebarLink(isActive, 'certs')}
               onMouseEnter={() => setHoveredLink('certs')}
               onMouseLeave={() => setHoveredLink(null)}
@@ -719,8 +734,8 @@ export default function OrganizerLayout() {
               <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>workspace_premium</span>
               Certificates
             </NavLink>
-            <NavLink 
-              to="/organizer/publish" 
+            <NavLink
+              to="/organizer/publish"
               style={({ isActive }) => styles.sidebarLink(isActive, 'publish')}
               onMouseEnter={() => setHoveredLink('publish')}
               onMouseLeave={() => setHoveredLink(null)}
@@ -733,12 +748,14 @@ export default function OrganizerLayout() {
           {/* User Footer */}
           <div style={styles.sidebarFooter}>
             <div style={styles.userProfile}>
-              <div style={styles.userAvatar}>JD</div>
-              <div style={{ flex: 1, overflow: 'hidden' }}>
-                <span style={styles.userName}>Juan Dela Cruz</span>
-                <span style={styles.userRole}>Organizer</span>
-              </div>
-              <button 
+              <Link to="/organizer/profile" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none', flex: 1, overflow: 'hidden' }}>
+                <div style={styles.userAvatar}>{userInitials}</div>
+                <div style={{ flex: 1, overflow: 'hidden' }}>
+                  <span style={styles.userName}>{userName}</span>
+                  <span style={styles.userRole}>Organizer Agent</span>
+                </div>
+              </Link>
+              <button
                 style={{ background: isLogoutHovered ? colors.borderSoft : 'none', border: 'none', cursor: 'pointer', display: 'flex', color: colors.inkMuted, padding: '6px', borderRadius: '50%', transition: 'all 0.22s' }}
                 onClick={() => { navigate('/'); showToast('Signed out. See you!', 'info'); }}
                 onMouseEnter={() => setIsLogoutHovered(true)}
@@ -763,46 +780,46 @@ export default function OrganizerLayout() {
       {toast && (
         <div style={styles.notificationContainer}>
           <div style={styles.notificationPill(toast.type)}>
-            <span className="material-symbols-rounded" style={{ 
-              color: toast.type === 'success' ? '#4ade80' : toast.type === 'error' ? '#f87171' : '#60a5fa' 
+            <span className="material-symbols-rounded" style={{
+              color: toast.type === 'success' ? '#4ade80' : toast.type === 'error' ? '#f87171' : '#60a5fa'
             }}>
               {toast.type === 'success' ? 'check_circle' : toast.type === 'error' ? 'error' : 'info'}
             </span>
             <span style={{ fontSize: '13.5px', fontWeight: 500, flex: 1 }}>{toast.message}</span>
             {toast.onUndo && (
-              <button 
-                style={{ 
-                  background: 'rgba(255, 255, 255, 0.15)', 
-                  border: '1px solid rgba(255, 255, 255, 0.2)', 
-                  color: '#fff', 
-                  padding: '4px 12px', 
-                  borderRadius: '100px', 
-                  fontSize: '11px', 
-                  fontWeight: 700, 
-                  cursor: 'pointer', 
-                  transition: 'all 0.2s', 
-                  marginLeft: '8px' 
+              <button
+                style={{
+                  background: 'rgba(255, 255, 255, 0.15)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  color: '#fff',
+                  padding: '4px 12px',
+                  borderRadius: '100px',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  marginLeft: '8px'
                 }}
                 onClick={() => { toast.onUndo(); setToast(null); }}
               >
                 Undo
               </button>
             )}
-            <button 
+            <button
               onClick={() => setToast(null)}
               style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', marginLeft: 'auto', display: 'flex' }}
             >
               <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>close</span>
             </button>
             <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '2px', background: 'rgba(255,255,255,0.05)' }}>
-              <div 
-                className="pill-timer-anim" 
-                style={{ 
-                  height: '100%', 
-                  width: '100%', 
-                  background: toast.type === 'success' ? '#22c55e' : (toast.type === 'error' ? '#ef4444' : colors.accent), 
-                  transformOrigin: 'left' 
-                }} 
+              <div
+                className="pill-timer-anim"
+                style={{
+                  height: '100%',
+                  width: '100%',
+                  background: toast.type === 'success' ? '#22c55e' : (toast.type === 'error' ? '#ef4444' : colors.accent),
+                  transformOrigin: 'left'
+                }}
               />
             </div>
           </div>

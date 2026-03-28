@@ -26,6 +26,7 @@ export default function CreateEventPage() {
     startDate: '', startTime: '08:00',
     endDate: '', endTime: '17:00',
     description: '', visibility: 'Public',
+    location: '',
   });
   const [useCustomName, setUseCustomName] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -51,7 +52,7 @@ export default function CreateEventPage() {
     }
     setLoading(true);
     setTimeout(() => {
-      addEvent({ name, type: form.type, startDate: form.startDate, startTime: form.startTime, endDate: form.endDate, endTime: form.endTime, description: form.description, visibility: form.visibility });
+      addEvent({ name, type: form.type, startDate: form.startDate, startTime: form.startTime, endDate: form.endDate, endTime: form.endTime, description: form.description, location: form.location, visibility: form.visibility });
       showToast(`Event "${name}" created successfully!`, 'success');
       navigate('/organizer/dashboard');
     }, 1200);
@@ -256,6 +257,25 @@ export default function CreateEventPage() {
             </div>
           </div>
 
+          {/* Venue Location */}
+          <div style={styles.formSection}>
+            <div style={styles.formSectionHead}>
+              <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>pin_drop</span> Venue & Address
+            </div>
+            <div style={styles.formSectionBody}>
+              <label style={styles.label}>Venue Address / Office Location</label>
+              <input 
+                type="text" 
+                style={styles.input} 
+                placeholder="e.g. Grand Ballroom, Hilton Manila" 
+                value={form.location} 
+                onChange={e => set('location', e.target.value)} 
+                onFocus={inputFocus} 
+                onBlur={inputBlur} 
+              />
+            </div>
+          </div>
+
           {/* Description */}
           <div style={styles.formSection}>
             <div style={styles.formSectionHead}>
@@ -316,9 +336,13 @@ export default function CreateEventPage() {
                   <h2 style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '22px', fontWeight: 800, marginBottom: '14px', lineHeight: 1.2 }}>
                     {(useCustomName ? form.customName : form.name) || <span style={{ opacity: 0.2 }}>Event Name</span>}
                   </h2>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', opacity: 0.7 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', opacity: 0.7, marginBottom: '6px' }}>
                     <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>calendar_month</span>
                     {form.startDate ? formatDate(form.startDate) : 'Pending Date'}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', opacity: 0.7 }}>
+                    <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>pin_drop</span>
+                    {form.location || 'Pending Location'}
                   </div>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
