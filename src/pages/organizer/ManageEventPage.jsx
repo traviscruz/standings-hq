@@ -22,13 +22,32 @@ export default function ManageEventPage() {
 
   const isMobile = windowWidth <= 768;
 
-  const statusColor = (s) => {
-    if (s === 'Active') return { bg: '#DCFCE7', color: '#166534' };
-    if (s === 'Completed') return { bg: '#E0E7FF', color: '#3730A3' };
-    if (s === 'Upcoming') return { bg: '#FEF3C7', color: '#92400E' };
-    if (s === 'Cancelled') return { bg: '#FEE2E2', color: '#991B1B' };
-    return { bg: '#F1F5F9', color: '#475569' };
+/* ─── Status Badge ──────────────────────────────────────────────────────── */
+function StatusBadge({ status }) {
+  const configs = {
+    Active:    { color: '#166534', bg: '#DCFCE7', icon: 'sensors', pulse: true },
+    Upcoming:  { color: '#92400E', bg: '#FEF3C7', icon: 'schedule' },
+    Completed: { color: '#3730A3', bg: '#E0E7FF', icon: 'check_circle' },
+    Cancelled: { color: '#991B1B', bg: '#FEE2E2', icon: 'cancel' }
   };
+  const cfg = configs[status] || { color: '#475569', bg: '#F1F5F9', icon: 'circle' };
+  
+  return (
+    <div style={{
+      display: 'inline-flex', alignItems: 'center', gap: '6px',
+      padding: '4px 12px', borderRadius: '100px',
+      background: cfg.bg, color: cfg.color,
+      fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.04em',
+      border: '1px solid rgba(0,0,0,0.03)', boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+    }}>
+      <span className="material-symbols-rounded" style={{ 
+        fontSize: '14px', 
+        animation: cfg.pulse ? 'pulse 2s infinite' : 'none' 
+      }}>{cfg.icon}</span>
+      {status}
+    </div>
+  );
+}
 
   const filtered = eventsList
     .filter(e => e.name.toLowerCase().includes(search.toLowerCase()))
@@ -283,7 +302,6 @@ export default function ManageEventPage() {
             </thead>
             <tbody>
               {filtered.map(ev => {
-                const sc = statusColor(ev.status);
                 return (
                   <tr key={ev.id}
                     style={{ background: hoveredRow === ev.id ? colors.pageBg : 'transparent', transition: 'background 0.2s' }}
@@ -308,7 +326,7 @@ export default function ManageEventPage() {
                       </span>
                     </td>
                     <td style={styles.td}>
-                      <span style={{ ...sc, padding: '4px 12px', borderRadius: '100px', fontSize: '11.5px', fontWeight: 700, display: 'inline-block' }}>{ev.status}</span>
+                      <StatusBadge status={ev.status} />
                     </td>
                     <td style={{ ...styles.td, textAlign: 'right' }}>
                       <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>

@@ -175,21 +175,23 @@ export default function JudgeDashboard() {
   };
 
   const statusBadgeStyle = (status) => {
-    let bg = '#FEF3C7';
-    let color = '#92400E';
-    if (status === 'submitted') { bg = '#DCFCE7'; color = '#166534'; }
-    else if (status === 'ready') { bg = '#E0E7FF'; color = '#3730A3'; }
-
-    return {
-      display: 'inline-flex',
-      alignItems: 'center',
-      padding: '4px 10px',
-      borderRadius: '100px',
-      fontSize: '11.5px',
-      fontWeight: '700',
-      background: bg,
-      color: color,
+    const configs = {
+      submitted: { bg: '#DCFCE7', color: '#166534', icon: 'check_circle', label: 'Finalized' },
+      ready:     { bg: '#E0E7FF', color: '#3730A3', icon: 'verified',     label: 'Ready to Lock' },
+      pending:   { bg: '#FEF3C7', color: '#92400E', icon: 'schedule',    label: 'In Progress' }
     };
+    const c = configs[status] || configs.pending;
+
+    return (
+      <div style={{
+        display: 'inline-flex', alignItems: 'center', gap: '6px',
+        padding: '5px 12px', borderRadius: '100px', fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.04em',
+        background: c.bg, color: c.color, border: '1px solid rgba(0,0,0,0.03)'
+      }}>
+        <span className="material-symbols-rounded" style={{ fontSize: '14px' }}>{c.icon}</span>
+        {c.label}
+      </div>
+    );
   };
 
   return (
@@ -318,8 +320,8 @@ export default function JudgeDashboard() {
                       <p style={{ fontSize: '15px', fontWeight: 700, color: colors.navy, marginBottom: '4px' }}>{seg.label}</p>
                       <p style={{ fontSize: '13px', color: colors.inkMuted }}>{seg.criteria.length} Criteria · Max {seg.criteria.reduce((a, c) => a + c.maxScore, 0)} points</p>
                     </div>
-                    <div style={statusBadgeStyle(status)}>
-                      {status === 'submitted' ? 'Finalized' : status === 'ready' ? 'Ready to Lock' : 'In Progress'}
+                    <div style={{ pointerEvents: 'none' }}>
+                      {statusBadgeStyle(status)}
                     </div>
                     <span className="material-symbols-rounded" style={{ color: colors.border, fontSize: '20px', transform: isHovered ? 'translateX(4px)' : 'none', transition: 'transform 0.22s' }}>chevron_right</span>
                   </div>

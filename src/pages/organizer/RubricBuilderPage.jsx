@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useEventContext } from './OrganizerLayout';
 import { colors } from '../../styles/colors';
 
@@ -249,25 +250,58 @@ export default function RubricBuilderPage() {
     modalOverlay: {
       position: 'fixed',
       top: 0, left: 0, right: 0, bottom: 0,
-      background: 'rgba(15, 31, 61, 0.4)',
-      backdropFilter: 'blur(4px)',
+      background: 'rgba(15, 31, 61, 0.5)',
+      backdropFilter: 'blur(12px)',
       display: 'grid',
       placeItems: 'center',
       zIndex: 1000,
       padding: '20px',
-      animation: 'fadeIn 0.2s ease-out',
+      animation: 'fadeIn 0.2s ease-out forwards',
     },
-    modalContainer: (maxWidth = '480px') => ({
+    modalContainer: (maxWidth = '540px') => ({
       background: '#fff',
       borderRadius: '24px',
       width: '100%',
       maxWidth: maxWidth,
-      boxShadow: '0 16px 48px rgba(26,24,20,0.12)',
-      padding: '40px',
+      boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
       position: 'relative',
       overflow: 'hidden',
-      animation: 'modalUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+      animation: 'modalUp 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
+      maxHeight: '90vh',
+      display: 'flex',
+      flexDirection: 'column',
     }),
+    modalHeader: {
+      padding: '40px 48px 24px',
+      textAlign: 'center',
+    },
+    modalBody: {
+      padding: '0 48px 32px',
+      overflowY: 'auto',
+      flex: 1,
+    },
+    modalFooter: {
+      padding: '0 48px 48px',
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr',
+      gap: '12px',
+    },
+    closeBtn: {
+      position: 'absolute',
+      top: '24px',
+      right: '24px',
+      background: colors.pageBg,
+      border: 'none',
+      cursor: 'pointer',
+      color: colors.inkMuted,
+      width: '32px',
+      height: '32px',
+      borderRadius: '50%',
+      display: 'grid',
+      placeItems: 'center',
+      transition: 'all 0.2s',
+      zIndex: 10
+    },
     modalTitle: {
       fontFamily: "'DM Sans', sans-serif",
       fontSize: '24px',
@@ -496,6 +530,8 @@ export default function RubricBuilderPage() {
         </div>
       </div>
 
+      {undo.bar}
+
       <AiModal
         show={showAiModal}
         onClose={() => setShowAiModal(false)}
@@ -507,8 +543,6 @@ export default function RubricBuilderPage() {
         inputFocus={inputFocus}
         inputBlur={inputBlur}
       />
-
-      {undo.bar}
     </>
   );
 }
@@ -549,40 +583,80 @@ function ChoiceCard({ title, desc, icon, label, primary, onClick }) {
   );
 }
 
-function AiModal({ show, onClose, onGenerate, prompt, setPrompt, inputRef, styles, inputFocus, inputBlur }) {
+function AiModal({ show, onClose, onGenerate, prompt, setPrompt, inputRef, styles }) {
   const [btnHover, setBtnHover] = useState(null);
   if (!show) return null;
-  return (
+
+  return createPortal(
     <div style={styles.modalOverlay} onClick={onClose}>
-      <div style={styles.modalContainer()} onClick={e => e.stopPropagation()}>
-        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+      <div style={styles.modalContainer('540px')} onClick={e => e.stopPropagation()}>
+        <button 
+          onClick={onClose}
+          style={styles.closeBtn}
+          onMouseEnter={(e) => { e.currentTarget.style.background = colors.borderSoft; e.currentTarget.style.color = colors.navy; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = colors.pageBg; e.currentTarget.style.color = colors.inkMuted; }}
+        >
+          <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>close</span>
+        </button>
+
+        <div style={styles.modalHeader}>
           <div style={{ width: '68px', height: '68px', borderRadius: '22px', background: colors.accentBg, color: colors.accent, display: 'grid', placeItems: 'center', margin: '0 auto 20px' }}>
             <span className="material-symbols-rounded" style={{ fontSize: '36px' }}>smart_toy</span>
           </div>
-          <h2 style={styles.modalTitle}>AI Rubric Architect</h2>
+          <h2 style={{ fontSize: '28px', fontWeight: 800, color: colors.navy, marginBottom: '8px', margin: 0, fontFamily: "'DM Sans', sans-serif", letterSpacing: '-0.02em' }}>
+            AI Rubric Architect
+          </h2>
           <p style={{ fontSize: '15px', color: colors.inkMuted, lineHeight: 1.6, margin: 0 }}>
             Explain your event vision and the AI will craft a balanced scoring model for you.
           </p>
         </div>
-        <div style={{ marginBottom: '28px' }}>
-          <label style={styles.label}>Context Prompt</label>
-          <textarea
-            ref={inputRef}
-            style={{ ...styles.input, height: 'auto', padding: '14px', borderRadius: '14px', fontSize: '14px', lineHeight: 1.6, resize: 'vertical' }}
-            rows={5}
-            value={prompt}
-            onChange={e => setPrompt(e.target.value)}
-            placeholder="e.g. A competitive baking event focused on presentation, flavor profile, and technical execution."
-            onFocus={inputFocus}
-            onBlur={inputBlur}
-          />
+
+        <div style={styles.modalBody}>
+          <div style={{ marginBottom: '8px' }}>
+            <label style={{ fontSize: '12px', fontWeight: 800, color: colors.inkMuted, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px', display: 'block' }}>
+              Context Prompt
+            </label>
+            <textarea
+              ref={inputRef}
+              style={{ 
+                width: '100%',
+                padding: '16px', 
+                borderRadius: '16px', 
+                fontSize: '14.5px', 
+                lineHeight: 1.6, 
+                resize: 'none',
+                border: `1px solid ${colors.border}`,
+                outline: 'none',
+                fontFamily: "'Inter', sans-serif",
+                minHeight: '140px',
+                background: colors.pageBg,
+                boxSizing: 'border-box',
+                transition: 'all 0.2s'
+              }}
+              rows={5}
+              value={prompt}
+              onChange={e => setPrompt(e.target.value)}
+              placeholder="e.g. A competitive baking event focused on presentation, flavor profile, and technical execution."
+              onFocus={(e) => { 
+                e.target.style.borderColor = colors.accent; 
+                e.target.style.boxShadow = `0 0 0 3px ${colors.accentGlow}`; 
+                e.target.style.background = '#fff';
+              }}
+              onBlur={(e) => { 
+                e.target.style.borderColor = colors.border; 
+                e.target.style.boxShadow = 'none';
+                e.target.style.background = colors.pageBg;
+              }}
+            />
+          </div>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+
+        <div style={styles.modalFooter}>
           <button
             onClick={onClose}
             onMouseEnter={() => setBtnHover('c')}
             onMouseLeave={() => setBtnHover(null)}
-            style={{ ...styles.btn(btnHover === 'c'), height: '48px', width: '100%' }}
+            style={{ ...styles.btn(btnHover === 'c'), height: '48px', width: '100%', fontSize: '15px' }}
           >
             Cancel
           </button>
@@ -591,12 +665,19 @@ function AiModal({ show, onClose, onGenerate, prompt, setPrompt, inputRef, style
             disabled={!prompt.trim()}
             onMouseEnter={() => setBtnHover('g')}
             onMouseLeave={() => setBtnHover(null)}
-            style={{ ...styles.btn(btnHover === 'g', true), height: '48px', width: '100%' }}
+            style={{ 
+              ...styles.btn(btnHover === 'g', true), 
+              height: '48px', 
+              width: '100%', 
+              fontSize: '15px',
+              cursor: !prompt.trim() ? 'not-allowed' : 'pointer'
+            }}
           >
-            Generate
+            Generate Rubric
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

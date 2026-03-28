@@ -62,33 +62,25 @@ function EditableCell({ value, options, onSave, placeholder = '— click to edit
   );
 }
 
-/* ─── RSVP badge (inline editable) ────────────────────────────────────── */
-function RsvpCell({ value, onSave }) {
-  const [editing, setEditing] = useState(false);
-  const rsvpColors = { Accepted: { bg: '#DCFCE7', color: '#166534' }, Pending: { bg: '#FEF3C7', color: '#92400E' }, Declined: { bg: '#FEE2E2', color: '#991B1B' } };
-  const c = rsvpColors[value] || rsvpColors.Pending;
-
-  if (editing) return (
-    <select autoFocus value={value}
-      onChange={e => { onSave(e.target.value); setEditing(false); }}
-      onBlur={() => setEditing(false)}
-      style={{ fontSize: '12px', padding: '4px 8px', border: `2px solid ${colors.accent}`, borderRadius: '8px', outline: 'none', fontFamily: "'Inter', sans-serif", boxShadow: `0 0 0 3px ${colors.accentGlow}` }}>
-      {RSVPS.map(r => <option key={r}>{r}</option>)}
-    </select>
-  );
+/* ─── RSVP badge (Read Only) ─────────────────────────────────────────── */
+function RsvpBadge({ value }) {
+  const configs = { 
+    Accepted: { bg: '#DCFCE7', color: '#166534', icon: 'check_circle' }, 
+    Pending:  { bg: '#FEF3C7', color: '#92400E', icon: 'schedule' }, 
+    Declined: { bg: '#FEE2E2', color: '#991B1B', icon: 'cancel' } 
+  };
+  const c = configs[value] || configs.Pending;
 
   return (
-    <span onClick={() => setEditing(true)} title="Click to change RSVP"
-      style={{ 
-        display: 'inline-flex', alignItems: 'center', gap: '4px',
-        padding: '2px 10px', borderRadius: '100px', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase',
-        background: c.bg, color: c.color, cursor: 'pointer', transition: 'opacity 0.15s', userSelect: 'none' 
-      }}
-      onMouseEnter={e => e.currentTarget.style.opacity = '0.7'}
-      onMouseLeave={e => e.currentTarget.style.opacity = '1'}>
+    <div style={{ 
+      display: 'inline-flex', alignItems: 'center', gap: '8px',
+      padding: '5px 14px', borderRadius: '100px', fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.04em',
+      background: c.bg, color: c.color, userSelect: 'none',
+      boxShadow: '0 1px 2px rgba(0,0,0,0.05)', border: `1px solid rgba(0,0,0,0.03)`
+    }}>
+      <span className="material-symbols-rounded" style={{ fontSize: '14px' }}>{c.icon}</span>
       {value}
-      <span className="material-symbols-rounded" style={{ fontSize: '12px', opacity: 0.6 }}>expand_more</span>
-    </span>
+    </div>
   );
 }
 
@@ -298,25 +290,35 @@ export default function JudgesPage() {
     },
     widgetCard: (span) => ({
       background: '#fff',
-      border: `1px solid ${colors.borderSoft}`,
-      borderRadius: '18px',
-      padding: '24px',
+      border: `1.5px solid ${colors.borderSoft}`,
+      borderRadius: '24px',
+      padding: '28px',
       boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
       gridColumn: isMobile ? 'span 1' : `span ${span}`,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '12px',
+    }),
+    iconWrapper: (bg, color) => ({
+      width: '40px',
+      height: '40px',
+      borderRadius: '12px',
+      background: bg,
+      color: color,
+      display: 'grid',
+      placeItems: 'center',
     }),
     statLabel: {
       fontSize: '11px',
-      fontWeight: '700',
+      fontWeight: '800',
       textTransform: 'uppercase',
       letterSpacing: '0.08em',
       color: colors.inkMuted,
-      marginBottom: '8px',
-      display: 'block',
     },
     statValue: {
       fontFamily: "'DM Sans', sans-serif",
       fontSize: '32px',
-      fontWeight: '800',
+      fontWeight: '900',
       color: colors.navy,
       letterSpacing: '-0.04em',
       lineHeight: '1',
@@ -487,9 +489,21 @@ export default function JudgesPage() {
 
       {/* ── KPI Strip ── */}
       <div style={styles.dashboardGrid}>
-        <div style={styles.widgetCard(4)}><span style={styles.statLabel}>Total Invited</span><div style={styles.statValue}>{judges.length}</div></div>
-        <div style={styles.widgetCard(4)}><span style={styles.statLabel}>Accepted</span><div style={{ ...styles.statValue, color: colors.success }}>{accepted}</div></div>
-        <div style={styles.widgetCard(4)}><span style={styles.statLabel}>Pending RSVP</span><div style={{ ...styles.statValue, color: '#D97706' }}>{pendingCount}</div></div>
+        <div style={styles.widgetCard(4)}>
+          <div style={styles.iconWrapper(colors.accentBg, colors.accent)}><span className="material-symbols-rounded" style={{ fontSize: '20px' }}>gavel</span></div>
+          <span style={styles.statLabel}>Total Invited</span>
+          <div style={styles.statValue}>{judges.length}</div>
+        </div>
+        <div style={styles.widgetCard(4)}>
+          <div style={styles.iconWrapper('#F0FDF4', colors.success)}><span className="material-symbols-rounded" style={{ fontSize: '20px' }}>how_to_reg</span></div>
+          <span style={styles.statLabel}>Accepted</span>
+          <div style={{ ...styles.statValue, color: colors.success }}>{accepted}</div>
+        </div>
+        <div style={styles.widgetCard(4)}>
+          <div style={styles.iconWrapper('#FFF7ED', '#D97706')}><span className="material-symbols-rounded" style={{ fontSize: '20px' }}>schedule</span></div>
+          <span style={styles.statLabel}>Pending RSVP</span>
+          <div style={{ ...styles.statValue, color: '#D97706' }}>{pendingCount}</div>
+        </div>
       </div>
 
       {/* ── Table ── */}
@@ -570,7 +584,7 @@ export default function JudgesPage() {
                       <EditableCell value={j.role} options={ROLES} onSave={val => updateJudge(selectedEvent.id, j.id, { role: val })} />
                     </td>
                     <td style={styles.td}>
-                      <RsvpCell value={j.rsvp || j.status || 'Pending'} onSave={val => updateJudge(selectedEvent.id, j.id, { rsvp: val, status: val })} />
+                      <RsvpBadge value={j.status} />
                     </td>
                     <td style={{ ...styles.td, textAlign: 'right' }}>
                       <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
@@ -717,7 +731,7 @@ export default function JudgesPage() {
                           {ROLES.map(r => <option key={r}>{r}</option>)}
                         </select>
                         <button onClick={() => removeFromPending(u.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.inkMuted, padding: 0, display: 'grid', placeItems: 'center', transition: 'color 0.2s' }} onMouseEnter={e => e.currentTarget.style.color = colors.coral} onMouseLeave={e => e.currentTarget.style.color = colors.inkMuted}>
-                          <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>close_circle</span>
+                          <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>close</span>
                         </button>
                       </div>
                     ))}

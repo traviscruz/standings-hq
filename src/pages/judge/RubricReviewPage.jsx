@@ -90,6 +90,7 @@ export default function RubricReviewPage() {
     marginBottom: '32px',
     position: 'relative',
     overflow: 'hidden',
+    padding: '32px',
   };
 
   const dataTableStyle = {

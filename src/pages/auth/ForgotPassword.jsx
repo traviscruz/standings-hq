@@ -6,104 +6,17 @@ export default function ForgotPassword() {
   const [step, setStep] = useState(1);
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
-  const [hovered, setHovered] = useState({ back: false, send: false });
+  const [activeHover, setActiveHover] = useState(null);
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
 
-  // Prof's Format: Style constants using imported global colors
-  const pageStyle = {
-    minHeight: '100vh',
-    display: 'grid',
-    gridTemplateColumns: window.innerWidth > 1024 ? '1fr 1fr' : '1fr',
-    fontFamily: "'Inter', system-ui, sans-serif",
-  };
+  React.useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
-  const panelStyle = {
-    background: colors.white,
-    display: 'flex',
-    flexDirection: 'column',
-    padding: window.innerWidth > 1024 ? '36px 48px' : '36px 32px',
-    position: 'relative',
-    overflow: 'hidden',
-  };
-
-  const headerStyle = {
-    marginBottom: '52px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-  };
-
-  const backButtonStyle = {
-    width: '34px',
-    height: '34px',
-    borderRadius: '50%',
-    background: hovered.back ? colors.white : colors.offWhite,
-    border: `1px solid ${hovered.back ? colors.accent : colors.border}`,
-    color: hovered.back ? colors.navy : colors.inkMuted,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    cursor: 'pointer',
-    transition: '0.22s ease',
-    textDecoration: 'none',
-  };
-
-  const titleStyle = {
-    fontSize: '30px',
-    fontWeight: '800',
-    color: colors.ink,
-    letterSpacing: '-0.03em',
-    lineHeight: '1.15',
-    marginBottom: '6px',
-  };
-
-  const subStyle = {
-    fontSize: '14px',
-    color: colors.inkMuted,
-    marginBottom: '30px',
-    lineHeight: '1.6',
-  };
-
-  const inputStyle = {
-    width: '100%',
-    padding: '12px 14px',
-    border: `1.5px solid ${error ? colors.error : colors.border}`,
-    borderRadius: '8px',
-    fontSize: '14px',
-    color: colors.ink,
-    background: error ? colors.errorBg : colors.offWhite,
-    outline: 'none',
-    transition: '0.22s ease',
-  };
-
-  const sendButtonStyle = {
-    width: '100%',
-    padding: '12px 24px',
-    borderRadius: '8px',
-    fontSize: '14px',
-    fontWeight: '600',
-    cursor: 'pointer',
-    background: hovered.send ? colors.navySoft : colors.navy,
-    color: colors.white,
-    border: 'none',
-    transition: '0.22s ease',
-    marginTop: '20px',
-  };
-
-  const ghostButtonStyle = {
-    background: 'transparent',
-    border: `1.5px solid ${colors.border}`,
-    color: colors.ink,
-    padding: '12px 24px',
-    borderRadius: '8px',
-    fontSize: '14px',
-    fontWeight: '600',
-    cursor: 'pointer',
-    transition: '0.22s ease',
-    textDecoration: 'none',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  };
+  const isDesktop = windowWidth > 1024;
+  const isMobile = windowWidth <= 768;
 
   const handleSend = () => {
     if (!email) {
@@ -118,78 +31,355 @@ export default function ForgotPassword() {
     setStep(2);
   };
 
+  /* ── Styles ── */
+  const styles = {
+    pageContainer: {
+      minHeight: '100vh',
+      display: 'grid',
+      gridTemplateColumns: isDesktop ? '1.1fr 1fr' : '1fr',
+      fontFamily: "'Inter', system-ui, sans-serif",
+      background: '#fff',
+    },
+    authPanel: {
+      display: 'flex',
+      flexDirection: 'column',
+      padding: isDesktop ? '48px 80px' : '32px 24px',
+      position: 'relative',
+      overflow: 'hidden',
+      justifyContent: 'center',
+    },
+    header: {
+      position: 'absolute',
+      top: isDesktop ? '48px' : '32px',
+      left: isDesktop ? '80px' : '24px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '20px',
+      zIndex: 10,
+    },
+    backLink: (hovered) => ({
+      width: '38px',
+      height: '38px',
+      borderRadius: '12px',
+      background: hovered ? colors.pageBg : '#fff',
+      border: `1.5px solid ${hovered ? colors.navy : colors.borderSoft}`,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      color: hovered ? colors.navy : colors.inkMuted,
+      textDecoration: 'none',
+      transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+    }),
+    logo: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '10px',
+      textDecoration: 'none',
+    },
+    logoBox: {
+      width: '28px',
+      height: '28px',
+      background: colors.navy,
+      borderRadius: '8px',
+      display: 'grid',
+      placeItems: 'center',
+    },
+    logoText: {
+      fontSize: '15px',
+      fontWeight: '800',
+      color: colors.navy,
+      letterSpacing: '-0.03em',
+    },
+    contentWrapper: {
+      width: '100%',
+      maxWidth: '440px',
+      margin: '0 auto',
+      animation: 'fadeInUp 0.6s cubic-bezier(0.23, 1, 0.32, 1)',
+    },
+    eyebrow: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      padding: '6px 12px',
+      background: 'rgba(59, 130, 246, 0.08)',
+      borderRadius: '100px',
+      fontSize: '11px',
+      fontWeight: '800',
+      color: colors.accent,
+      textTransform: 'uppercase',
+      letterSpacing: '0.08em',
+      marginBottom: '20px',
+    },
+    pageTitle: {
+      fontFamily: "'DM Sans', sans-serif",
+      fontSize: isMobile ? '32px' : '42px',
+      fontWeight: '800',
+      color: colors.navy,
+      letterSpacing: '-0.04em',
+      lineHeight: '1.2',
+      marginBottom: '12px',
+    },
+    pageSub: {
+      color: colors.inkMid,
+      fontSize: '16px',
+      lineHeight: '1.6',
+      marginBottom: '40px',
+    },
+    formGroup: {
+      marginBottom: '24px',
+    },
+    label: {
+      display: 'block',
+      fontSize: '11.5px',
+      fontWeight: '700',
+      color: colors.inkMuted,
+      marginBottom: '10px',
+      textTransform: 'uppercase',
+      letterSpacing: '0.05em',
+    },
+    input: (focused, hasError) => ({
+      width: '100%',
+      height: '52px',
+      padding: '0 16px',
+      background: colors.pageBg,
+      border: `1.5px solid ${hasError ? colors.error : (focused ? colors.accent : colors.borderSoft)}`,
+      borderRadius: '14px',
+      fontSize: '15px',
+      color: colors.navy,
+      outline: 'none',
+      transition: 'all 0.25s',
+      fontFamily: "'Inter', sans-serif",
+    }),
+    primaryBtn: (hovered) => ({
+      width: '100%',
+      height: '54px',
+      background: hovered ? colors.navySoft : colors.navy,
+      color: '#fff',
+      border: 'none',
+      borderRadius: '16px',
+      fontSize: '15.5px',
+      fontWeight: '700',
+      cursor: 'pointer',
+      transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: '10px',
+      boxShadow: hovered ? '0 12px 24px -8px rgba(15, 23, 42, 0.35)' : 'none',
+      transform: hovered ? 'translateY(-2px)' : 'none',
+    }),
+    ghostBtn: (hovered) => ({
+      height: '52px',
+      padding: '0 24px',
+      background: 'transparent',
+      color: colors.navy,
+      border: `1.5px solid ${hovered ? colors.navy : colors.borderSoft}`,
+      borderRadius: '14px',
+      fontSize: '15.5px',
+      fontWeight: '700',
+      cursor: 'pointer',
+      transition: 'all 0.2s',
+      textDecoration: 'none',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: '8px',
+    }),
+    footerLink: (hovered) => ({
+      color: colors.accent,
+      fontWeight: '700',
+      textDecoration: 'none',
+      paddingBottom: '2px',
+      borderBottom: `2.5px solid ${hovered ? colors.accent : 'transparent'}`,
+      transition: 'all 0.2s',
+    }),
+    visualPanel: {
+      background: colors.navy,
+      position: 'relative',
+      overflow: 'hidden',
+      display: isDesktop ? 'flex' : 'none',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '80px',
+    },
+    bgGradient: {
+      position: 'absolute',
+      inset: 0,
+      background: `
+        radial-gradient(circle at 0% 0%, rgba(59, 130, 246, 0.15) 0%, transparent 50%),
+        radial-gradient(circle at 100% 100%, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 50% 50%, rgba(15, 23, 42, 1) 0%, ${colors.navy} 100%)
+      `,
+    },
+    bgPattern: {
+      position: 'absolute',
+      inset: 0,
+      opacity: 0.15,
+      backgroundImage: `radial-gradient(${colors.accent} 0.8px, transparent 0.8px)`,
+      backgroundSize: '24px 24px',
+    },
+    visualContent: {
+      position: 'relative',
+      zIndex: 5,
+      maxWidth: '480px',
+      width: '100%',
+    },
+    successIcon: {
+      width: '80px',
+      height: '80px',
+      background: 'rgba(16, 185, 129, 0.1)',
+      border: '1px solid rgba(16, 185, 129, 0.2)',
+      color: colors.success,
+      borderRadius: '24px',
+      display: 'grid',
+      placeItems: 'center',
+      marginBottom: '32px',
+      boxShadow: '0 12px 24px rgba(16, 185, 129, 0.1)',
+    },
+    featureCard: {
+      background: 'rgba(255, 255, 255, 0.03)',
+      backdropFilter: 'blur(10px)',
+      border: '1px solid rgba(255, 255, 255, 0.08)',
+      borderRadius: '20px',
+      padding: '20px',
+      display: 'flex',
+      gap: '16px',
+      transition: 'all 0.3s ease',
+      marginBottom: '16px',
+    },
+    featureIcon: {
+      width: '44px',
+      height: '44px',
+      borderRadius: '12px',
+      background: 'rgba(59, 130, 246, 0.1)',
+      color: colors.accent,
+      display: 'grid',
+      placeItems: 'center',
+      flexShrink: 0,
+    }
+  };
+
   return (
-    <div style={pageStyle}>
-      <div style={panelStyle}>
-        <div style={headerStyle}>
+    <div style={styles.pageContainer}>
+      <style>
+        {`
+          @keyframes fadeInUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+          @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-10px); } }
+        `}
+      </style>
+
+      {/* ── FORM SIDE ── */}
+      <div style={styles.authPanel}>
+        <div style={styles.header}>
           <Link 
             to="/login" 
-            style={backButtonStyle} 
-            onMouseEnter={() => setHovered({ ...hovered, back: true })}
-            onMouseLeave={() => setHovered({ ...hovered, back: false })}
+            style={styles.backLink(activeHover === 'back')}
+            onMouseEnter={() => setActiveHover('back')}
+            onMouseLeave={() => setActiveHover(null)}
           >
             <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>arrow_back</span>
           </Link>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none' }}>
-            <div style={{ width: '32px', height: '32px', background: colors.navy, borderRadius: '7px', display: 'grid', placeItems: 'center' }}>
-              <span className="material-symbols-rounded" style={{ color: colors.white, fontSize: '18px' }}>monitoring</span>
+          <div style={styles.logo}>
+            <div style={styles.logoBox}>
+              <span className="material-symbols-rounded" style={{ color: '#fff', fontSize: '16px' }}>monitoring</span>
             </div>
-            <span style={{ fontSize: '16px', fontWeight: '800', color: colors.ink }}>Standings<span style={{ color: colors.accent }}>HQ</span></span>
+            <span style={styles.logoText}>Standings<span style={{ color: colors.accent }}>HQ</span></span>
           </div>
         </div>
 
-        <div style={{ ...panelStyle, flex: 1, padding: 0, justifyContent: 'center', maxWidth: '420px', margin: '0 auto', width: '100%', overflow: 'visible' }}>
+        <div style={styles.contentWrapper}>
           {step === 1 && (
-            <div style={{ animation: 'fadeIn 0.3s ease' }}>
-              <span style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: colors.accentDeep, background: colors.accentBg, padding: '5px 14px', borderRadius: '100px', marginBottom: '20px', display: 'inline-block' }}>Account recovery</span>
-              <h1 style={titleStyle}>Reset your <em style={{ color: colors.accent, fontStyle: 'normal' }}>password.</em></h1>
-              <p style={subStyle}>Enter your email to receive a secure reset link.</p>
+            <div style={{ animation: 'fadeInUp 0.6s' }}>
+              <span style={styles.eyebrow}>Security Recovery</span>
+              <h1 style={styles.pageTitle}>Forgot your <br /> <span style={{ color: colors.accent }}>password?</span></h1>
+              <p style={styles.pageSub}>Don't worry, even the best organizers need a reset sometimes. Enter your email to recover your workspace.</p>
 
-              <div style={{ marginBottom: '22px' }}>
-                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: colors.inkSoft, marginBottom: '6px' }}>Email address</label>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Corporate Email</label>
                 <input
                   type="email"
-                  placeholder="name@email.com"
-                  style={inputStyle}
+                  placeholder="organizer@organization.com"
+                  style={styles.input(activeHover === 'email', !!error)}
+                  onFocus={() => setActiveHover('email')}
+                  onBlur={() => setActiveHover(null)}
                   value={email}
                   onChange={(e) => { setEmail(e.target.value); setError(''); }}
                 />
-                {error && <div style={{ fontSize: '11.5px', color: colors.error, marginTop: '5px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '5px' }}>
-                  <span className="material-symbols-rounded" style={{ fontSize: '14px' }}>error</span>
-                  {error}
-                </div>}
+                {error && <p style={{ color: colors.error, fontSize: '13px', fontWeight: '600', marginTop: '12px' }}>{error}</p>}
               </div>
 
               <button
-                style={sendButtonStyle}
-                onMouseEnter={() => setHovered({ ...hovered, send: true })}
-                onMouseLeave={() => setHovered({ ...hovered, send: false })}
+                style={styles.primaryBtn(activeHover === 'send')}
+                onMouseEnter={() => setActiveHover('send')}
+                onMouseLeave={() => setActiveHover(null)}
                 onClick={handleSend}
               >
-                Send reset link
+                Send Recovery Link
+                <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>forward_to_inbox</span>
               </button>
 
-              <div style={{ textAlign: 'center', marginTop: '18px', fontSize: '13px', color: colors.inkMuted }}>
-                Remembered it? <Link to="/login" style={{ color: colors.accentDeep, fontWeight: 700, textDecoration: 'none' }}>Back to sign in</Link>
+              <div style={{ textAlign: 'left', marginTop: '32px', fontSize: '14.5px', color: colors.inkMid }}>
+                Remembered? <Link to="/login" style={styles.footerLink(activeHover === 'signin')} onMouseEnter={() => setActiveHover('signin')} onMouseLeave={() => setActiveHover(null)}>Go back to sign in</Link>
               </div>
             </div>
           )}
 
           {step === 2 && (
-            <div style={{ textAlign: 'center', animation: 'fadeIn 0.3s ease' }}>
-              <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: colors.successBg, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
-                <span className="material-symbols-rounded" style={{ color: colors.success, fontSize: '28px' }}>mail</span>
+            <div style={{ textAlign: 'left', animation: 'fadeInUp 0.6s' }}>
+              <div style={styles.successIcon}>
+                <span className="material-symbols-rounded" style={{ fontSize: '40px' }}>mark_email_read</span>
               </div>
-              <h1 style={titleStyle}>Check your inbox.</h1>
-              <p style={subStyle}>A password reset link has been sent to <strong>{email}</strong>.</p>
-              <Link to="/login" style={ghostButtonStyle}>Back to sign in</Link>
+              <h1 style={styles.pageTitle}>Check your inbox.</h1>
+              <p style={{ ...styles.pageSub, marginBottom: '32px' }}>A secure recovery link has been dispatched to <strong>{email}</strong>. It will expire in 15 minutes.</p>
+              <Link to="/login" style={styles.ghostBtn(activeHover === 'back-btn')} onMouseEnter={() => setActiveHover('back-btn')} onMouseLeave={() => setActiveHover(null)} onClick={() => setStep(1)}>
+                Return to Login
+                <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>login</span>
+              </Link>
             </div>
           )}
         </div>
       </div>
 
-      <div style={{ background: colors.navy, display: window.innerWidth > 1024 ? 'flex' : 'none', alignItems: 'center', justifyContent: 'center', padding: '48px', position: 'relative', overflow: 'hidden' }}>
-        <h2 style={{ fontSize: '28px', color: colors.white, fontWeight: '800', marginBottom: '10px' }}>Account security is our <em style={{ color: colors.accent, fontStyle: 'normal' }}>priority.</em></h2>
+      {/* ── VISUAL SIDE ── */}
+      <div style={styles.visualPanel}>
+        <div style={styles.bgGradient} />
+        <div style={styles.bgPattern} />
+        
+        <div style={styles.visualContent}>
+          <div style={{ marginBottom: '48px' }}>
+            <div style={{ display: 'inline-flex', padding: '16px', background: 'rgba(59, 130, 246, 0.1)', borderRadius: '24px', marginBottom: '24px', animation: 'float 4s ease-in-out infinite', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+              <span className="material-symbols-rounded" style={{ fontSize: '48px', color: colors.accent }}>shield_with_heart</span>
+            </div>
+            <h2 style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '40px', fontWeight: '800', color: '#fff', letterSpacing: '-0.03em', lineHeight: '1.15', marginBottom: '20px' }}>
+              The gold standard in <br /> <span style={{ color: colors.accent }}>event integrity.</span>
+            </h2>
+            <p style={{ fontSize: '17px', color: 'rgba(255,255,255,0.5)', lineHeight: '1.6', margin: 0 }}>
+              End-to-end encryption for every score, automated certificate generation, and live syncing across all portals.
+            </p>
+          </div>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {[
+              { icon: 'bolt', title: 'Ultra-low Latency', desc: 'Real-time scoring updates for live audiences.' },
+              { icon: 'hub', title: 'Unified Ecosystem', desc: 'One account for organizers, judges, and users.' },
+              { icon: 'workspace_premium', title: 'Automated Compliance', desc: 'Built-in rubric validation and audit trails.' }
+            ].map((item, i) => (
+              <div 
+                key={i} 
+                style={{ ...styles.featureCard, transform: activeHover === `feat-${i}` ? 'translateX(10px)' : 'none' }}
+                onMouseEnter={() => setActiveHover(`feat-${i}`)}
+                onMouseLeave={() => setActiveHover(null)}
+              >
+                <div style={styles.featureIcon}>
+                  <span className="material-symbols-rounded" style={{ fontSize: '22px' }}>{item.icon}</span>
+                </div>
+                <div style={{ textAlign: 'left' }}>
+                  <p style={{ fontSize: '15px', fontWeight: '700', color: '#fff', marginBottom: '4px' }}>{item.title}</p>
+                  <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', lineHeight: '1.4' }}>{item.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

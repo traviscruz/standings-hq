@@ -8,152 +8,17 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [pwScore, setPwScore] = useState(0);
   const [error, setError] = useState('');
-  const [hovered, setHovered] = useState({ back: false, next: false, dash: false });
+  const [activeHover, setActiveHover] = useState(null);
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
 
-  // Prof's Format: Style constants using imported global colors
-  const pageStyle = {
-    minHeight: '100vh',
-    display: 'grid',
-    gridTemplateColumns: window.innerWidth > 1024 ? '1fr 1fr' : '1fr',
-    fontFamily: "'Inter', system-ui, sans-serif",
-  };
+  React.useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
-  const panelStyle = {
-    background: colors.white,
-    display: 'flex',
-    flexDirection: 'column',
-    padding: window.innerWidth > 1024 ? '36px 48px' : '36px 32px',
-    position: 'relative',
-    overflow: 'hidden',
-  };
-
-  const headerStyle = {
-    marginBottom: '52px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-  };
-
-  const backButtonStyle = {
-    width: '34px',
-    height: '34px',
-    borderRadius: '50%',
-    background: hovered.back ? colors.white : colors.offWhite,
-    border: `1px solid ${hovered.back ? colors.accent : colors.border}`,
-    color: hovered.back ? colors.navy : colors.inkMuted,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    cursor: 'pointer',
-    transition: '0.22s ease',
-    textDecoration: 'none',
-  };
-
-  const titleStyle = {
-    fontSize: '30px',
-    fontWeight: '800',
-    color: colors.ink,
-    letterSpacing: '-0.03em',
-    lineHeight: '1.15',
-    marginBottom: '6px',
-  };
-
-  const subStyle = {
-    fontSize: '14px',
-    color: colors.inkMuted,
-    marginBottom: '30px',
-    lineHeight: '1.6',
-  };
-
-  const eyebrowStyle = {
-    display: 'inline-flex',
-    alignItems: 'center',
-    background: colors.accentBg,
-    border: `1px solid ${colors.accentBgMid}`,
-    color: colors.accentDeep,
-    fontSize: '11px',
-    fontWeight: '700',
-    letterSpacing: '0.08em',
-    textTransform: 'uppercase',
-    padding: '5px 14px',
-    borderRadius: '100px',
-    marginBottom: '20px',
-    width: 'fit-content',
-  };
-
-  const inputStyle = {
-    width: '100%',
-    padding: '12px 14px',
-    border: `1.5px solid ${error ? colors.error : colors.border}`,
-    borderRadius: '8px',
-    fontSize: '14px',
-    color: colors.ink,
-    background: error ? colors.errorBg : colors.offWhite,
-    outline: 'none',
-    transition: '0.22s ease',
-  };
-
-  const nextButtonStyle = {
-    width: '100%',
-    padding: '12px 24px',
-    borderRadius: '8px',
-    fontSize: '14px',
-    fontWeight: '600',
-    cursor: 'pointer',
-    background: hovered.next ? colors.navySoft : colors.navy,
-    color: colors.white,
-    border: 'none',
-    transition: '0.22s ease',
-  };
-
-  const accentButtonStyle = {
-    width: '100%',
-    padding: '12px 24px',
-    borderRadius: '8px',
-    fontSize: '14px',
-    fontWeight: '600',
-    cursor: 'pointer',
-    background: hovered.next ? colors.accentDeep : colors.accent,
-    color: colors.white,
-    border: 'none',
-    transition: '0.22s ease',
-  };
-
-  const ghostButtonStyle = {
-    background: 'transparent',
-    border: `1.5px solid ${colors.border}`,
-    color: colors.ink,
-    padding: '12px 24px',
-    borderRadius: '8px',
-    fontSize: '14px',
-    fontWeight: '600',
-    cursor: 'pointer',
-    transition: '0.22s ease',
-  };
-
-  const sbNumStyle = (s) => ({
-    width: '28px',
-    height: '28px',
-    borderRadius: '50%',
-    border: `2px solid ${step > s ? colors.accent : step === s ? colors.navy : colors.border}`,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '12px',
-    fontWeight: '700',
-    background: step > s ? colors.accent : step === s ? colors.navy : colors.white,
-    color: step >= s ? colors.white : colors.inkMuted,
-    transition: '0.22s ease',
-    flexShrink: 0,
-  });
-
-  const pwBarStyle = (n) => ({
-    flex: 1,
-    height: '3px',
-    borderRadius: '100px',
-    background: n <= pwScore ? (pwScore === 1 ? colors.error : pwScore === 2 ? colors.accent : pwScore === 3 ? colors.accentDeep : colors.success) : colors.border,
-    transition: '0.3s ease',
-  });
+  const isDesktop = windowWidth > 1024;
+  const isMobile = windowWidth <= 768;
 
   const rGo = (s) => {
     if (s > step) {
@@ -180,154 +45,463 @@ export default function RegisterPage() {
     setFormData({ ...formData, password: v });
   };
 
+  /* ── Styles ── */
+  const styles = {
+    pageContainer: {
+      minHeight: '100vh',
+      display: 'grid',
+      gridTemplateColumns: isDesktop ? '1.1fr 1fr' : '1fr',
+      fontFamily: "'Inter', system-ui, sans-serif",
+      background: '#fff',
+    },
+    authPanel: {
+      display: 'flex',
+      flexDirection: 'column',
+      padding: isDesktop ? '48px 80px' : '32px 24px',
+      position: 'relative',
+      overflow: 'hidden',
+      justifyContent: 'center',
+    },
+    header: {
+      position: 'absolute',
+      top: isDesktop ? '48px' : '32px',
+      left: isDesktop ? '80px' : '24px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '20px',
+      zIndex: 10,
+    },
+    backLink: (hovered) => ({
+      width: '38px',
+      height: '38px',
+      borderRadius: '12px',
+      background: hovered ? colors.pageBg : '#fff',
+      border: `1.5px solid ${hovered ? colors.navy : colors.borderSoft}`,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      color: hovered ? colors.navy : colors.inkMuted,
+      textDecoration: 'none',
+      transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+    }),
+    logo: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '10px',
+      textDecoration: 'none',
+    },
+    logoBox: {
+      width: '28px',
+      height: '28px',
+      background: colors.navy,
+      borderRadius: '8px',
+      display: 'grid',
+      placeItems: 'center',
+    },
+    logoText: {
+      fontSize: '15px',
+      fontWeight: '800',
+      color: colors.navy,
+      letterSpacing: '-0.03em',
+    },
+    contentWrapper: {
+      width: '100%',
+      maxWidth: '460px',
+      margin: '0 auto',
+      animation: 'fadeInUp 0.6s cubic-bezier(0.23, 1, 0.32, 1)',
+    },
+    eyebrow: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      padding: '6px 12px',
+      background: 'rgba(59, 130, 246, 0.08)',
+      borderRadius: '100px',
+      fontSize: '11px',
+      fontWeight: '800',
+      color: colors.accent,
+      textTransform: 'uppercase',
+      letterSpacing: '0.08em',
+      marginBottom: '20px',
+    },
+    pageTitle: {
+      fontFamily: "'DM Sans', sans-serif",
+      fontSize: isMobile ? '30px' : '38px',
+      fontWeight: '800',
+      color: colors.navy,
+      letterSpacing: '-0.04em',
+      lineHeight: '1.2',
+      marginBottom: '10px',
+    },
+    pageSub: {
+      color: colors.inkMid,
+      fontSize: '15.5px',
+      lineHeight: '1.6',
+      marginBottom: '32px',
+    },
+    stepIndicator: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '12px',
+      marginBottom: '32px',
+    },
+    stepDot: (active, completed) => ({
+      width: '34px',
+      height: '34px',
+      borderRadius: '10px',
+      background: completed ? colors.success : (active ? colors.navy : colors.pageBg),
+      color: (active || completed) ? '#fff' : colors.inkMuted,
+      display: 'grid',
+      placeItems: 'center',
+      fontSize: '13px',
+      fontWeight: '700',
+      transition: 'all 0.3s ease',
+      border: `1.5px solid ${active ? colors.navy : colors.borderSoft}`,
+    }),
+    stepLine: (completed) => ({
+      flex: 1,
+      height: '3px',
+      borderRadius: '2px',
+      background: completed ? colors.success : colors.borderSoft,
+      transition: 'all 0.4s ease',
+    }),
+    formGroup: {
+      marginBottom: '20px',
+    },
+    label: {
+      display: 'block',
+      fontSize: '11.5px',
+      fontWeight: '700',
+      color: colors.inkMuted,
+      marginBottom: '10px',
+      textTransform: 'uppercase',
+      letterSpacing: '0.05em',
+    },
+    input: (focused, hasError) => ({
+      width: '100%',
+      height: '52px',
+      padding: '0 16px',
+      background: colors.pageBg,
+      border: `1.5px solid ${hasError ? colors.error : (focused ? colors.accent : colors.borderSoft)}`,
+      borderRadius: '14px',
+      fontSize: '15px',
+      color: colors.navy,
+      outline: 'none',
+      transition: 'all 0.2s',
+      fontFamily: "'Inter', sans-serif",
+    }),
+    primaryBtn: (hovered, variant = 'navy') => ({
+      width: '100%',
+      height: '54px',
+      background: variant === 'navy' ? (hovered ? colors.navySoft : colors.navy) : (hovered ? colors.accentDeep : colors.accent),
+      color: '#fff',
+      border: 'none',
+      borderRadius: '16px',
+      fontSize: '15.5px',
+      fontWeight: '700',
+      cursor: 'pointer',
+      transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: '10px',
+      boxShadow: hovered ? '0 12px 24px -8px rgba(15, 23, 42, 0.3)' : 'none',
+      transform: hovered ? 'translateY(-2px)' : 'none',
+    }),
+    ghostBtn: (hovered) => ({
+      height: '54px',
+      padding: '0 24px',
+      background: 'transparent',
+      color: colors.navy,
+      border: `1.5px solid ${hovered ? colors.navy : colors.borderSoft}`,
+      borderRadius: '16px',
+      fontSize: '15.5px',
+      fontWeight: '600',
+      cursor: 'pointer',
+      transition: 'all 0.2s',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: '8px',
+    }),
+    pwBadge: (n) => ({
+      flex: 1,
+      height: '5px',
+      borderRadius: '10px',
+      background: n <= pwScore ? (pwScore < 2 ? colors.error : pwScore < 4 ? colors.warning : colors.success) : colors.borderSoft,
+      transition: 'all 0.3s ease',
+    }),
+    ruleItem: (valid) => ({
+      display: 'flex',
+      alignItems: 'center',
+      gap: '10px',
+      fontSize: '13px',
+      color: valid ? colors.success : colors.inkMid,
+      fontWeight: valid ? '600' : '400',
+      marginBottom: '8px',
+      transition: 'all 0.2s',
+    }),
+    visualPanel: {
+      background: colors.navy,
+      position: 'relative',
+      overflow: 'hidden',
+      display: isDesktop ? 'flex' : 'none',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '80px',
+    },
+    bgGradient: {
+      position: 'absolute',
+      inset: 0,
+      background: `
+        radial-gradient(circle at 0% 0%, rgba(59, 130, 246, 0.15) 0%, transparent 50%),
+        radial-gradient(circle at 100% 100%, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 50% 50%, rgba(15, 23, 42, 1) 0%, ${colors.navy} 100%)
+      `,
+    },
+    bgPattern: {
+      position: 'absolute',
+      inset: 0,
+      opacity: 0.15,
+      backgroundImage: `radial-gradient(${colors.accent} 0.8px, transparent 0.8px)`,
+      backgroundSize: '24px 24px',
+    },
+    visualContent: {
+      position: 'relative',
+      zIndex: 5,
+      maxWidth: '480px',
+      width: '100%',
+    },
+    featureCard: {
+      background: 'rgba(255, 255, 255, 0.03)',
+      backdropFilter: 'blur(10px)',
+      border: '1px solid rgba(255, 255, 255, 0.08)',
+      borderRadius: '20px',
+      padding: '20px',
+      display: 'flex',
+      gap: '16px',
+      transition: 'all 0.3s ease',
+      marginBottom: '16px',
+    },
+    featureIcon: {
+      width: '44px',
+      height: '44px',
+      borderRadius: '12px',
+      background: 'rgba(59, 130, 246, 0.1)',
+      color: colors.accent,
+      display: 'grid',
+      placeItems: 'center',
+      flexShrink: 0,
+    }
+  };
+
   const Rule = ({ valid, text }) => (
-    <div style={{ fontSize: '11.5px', color: valid ? colors.success : colors.inkMuted, display: 'flex', alignItems: 'center', gap: '6px' }}>
-      <span className="material-symbols-rounded" style={{ fontSize: '14px' }}>
-        {valid ? 'check_circle' : 'radio_button_unchecked'}
+    <div style={styles.ruleItem(valid)}>
+      <span className="material-symbols-rounded" style={{ fontSize: '18px', color: valid ? colors.success : colors.border }}>
+        {valid ? 'check_circle' : 'circle'}
       </span>
       {text}
     </div>
   );
 
   return (
-    <div style={pageStyle}>
-      <div style={panelStyle}>
-        <div style={headerStyle}>
-          <Link 
-            to="/login" 
-            style={backButtonStyle} 
-            onMouseEnter={() => setHovered({ ...hovered, back: true })}
-            onMouseLeave={() => setHovered({ ...hovered, back: false })}
+    <div style={styles.pageContainer}>
+      <style>
+        {`
+          @keyframes fadeInUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+          @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-10px); } }
+        `}
+      </style>
+
+      {/* ── FORM SIDE ── */}
+      <div style={styles.authPanel}>
+        <div style={styles.header}>
+          <Link
+            to="/login"
+            style={styles.backLink(activeHover === 'back')}
+            onMouseEnter={() => setActiveHover('back')}
+            onMouseLeave={() => setActiveHover(null)}
           >
             <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>arrow_back</span>
           </Link>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none' }}>
-            <div style={{ width: '32px', height: '32px', background: colors.navy, borderRadius: '7px', display: 'grid', placeItems: 'center' }}>
-              <span className="material-symbols-rounded" style={{ color: colors.white, fontSize: '18px' }}>monitoring</span>
+          <div style={styles.logo}>
+            <div style={styles.logoBox}>
+              <span className="material-symbols-rounded" style={{ color: '#fff', fontSize: '16px' }}>monitoring</span>
             </div>
-            <span style={{ fontSize: '16px', fontWeight: '800', color: colors.ink }}>Standings<span style={{ color: colors.accent }}>HQ</span></span>
+            <span style={styles.logoText}>Standings<span style={{ color: colors.accent }}>HQ</span></span>
           </div>
         </div>
 
-        <div style={{ ...panelStyle, flex: 1, padding: 0, justifyContent: 'center', maxWidth: '420px', margin: '0 auto', width: '100%', overflow: 'visible' }}>
-          <span style={eyebrowStyle}>Step {step} of 3</span>
-          <h1 style={titleStyle}>{step === 1 ? "Your name." : step === 2 ? "Your account." : step === 3 ? "Secure it." : "You're all set."}</h1>
-          <p style={subStyle}>
-            {step === 1 ? "Let's start simple — what should we call you?" : step === 2 ? "Choose your unique username and email address." : step === 3 ? "Create a strong password to protect your account." : "Your organizer workspace is ready."}
-          </p>
-
+        <div style={styles.contentWrapper}>
           {step < 4 && (
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '28px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', fontWeight: '600', color: step >= 1 ? colors.ink : colors.inkMuted }}>
-                <div style={sbNumStyle(1)}>
-                  {step > 1 ? <span className="material-symbols-rounded" style={{ fontSize: '14px' }}>check</span> : '1'}
-                </div>
-                <span>Name</span>
+            <>
+              <span style={styles.eyebrow}>Step {step} of 3</span>
+              <h1 style={styles.pageTitle}>
+                {step === 1 ? "Let's start with your name." : step === 2 ? "Create your unique profile." : "Secure your workspace."}
+              </h1>
+              <p style={styles.pageSub}>
+                {step === 1 ? "Start your journey toward simplified event management." : step === 2 ? "This is how you'll be identified in the ecosystem." : "Use a strong password to protect your event data."}
+              </p>
+
+              <div style={styles.stepIndicator}>
+                <div style={styles.stepDot(step === 1, step > 1)}>{step > 1 ? '✓' : '1'}</div>
+                <div style={styles.stepLine(step > 1)}></div>
+                <div style={styles.stepDot(step === 2, step > 2)}>{step > 2 ? '✓' : '2'}</div>
+                <div style={styles.stepLine(step > 2)}></div>
+                <div style={styles.stepDot(step === 3, step > 3)}>{step > 3 ? '✓' : '3'}</div>
               </div>
-              <div style={{ flex: 1, height: '2px', background: step > 1 ? colors.accent : colors.border, margin: '0 6px' }}></div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', fontWeight: '600', color: step >= 2 ? colors.ink : colors.inkMuted }}>
-                <div style={sbNumStyle(2)}>
-                  {step > 2 ? <span className="material-symbols-rounded" style={{ fontSize: '14px' }}>check</span> : '2'}
-                </div>
-                <span>Account</span>
-              </div>
-              <div style={{ flex: 1, height: '2px', background: step > 2 ? colors.accent : colors.border, margin: '0 6px' }}></div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', fontWeight: '600', color: step >= 3 ? colors.ink : colors.inkMuted }}>
-                <div style={sbNumStyle(3)}>
-                  {step > 3 ? <span className="material-symbols-rounded" style={{ fontSize: '14px' }}>check</span> : '3'}
-                </div>
-                <span>Password</span>
-              </div>
-            </div>
+            </>
           )}
 
           {step === 1 && (
             <div style={{ animation: 'fadeIn 0.3s ease' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '15px' }}>
-                <div style={{ marginBottom: '15px' }}>
-                  <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: colors.inkSoft, marginBottom: '6px' }}>First name</label>
-                  <input type="text" style={inputStyle} placeholder="John" value={formData.fname} onChange={(e) => setFormData({ ...formData, fname: e.target.value })} />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '8px' }}>
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>First Name</label>
+                  <input type="text" style={styles.input(activeHover === 'fn', !!error)} onFocus={() => setActiveHover('fn')} onBlur={() => setActiveHover(null)} placeholder="John" value={formData.fname} onChange={(e) => setFormData({ ...formData, fname: e.target.value })} />
                 </div>
-                <div style={{ marginBottom: '15px' }}>
-                  <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: colors.inkSoft, marginBottom: '6px' }}>Last name</label>
-                  <input type="text" style={inputStyle} placeholder="Doe" value={formData.lname} onChange={(e) => setFormData({ ...formData, lname: e.target.value })} />
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Last Name</label>
+                  <input type="text" style={styles.input(activeHover === 'ln', !!error)} onFocus={() => setActiveHover('ln')} onBlur={() => setActiveHover(null)} placeholder="Doe" value={formData.lname} onChange={(e) => setFormData({ ...formData, lname: e.target.value })} />
                 </div>
               </div>
-              <div style={{ marginBottom: '14px' }}>
-                <Rule valid={formData.fname && formData.lname && /^[a-zA-Z\s]*$/.test(formData.fname)} text="Real names only (no numbers or symbols)" />
+              <div style={{ marginBottom: '24px' }}>
+                <Rule valid={formData.fname.length > 0 && formData.lname.length > 0} text="Full legal name required for organizers" />
               </div>
-              {error && <div style={{ fontSize: '11.5px', color: colors.error, marginBottom: '14px', fontWeight: 600 }}>{error}</div>}
-              <button style={nextButtonStyle} onMouseEnter={() => setHovered({...hovered, next: true})} onMouseLeave={() => setHovered({...hovered, next: false})} onClick={() => rGo(2)}>Continue →</button>
+              {error && <p style={{ color: colors.error, fontSize: '13px', fontWeight: '600', marginBottom: '16px' }}>{error}</p>}
+              <button
+                style={styles.primaryBtn(activeHover === 'next')}
+                onMouseEnter={() => setActiveHover('next')}
+                onMouseLeave={() => setActiveHover(null)}
+                onClick={() => rGo(2)}
+              >
+                Continue to Account
+                <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>arrow_forward</span>
+              </button>
             </div>
           )}
 
           {step === 2 && (
             <div style={{ animation: 'fadeIn 0.3s ease' }}>
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: colors.inkSoft, marginBottom: '6px' }}>Username</label>
-                <input type="text" style={inputStyle} placeholder="johndoe" value={formData.username} onChange={(e) => setFormData({ ...formData, username: e.target.value })} />
-                <div style={{ marginTop: '10px' }}>
-                  <Rule valid={formData.username.length >= 3} text="Minimum 3 characters" />
-                </div>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Unique Username</label>
+                <input type="text" style={styles.input(activeHover === 'un', !!error)} onFocus={() => setActiveHover('un')} onBlur={() => setActiveHover(null)} placeholder="johndoe_hq" value={formData.username} onChange={(e) => setFormData({ ...formData, username: e.target.value })} />
               </div>
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: colors.inkSoft, marginBottom: '6px' }}>Email address</label>
-                <input type="email" style={inputStyle} placeholder="john@example.com" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Professional Email</label>
+                <input type="email" style={styles.input(activeHover === 'em', !!error)} onFocus={() => setActiveHover('em')} onBlur={() => setActiveHover(null)} placeholder="john@events.com" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
               </div>
-              {error && <div style={{ fontSize: '11.5px', color: colors.error, marginBottom: '14px', fontWeight: 600 }}>{error}</div>}
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button style={{ ...ghostButtonStyle, flex: 0.5 }} onClick={() => rGo(1)}>← Back</button>
-                <button style={{ ...nextButtonStyle, flex: 1 }} onMouseEnter={() => setHovered({...hovered, next: true})} onMouseLeave={() => setHovered({...hovered, next: false})} onClick={() => rGo(3)}>Continue →</button>
+              <div style={{ marginBottom: '24px' }}>
+                <Rule valid={formData.username.length >= 3 && formData.email.includes('@')} text="Valid credentials required for workspace verification" />
+              </div>
+              {error && <p style={{ color: colors.error, fontSize: '13px', fontWeight: '600', marginBottom: '16px' }}>{error}</p>}
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button style={{ ...styles.ghostBtn(activeHover === 'back-btn'), flex: '0.4' }} onMouseEnter={() => setActiveHover('back-btn')} onMouseLeave={() => setActiveHover(null)} onClick={() => rGo(1)}>
+                  <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>arrow_back</span>
+                  Back
+                </button>
+                <button style={{ ...styles.primaryBtn(activeHover === 'next'), flex: '1' }} onMouseEnter={() => setActiveHover('next')} onMouseLeave={() => setActiveHover(null)} onClick={() => rGo(3)}>
+                  Next Step
+                  <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>arrow_forward</span>
+                </button>
               </div>
             </div>
           )}
 
           {step === 3 && (
             <div style={{ animation: 'fadeIn 0.3s ease' }}>
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', fontSize: '12.5px', fontWeight: '600', color: colors.inkSoft, marginBottom: '6px' }}>Create password</label>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Create Password</label>
                 <div style={{ position: 'relative' }}>
-                  <input type={showPassword ? "text" : "password"} style={inputStyle} onChange={(e) => calcPw(e.target.value)} />
-                  <button style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: colors.inkMuted, display: 'flex', alignItems: 'center' }} onClick={() => setShowPassword(!showPassword)}>
-                    <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>
-                      {showPassword ? 'visibility_off' : 'visibility'}
-                    </span>
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    style={styles.input(activeHover === 'pw', !!error)}
+                    onFocus={() => setActiveHover('pw')}
+                    onBlur={() => setActiveHover(null)}
+                    placeholder="••••••••"
+                    onChange={(e) => calcPw(e.target.value)}
+                  />
+                  <button style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: colors.inkMuted }} onClick={() => setShowPassword(!showPassword)}>
+                    <span className="material-symbols-rounded">{showPassword ? 'visibility_off' : 'visibility'}</span>
                   </button>
                 </div>
-                <div style={{ display: 'flex', gap: '4px', marginTop: '8px', marginBottom: '12px' }}>
-                  {[1, 2, 3, 4].map(n => <div key={n} style={pwBarStyle(n)} />)}
+                <div style={{ display: 'flex', gap: '6px', marginTop: '14px', marginBottom: '20px' }}>
+                  {[1, 2, 3, 4, 5].map(n => <div key={n} style={styles.pwBadge(n)} />)}
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <Rule valid={formData.password.length >= 8} text="At least 8 characters long" />
-                  <Rule valid={/[A-Z]/.test(formData.password)} text="Include at least one uppercase letter" />
+                <div style={{ marginBottom: '24px' }}>
+                  <Rule valid={formData.password.length >= 8} text="Minimum 8 characters" />
+                  <Rule valid={/[A-Z]/.test(formData.password) && /[0-9]/.test(formData.password)} text="Include uppercase and numbers" />
                 </div>
               </div>
-              {error && <div style={{ fontSize: '11.5px', color: colors.error, marginBottom: '14px', fontWeight: 600 }}>{error}</div>}
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button style={{ ...ghostButtonStyle, flex: 0.5 }} onClick={() => rGo(2)}>← Back</button>
-                <button style={{ ...accentButtonStyle, flex: 1 }} onMouseEnter={() => setHovered({...hovered, next: true})} onMouseLeave={() => setHovered({...hovered, next: false})} onClick={() => rGo(4)}>Create account →</button>
+              {error && <p style={{ color: colors.error, fontSize: '13px', fontWeight: '600', marginBottom: '16px' }}>{error}</p>}
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button style={{ ...styles.ghostBtn(activeHover === 'back-btn'), flex: '0.4' }} onMouseEnter={() => setActiveHover('back-btn')} onMouseLeave={() => setActiveHover(null)} onClick={() => rGo(2)}>
+                  <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>arrow_back</span>
+                  Back
+                </button>
+                <button style={{ ...styles.primaryBtn(activeHover === 'finish', 'accent'), flex: '1' }} onMouseEnter={() => setActiveHover('finish')} onMouseLeave={() => setActiveHover(null)} onClick={() => rGo(4)}>
+                  Complete Activation
+                  <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>verified</span>
+                </button>
               </div>
             </div>
           )}
 
           {step === 4 && (
-            <div style={{ textAlign: 'center', animation: 'fadeIn 0.3s ease' }}>
-              <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: colors.successBg, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
-                <span className="material-symbols-rounded" style={{ color: colors.success, fontSize: '28px' }}>check_circle</span>
+            <div style={{ textAlign: 'left', animation: 'fadeInUp 0.6s' }}>
+              <div style={{ width: '80px', height: '80px', borderRadius: '24px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', display: 'grid', placeItems: 'center', marginBottom: '32px', color: colors.success, boxShadow: `0 12px 24px rgba(16, 185, 129, 0.15)` }}>
+                <span className="material-symbols-rounded" style={{ fontSize: '40px' }}>verified_user</span>
               </div>
-              <h2 style={{ fontSize: '24px', fontWeight: '800', color: colors.ink, marginBottom: '8px' }}>Account created!</h2>
-              <p style={subStyle}>Your organizer workspace is ready.</p>
-              <Link to="/" style={{ ...accentButtonStyle, textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onMouseEnter={() => setHovered({...hovered, dash: true})} onMouseLeave={() => setHovered({...hovered, dash: false})}>Go to dashboard →</Link>
+              <h2 style={{ ...styles.pageTitle, fontSize: '32px' }}>Workspace Activated</h2>
+              <p style={{ ...styles.pageSub, marginBottom: '32px' }}>Your organizer account has been successfully configured. Welcome to the elite tier of professional event management.</p>
+              <Link to="/organizer/dashboard" style={{ ...styles.primaryBtn(activeHover === 'dash'), textDecoration: 'none' }} onMouseEnter={() => setActiveHover('dash')} onMouseLeave={() => setActiveHover(null)}>
+                Enter Your Workspace
+                <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>dashboard_customize</span>
+              </Link>
             </div>
           )}
         </div>
       </div>
 
-      <div style={{ background: colors.navy, display: window.innerWidth > 1024 ? 'flex' : 'none', alignItems: 'center', justifyContent: 'center', padding: '48px', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.1), transparent), ${colors.navy}` }}></div>
-        <div style={{ position: 'relative', zIndex: 1, maxWidth: '400px', width: '100%' }}>
-          <h2 style={{ fontSize: '28px', color: colors.white, fontWeight: '800', marginBottom: '10px' }}>Set up your event in <em style={{ color: colors.accent, fontStyle: 'normal' }}>under 5 minutes.</em></h2>
-          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '14px' }}>Built for the speed of competition day.</p>
+      {/* ── VISUAL SIDE ── */}
+      <div style={styles.visualPanel}>
+        <div style={styles.bgGradient} />
+        <div style={styles.bgPattern} />
+        
+        <div style={styles.visualContent}>
+          <div style={{ marginBottom: '48px' }}>
+            <div style={{ display: 'inline-flex', padding: '16px', background: 'rgba(59, 130, 246, 0.1)', borderRadius: '24px', marginBottom: '24px', animation: 'float 4s ease-in-out infinite', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+              <span className="material-symbols-rounded" style={{ fontSize: '48px', color: colors.accent }}>shield_with_heart</span>
+            </div>
+            <h2 style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '40px', fontWeight: '800', color: '#fff', letterSpacing: '-0.03em', lineHeight: '1.15', marginBottom: '20px' }}>
+              The gold standard in <br /> <span style={{ color: colors.accent }}>event integrity.</span>
+            </h2>
+            <p style={{ fontSize: '17px', color: 'rgba(255,255,255,0.5)', lineHeight: '1.6', margin: 0 }}>
+              End-to-end encryption for every score, automated certificate generation, and live syncing across all portals.
+            </p>
+          </div>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {[
+              { icon: 'bolt', title: 'Ultra-low Latency', desc: 'Real-time scoring updates for live audiences.' },
+              { icon: 'hub', title: 'Unified Ecosystem', desc: 'One account for organizers, judges, and users.' },
+              { icon: 'workspace_premium', title: 'Automated Compliance', desc: 'Built-in rubric validation and audit trails.' }
+            ].map((item, i) => (
+              <div 
+                key={i} 
+                style={{ ...styles.featureCard, transform: activeHover === `feat-${i}` ? 'translateX(10px)' : 'none' }}
+                onMouseEnter={() => setActiveHover(`feat-${i}`)}
+                onMouseLeave={() => setActiveHover(null)}
+              >
+                <div style={styles.featureIcon}>
+                  <span className="material-symbols-rounded" style={{ fontSize: '22px' }}>{item.icon}</span>
+                </div>
+                <div style={{ textAlign: 'left' }}>
+                  <p style={{ fontSize: '15px', fontWeight: '700', color: '#fff', marginBottom: '4px' }}>{item.title}</p>
+                  <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)', lineHeight: '1.4' }}>{item.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>

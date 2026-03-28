@@ -17,6 +17,27 @@ function initials(name = '') {
   return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
 }
 
+/* ─── Status Badge (Read Only) ─────────────────────────────────────────── */
+function StatusBadge({ status }) {
+  const configs = {
+    Registered: { bg: '#DCFCE7', color: '#166534', icon: 'check_circle' },
+    Pending: { bg: '#FEF3C7', color: '#92400E', icon: 'schedule' }
+  };
+  const c = configs[status] || configs.Pending;
+
+  return (
+    <div style={{
+      display: 'inline-flex', alignItems: 'center', gap: '8px',
+      padding: '5px 14px', borderRadius: '100px', fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.04em',
+      background: c.bg, color: c.color, userSelect: 'none',
+      boxShadow: '0 1px 2px rgba(0,0,0,0.05)', border: `1px solid rgba(0,0,0,0.03)`
+    }}>
+      <span className="material-symbols-rounded" style={{ fontSize: '14px' }}>{c.icon}</span>
+      {status}
+    </div>
+  );
+}
+
 /* ─── EditableCell: noticeable edit-cue ─────────────────────────────────── */
 function EditableCell({ value, options, onSave, placeholder = '— click to edit —', type = 'text' }) {
   const [editing, setEditing] = useState(false);
@@ -282,27 +303,37 @@ export default function ParticipantsPage() {
       gap: '24px',
       marginBottom: '28px',
     },
-    widgetCard: (span) => ({
+    widgetCard: (span, bg = '#fff') => ({
       background: '#fff',
-      border: `1px solid ${colors.borderSoft}`,
-      borderRadius: '18px',
+      border: `1.5px solid ${colors.borderSoft}`,
+      borderRadius: '20px',
       padding: '24px',
       boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
       gridColumn: isMobile ? 'span 1' : `span ${span}`,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '12px',
+    }),
+    iconWrapper: (bg, color) => ({
+      width: '40px',
+      height: '40px',
+      borderRadius: '12px',
+      background: bg,
+      color: color,
+      display: 'grid',
+      placeItems: 'center',
     }),
     statLabel: {
       fontSize: '11px',
-      fontWeight: '700',
+      fontWeight: '800',
       textTransform: 'uppercase',
       letterSpacing: '0.08em',
       color: colors.inkMuted,
-      marginBottom: '8px',
-      display: 'block',
     },
     statValue: {
       fontFamily: "'DM Sans', sans-serif",
       fontSize: '32px',
-      fontWeight: '800',
+      fontWeight: '900',
       color: colors.navy,
       letterSpacing: '-0.04em',
       lineHeight: '1',
@@ -450,7 +481,7 @@ export default function ParticipantsPage() {
           <p style={styles.pageDescription}>Manage competitors for <strong style={{ color: colors.navy }}>{selectedEvent.name}</strong>.</p>
         </div>
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-          <label 
+          <label
             style={styles.btn(activeBtnHover === 'import')}
             onMouseEnter={() => setActiveBtnHover('import')}
             onMouseLeave={() => setActiveBtnHover(null)}
@@ -459,8 +490,8 @@ export default function ParticipantsPage() {
             Import CSV
             <input type="file" accept=".csv" style={{ display: 'none' }} onChange={handleFileImport} />
           </label>
-          <button 
-            style={styles.btn(activeBtnHover === 'invite', true)} 
+          <button
+            style={styles.btn(activeBtnHover === 'invite', true)}
             onMouseEnter={() => setActiveBtnHover('invite')}
             onMouseLeave={() => setActiveBtnHover(null)}
             onClick={() => setShowInviteModal(true)}
@@ -473,9 +504,21 @@ export default function ParticipantsPage() {
 
       {/* ── KPI Strip ── */}
       <div style={styles.dashboardGrid}>
-        <div style={styles.widgetCard(4)}><span style={styles.statLabel}>Total</span><div style={styles.statValue}>{participants.length}</div></div>
-        <div style={styles.widgetCard(4)}><span style={styles.statLabel}>Registered</span><div style={{ ...styles.statValue, color: colors.success }}>{registered}</div></div>
-        <div style={styles.widgetCard(4)}><span style={styles.statLabel}>Pending Invite</span><div style={{ ...styles.statValue, color: '#D97706' }}>{pendingCount}</div></div>
+        <div style={styles.widgetCard(4)}>
+          <div style={styles.iconWrapper(colors.accentBg, colors.accent)}><span className="material-symbols-rounded" style={{ fontSize: '20px' }}>groups</span></div>
+          <span style={styles.statLabel}>Total</span>
+          <div style={styles.statValue}>{participants.length}</div>
+        </div>
+        <div style={styles.widgetCard(4)}>
+          <div style={styles.iconWrapper('#F0FDF4', colors.success)}><span className="material-symbols-rounded" style={{ fontSize: '20px' }}>how_to_reg</span></div>
+          <span style={styles.statLabel}>Registered</span>
+          <div style={{ ...styles.statValue, color: colors.success }}>{registered}</div>
+        </div>
+        <div style={styles.widgetCard(4)}>
+          <div style={styles.iconWrapper('#FFF7ED', '#D97706')}><span className="material-symbols-rounded" style={{ fontSize: '20px' }}>person_outline</span></div>
+          <span style={styles.statLabel}>Pending Invite</span>
+          <div style={{ ...styles.statValue, color: '#D97706' }}>{pendingCount}</div>
+        </div>
       </div>
 
       {/* ── Table ── */}
@@ -513,7 +556,6 @@ export default function ParticipantsPage() {
                 <th style={{ ...styles.th, cursor: 'help' }} title="Click any cell below to edit">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                     Status
-                    <span className="material-symbols-rounded" style={{ fontSize: '14px', color: colors.accent, opacity: 0.7 }}>edit</span>
                   </div>
                 </th>
                 <th style={{ ...styles.th, textAlign: 'right' }}>Actions</th>
@@ -530,8 +572,8 @@ export default function ParticipantsPage() {
               ) : filtered.map(p => {
                 const isSel = selected.has(p.id);
                 return (
-                  <tr 
-                    key={p.id} 
+                  <tr
+                    key={p.id}
                     style={{ background: isSel ? 'rgba(59,130,246,0.04)' : (hoveredRow === p.id ? colors.pageBg : 'transparent'), transition: 'all 0.2s' }}
                     onMouseEnter={() => setHoveredRow(p.id)}
                     onMouseLeave={() => setHoveredRow(null)}
@@ -563,8 +605,7 @@ export default function ParticipantsPage() {
                       </span>
                     </td>
                     <td style={styles.td}>
-                      <EditableCell value={p.status} options={['Registered', 'Pending']}
-                        onSave={val => updateParticipant(selectedEvent.id, p.id, { status: val })} />
+                      <StatusBadge status={p.status} />
                     </td>
                     <td style={{ ...styles.td, textAlign: 'right' }}>
                       <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
@@ -602,23 +643,23 @@ export default function ParticipantsPage() {
           ].map(a => (
             <button key={a.id} onClick={a.action} style={{
               display: 'flex', alignItems: 'center', gap: '6px',
-              background: activeBtnHover === a.id ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.08)', 
+              background: activeBtnHover === a.id ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.08)',
               border: '1px solid rgba(255,255,255,0.12)',
               color: '#e2e8f0', padding: '7px 14px', borderRadius: '10px',
               fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s', whiteSpace: 'nowrap',
             }}
-            onMouseEnter={() => setActiveBtnHover(a.id)}
-            onMouseLeave={() => setActiveBtnHover(null)}>
+              onMouseEnter={() => setActiveBtnHover(a.id)}
+              onMouseLeave={() => setActiveBtnHover(null)}>
               <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>{a.icon}</span>
               {a.label}
             </button>
           ))}
-          <button onClick={() => doRemove([...selected])} 
+          <button onClick={() => doRemove([...selected])}
             onMouseEnter={() => setActiveBtnHover('bulk-rm')}
             onMouseLeave={() => setActiveBtnHover(null)}
             style={{
               display: 'flex', alignItems: 'center', gap: '6px',
-              background: activeBtnHover === 'bulk-rm' ? 'rgba(239,68,68,0.35)' : 'rgba(239,68,68,0.2)', 
+              background: activeBtnHover === 'bulk-rm' ? 'rgba(239,68,68,0.35)' : 'rgba(239,68,68,0.2)',
               border: '1px solid rgba(239,68,68,0.35)',
               color: '#FCA5A5', padding: '7px 14px', borderRadius: '10px',
               fontSize: '12.5px', fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s',
@@ -627,14 +668,14 @@ export default function ParticipantsPage() {
             Remove
           </button>
           <div style={{ width: '1px', height: '24px', background: 'rgba(255,255,255,0.12)', margin: '0 4px' }} />
-          <button 
-            onClick={() => setSelected(new Set())} 
+          <button
+            onClick={() => setSelected(new Set())}
             onMouseEnter={() => setActiveBtnHover('bulk-close')}
             onMouseLeave={() => setActiveBtnHover(null)}
-            style={{ 
-              background: activeBtnHover === 'bulk-close' ? 'rgba(255,255,255,0.1)' : 'none', 
-              border: 'none', color: activeBtnHover === 'bulk-close' ? '#fff' : 'rgba(255,255,255,0.4)', 
-              cursor: 'pointer', padding: '6px', display: 'grid', placeItems: 'center', borderRadius: '8px', transition: 'all 0.15s' 
+            style={{
+              background: activeBtnHover === 'bulk-close' ? 'rgba(255,255,255,0.1)' : 'none',
+              border: 'none', color: activeBtnHover === 'bulk-close' ? '#fff' : 'rgba(255,255,255,0.4)',
+              cursor: 'pointer', padding: '6px', display: 'grid', placeItems: 'center', borderRadius: '8px', transition: 'all 0.15s'
             }}
           >
             <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>close</span>
@@ -658,9 +699,9 @@ export default function ParticipantsPage() {
               </div>
               <div style={{ position: 'relative', marginTop: '20px' }}>
                 <span className="material-symbols-rounded" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', fontSize: '20px', color: colors.inkMuted, pointerEvents: 'none' }}>search</span>
-                <input type="text" placeholder="Search by name or email..." value={userSearch} onChange={e => setUserSearch(e.target.value)} 
-                  style={{ ...styles.searchInput, width: '100%', background: '#fff', paddingLeft: '44px' }} 
-                  autoFocus 
+                <input type="text" placeholder="Search by name or email..." value={userSearch} onChange={e => setUserSearch(e.target.value)}
+                  style={{ ...styles.searchInput, width: '100%', background: '#fff', paddingLeft: '44px' }}
+                  autoFocus
                   onFocus={e => { e.target.style.borderColor = colors.accent; e.target.style.boxShadow = `0 0 0 3px ${colors.accentGlow}`; }}
                   onBlur={e => { e.target.style.borderColor = colors.border; e.target.style.boxShadow = 'none'; }}
                 />
@@ -675,8 +716,8 @@ export default function ParticipantsPage() {
               ) : poolResults.length === 0 ? (
                 <div style={{ padding: '32px', textAlign: 'center', color: colors.inkMuted }}>No users found for "<strong>{userSearch}</strong>".</div>
               ) : poolResults.map(u => (
-                <div 
-                  key={u.id} 
+                <div
+                  key={u.id}
                   style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '12px 32px', borderBottom: `1px solid ${colors.borderSoft}`, transition: 'background 0.2s', background: hoveredRow === u.id ? colors.pageBg : 'transparent' }}
                   onMouseEnter={() => setHoveredRow(u.id)}
                   onMouseLeave={() => setHoveredRow(null)}
@@ -704,7 +745,7 @@ export default function ParticipantsPage() {
                         <div style={styles.userAvatar(22, 8)}>{initials(u.name)}</div>
                         <span style={{ fontSize: '13px', fontWeight: 600, color: colors.navy }}>{u.name}</span>
                         <button onClick={() => removeFromPending(u.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.inkMuted, padding: 0, display: 'grid', placeItems: 'center', transition: 'color 0.2s' }} onMouseEnter={e => e.currentTarget.style.color = colors.coral} onMouseLeave={e => e.currentTarget.style.color = colors.inkMuted}>
-                          <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>close_circle</span>
+                          <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>close</span>
                         </button>
                       </div>
                     ))}
@@ -714,9 +755,9 @@ export default function ParticipantsPage() {
             </div>
             <div style={{ padding: '20px 32px', display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
               <button style={styles.btn(activeBtnHover === 'cancel-invite')} onClick={() => { setShowInviteModal(false); setPending([]); setUserSearch(''); }} onMouseEnter={() => setActiveBtnHover('cancel-invite')} onMouseLeave={() => setActiveBtnHover(null)}>Cancel</button>
-              <button 
-                style={styles.btn(activeBtnHover === 'confirm-invite', true)} 
-                disabled={pending.length === 0} 
+              <button
+                style={styles.btn(activeBtnHover === 'confirm-invite', true)}
+                disabled={pending.length === 0}
                 onClick={handleBulkAdd}
                 onMouseEnter={() => setActiveBtnHover('confirm-invite')}
                 onMouseLeave={() => setActiveBtnHover(null)}
@@ -736,23 +777,23 @@ export default function ParticipantsPage() {
             <div style={{ padding: '32px' }}>
               <h2 style={styles.modalTitle}>Set Team</h2>
               <p style={{ fontSize: '14px', color: colors.inkMuted, marginTop: '6px', marginBottom: '24px' }}>Applying to <strong>{sel}</strong> selected participant(s).</p>
-              
+
               <label style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', color: colors.inkMuted, marginBottom: '8px', display: 'block' }}>Team Name</label>
               <input type="text" list="team-dl" placeholder="Type or choose a team…"
                 value={bulkTeamVal} onChange={e => setBulkTeamVal(e.target.value)}
                 style={{ ...styles.searchInput, width: '100%', background: colors.pageBg, paddingLeft: '16px' }}
-                onKeyDown={e => e.key === 'Enter' && handleBulkTeam()} 
-                autoFocus 
+                onKeyDown={e => e.key === 'Enter' && handleBulkTeam()}
+                autoFocus
                 onFocus={e => { e.target.style.borderColor = colors.accent; e.target.style.background = '#fff'; e.target.style.boxShadow = `0 0 0 3px ${colors.accentGlow}`; }}
                 onBlur={e => { e.target.style.borderColor = colors.border; e.target.style.background = colors.pageBg; e.target.style.boxShadow = 'none'; }}
               />
               <datalist id="team-dl">{knownTeams.map(t => <option key={t} value={t} />)}</datalist>
-              
+
               <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '32px' }}>
                 <button style={styles.btn(activeBtnHover === 'cancel-bulk')} onClick={() => setShowBulkTeam(false)} onMouseEnter={() => setActiveBtnHover('cancel-bulk')} onMouseLeave={() => setActiveBtnHover(null)}>Cancel</button>
-                <button 
-                  style={styles.btn(activeBtnHover === 'apply-bulk', true)} 
-                  disabled={!bulkTeamVal.trim()} 
+                <button
+                  style={styles.btn(activeBtnHover === 'apply-bulk', true)}
+                  disabled={!bulkTeamVal.trim()}
                   onClick={handleBulkTeam}
                   onMouseEnter={() => setActiveBtnHover('apply-bulk')}
                   onMouseLeave={() => setActiveBtnHover(null)}
@@ -775,7 +816,7 @@ export default function ParticipantsPage() {
                 <h2 style={{ ...styles.modalTitle, marginBottom: '4px' }}>{viewParticipant.name}</h2>
                 <p style={{ color: colors.inkMuted, fontSize: '14px', margin: 0 }}>{viewParticipant.team}</p>
               </div>
-              
+
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {[{ label: 'Email', value: viewParticipant.email, icon: 'mail' }, { label: 'Status', value: viewParticipant.status, icon: 'verified' }, { label: 'Score', value: viewParticipant.score ?? 'Not scored', icon: 'analytics' }].map(({ label, value, icon }) => (
                   <div key={label} style={{ display: 'flex', gap: '14px', alignItems: 'center', padding: '14px', background: colors.pageBg, borderRadius: '14px', border: `1px solid ${colors.borderSoft}` }}>
@@ -787,7 +828,7 @@ export default function ParticipantsPage() {
                   </div>
                 ))}
               </div>
-              
+
               <div style={{ marginTop: '32px', display: 'flex', gap: '12px' }}>
                 <button style={{ ...styles.btn(activeBtnHover === 'close-vp'), flex: 1 }} onClick={() => setViewParticipant(null)} onMouseEnter={() => setActiveBtnHover('close-vp')} onMouseLeave={() => setActiveBtnHover(null)}>Close</button>
                 <button style={{ ...styles.btn(activeBtnHover === 'kick-vp', true), flex: 1, background: colors.coral }} onClick={() => { setConfirmKick(viewParticipant); setViewParticipant(null); }} onMouseEnter={() => setActiveBtnHover('kick-vp')} onMouseLeave={() => setActiveBtnHover(null)}>Remove</button>
@@ -808,8 +849,8 @@ export default function ParticipantsPage() {
               </p>
               <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '32px' }}>
                 <button style={styles.btn(activeBtnHover === 'cancel-kick')} onClick={() => setConfirmKick(null)} onMouseEnter={() => setActiveBtnHover('cancel-kick')} onMouseLeave={() => setActiveBtnHover(null)}>Cancel</button>
-                <button 
-                  style={{ ...styles.btn(activeBtnHover === 'confirm-kick', true), background: colors.coral }} 
+                <button
+                  style={{ ...styles.btn(activeBtnHover === 'confirm-kick', true), background: colors.coral }}
                   onClick={() => { doRemove([confirmKick.id]); setConfirmKick(null); }}
                   onMouseEnter={() => setActiveBtnHover('confirm-kick')}
                   onMouseLeave={() => setActiveBtnHover(null)}

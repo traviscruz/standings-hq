@@ -349,15 +349,15 @@ export default function OrganizerLayout() {
       display: 'flex',
       alignItems: 'center',
       gap: '12px',
-      padding: '11px 12px',
-      borderRadius: '8px',
-      color: isActive ? '#fff' : (hoveredLink === linkId ? colors.navy : colors.inkMid),
+      padding: '11px 16px',
+      borderRadius: '14px',
+      color: isActive ? '#fff' : (hoveredLink === linkId ? colors.navy : colors.inkSoft),
       textDecoration: 'none',
-      fontSize: '14px',
-      fontWeight: isActive ? '600' : '500',
-      background: isActive ? colors.navy : (hoveredLink === linkId ? colors.pageBg : 'transparent'),
-      transition: 'all 0.2s ease',
-      boxShadow: isActive ? '0 4px 12px rgba(15, 31, 61, 0.15)' : 'none',
+      fontSize: '14.5px',
+      fontWeight: isActive ? '700' : '600',
+      background: isActive ? `linear-gradient(135deg, ${colors.navy} 0%, ${colors.navySoft} 100%)` : (hoveredLink === linkId ? colors.pageBg : 'transparent'),
+      transition: 'all 0.25s cubic-bezier(0.18, 0.89, 0.32, 1.28)',
+      boxShadow: isActive ? '0 10px 25px -4px rgba(30, 45, 74, 0.25)' : 'none',
       position: 'relative',
     }),
     sidebarBadge: {
@@ -483,9 +483,9 @@ export default function OrganizerLayout() {
         {`
           @keyframes pillDrop { from { opacity: 0; transform: translateY(-20px) scale(0.9); } to { opacity: 1; transform: translateY(0) scale(1); } }
           @keyframes pillTimer { from { transform: scaleX(1); } to { transform: scaleX(0); } }
-          @keyframes slideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+          @keyframes slideUp { from { opacity: 0; transform: translateY(12px); } }
           .pill-timer-anim { animation: pillTimer 5s linear forwards; }
-          .slide-up-anim { animation: slideUp 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
+          .slide-up-anim { animation: slideUp 0.6s cubic-bezier(0.2, 0.8, 0.2, 1); }
         `}
       </style>
       <div style={styles.layout}>
@@ -753,7 +753,9 @@ export default function OrganizerLayout() {
 
         {/* ── MAIN CONTENT ── */}
         <main style={styles.main}>
-          <Outlet />
+          <div key={location.pathname} className="slide-up-anim">
+            <Outlet />
+          </div>
         </main>
       </div>
 
