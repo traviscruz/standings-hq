@@ -1,0 +1,43 @@
+{"timestamp":"00:00:07.469","source":"Server","level":"WARN","message":"⚠ Minimum recommended TypeScript version is v5.1.0, older versions can potentially be incompatible with Next.js. Detected: 4.9.5"}
+{"timestamp":"00:00:07.476","source":"Server","level":"LOG","message":""}
+{"timestamp":"00:00:07.477","source":"Server","level":"LOG","message":"  We detected TypeScript in your project and reconfigured your tsconfig.json file for you."}
+{"timestamp":"00:00:07.477","source":"Server","level":"LOG","message":"  The following suggested values were added to your tsconfig.json. These values can be changed to fit your project's needs:\n"}
+{"timestamp":"00:00:07.477","source":"Server","level":"LOG","message":"  \t- include was updated to add '.next/dev/types/**/*.ts'"}
+{"timestamp":"00:00:07.478","source":"Server","level":"LOG","message":""}
+{"timestamp":"00:00:07.478","source":"Server","level":"LOG","message":"  The following mandatory changes were made to your tsconfig.json:\n"}
+{"timestamp":"00:00:07.479","source":"Server","level":"LOG","message":"  \t- jsx was set to react-jsx (next.js uses the React automatic runtime)"}
+{"timestamp":"00:00:07.479","source":"Server","level":"LOG","message":""}
+{"timestamp":"00:00:07.516","source":"Server","level":"WARN","message":"⚠ The \"middleware\" file convention is deprecated. Please use \"proxy\" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy"}
+{"timestamp":"00:00:07.737","source":"Server","level":"LOG","message":""}
+{"timestamp":"00:00:09.421","source":"Server","level":"ERROR","message":"AuthApiError: Invalid Refresh Token: Refresh Token Not Found\n    at ignore-listed frames {\n  __isAuthError: true,\n  status: 400,\n  code: 'refresh_token_not_found'\n}"}
+{"timestamp":"00:00:09.467","source":"Server","level":"ERROR","message":"AuthApiError: Invalid Refresh Token: Refresh Token Not Found\n    at ignore-listed frames {\n  __isAuthError: true,\n  status: 400,\n  code: 'refresh_token_not_found'\n}"}
+{"timestamp":"00:01:07.478","source":"Server","level":"ERROR","message":"AuthApiError: Invalid Refresh Token: Refresh Token Not Found\n    at ignore-listed frames {\n  __isAuthError: true,\n  status: 400,\n  code: 'refresh_token_not_found'\n}"}
+{"timestamp":"00:01:07.509","source":"Server","level":"ERROR","message":"AuthApiError: Invalid Refresh Token: Refresh Token Not Found\n    at ignore-listed frames {\n  __isAuthError: true,\n  status: 400,\n  code: 'refresh_token_not_found'\n}"}
+{"timestamp":"00:01:08.770","source":"Server","level":"ERROR","message":"AuthApiError: Invalid Refresh Token: Refresh Token Not Found"}
+{"timestamp":"00:01:08.800","source":"Server","level":"ERROR","message":"AuthApiError: Invalid Refresh Token: Refresh Token Not Found"}
+{"timestamp":"00:01:09.901","source":"Browser","level":"INFO","message":"%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"}
+{"timestamp":"00:01:57.359","source":"Server","level":"ERROR","message":"AuthApiError: Invalid Refresh Token: Refresh Token Not Found"}
+{"timestamp":"00:01:57.385","source":"Server","level":"ERROR","message":"AuthApiError: Invalid Refresh Token: Refresh Token Not Found"}
+{"timestamp":"00:01:57.959","source":"Server","level":"ERROR","message":"AuthApiError: Invalid Refresh Token: Refresh Token Not Found\n    at ignore-listed frames {\n  __isAuthError: true,\n  status: 400,\n  code: 'refresh_token_not_found'\n}"}
+{"timestamp":"00:01:57.980","source":"Server","level":"ERROR","message":"AuthApiError: Invalid Refresh Token: Refresh Token Not Found\n    at ignore-listed frames {\n  __isAuthError: true,\n  status: 400,\n  code: 'refresh_token_not_found'\n}"}
+{"timestamp":"00:01:58.432","source":"Browser","level":"INFO","message":"%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"}
+{"timestamp":"00:02:00.825","source":"Server","level":"ERROR","message":"AuthApiError: Invalid Refresh Token: Refresh Token Not Found\n    at ignore-listed frames {\n  __isAuthError: true,\n  status: 400,\n  code: 'refresh_token_not_found'\n}"}
+{"timestamp":"00:02:00.857","source":"Server","level":"ERROR","message":"AuthApiError: Invalid Refresh Token: Refresh Token Not Found\n    at ignore-listed frames {\n  __isAuthError: true,\n  status: 400,\n  code: 'refresh_token_not_found'\n}"}
+{"timestamp":"00:02:00.985","source":"Server","level":"ERROR","message":"AuthApiError: Invalid Refresh Token: Refresh Token Not Found"}
+{"timestamp":"00:02:01.010","source":"Server","level":"ERROR","message":"AuthApiError: Invalid Refresh Token: Refresh Token Not Found"}
+{"timestamp":"00:02:01.582","source":"Browser","level":"INFO","message":"%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"}
+{"timestamp":"00:02:53.285","source":"Server","level":"ERROR","message":"AuthApiError: Invalid Refresh Token: Refresh Token Not Found\n    at ignore-listed frames {\n  __isAuthError: true,\n  status: 400,\n  code: 'refresh_token_not_found'\n}"}
+{"timestamp":"00:02:53.314","source":"Server","level":"ERROR","message":"AuthApiError: Invalid Refresh Token: Refresh Token Not Found\n    at ignore-listed frames {\n  __isAuthError: true,\n  status: 400,\n  code: 'refresh_token_not_found'\n}"}
+{"timestamp":"00:02:53.358","source":"Server","level":"ERROR","message":"AuthApiError: Invalid Refresh Token: Refresh Token Not Found\n    at ignore-listed frames {\n  __isAuthError: true,\n  status: 400,\n  code: 'refresh_token_not_found'\n}"}
+{"timestamp":"00:02:53.385","source":"Server","level":"ERROR","message":"AuthApiError: Invalid Refresh Token: Refresh Token Not Found\n    at ignore-listed frames {\n  __isAuthError: true,\n  status: 400,\n  code: 'refresh_token_not_found'\n}"}
+{"timestamp":"00:02:53.606","source":"Server","level":"ERROR","message":"AuthApiError: Invalid Refresh Token: Refresh Token Not Found\n    at ignore-listed frames {\n  __isAuthError: true,\n  status: 400,\n  code: 'refresh_token_not_found'\n}"}
+{"timestamp":"00:02:53.630","source":"Server","level":"ERROR","message":"AuthApiError: Invalid Refresh Token: Refresh Token Not Found\n    at ignore-listed frames {\n  __isAuthError: true,\n  status: 400,\n  code: 'refresh_token_not_found'\n}"}
+{"timestamp":"00:02:53.706","source":"Server","level":"ERROR","message":"AuthApiError: Invalid Refresh Token: Refresh Token Not Found\n    at ignore-listed frames {\n  __isAuthError: true,\n  status: 400,\n  code: 'refresh_token_not_found'\n}"}
+{"timestamp":"00:02:53.737","source":"Server","level":"ERROR","message":"AuthApiError: Invalid Refresh Token: Refresh Token Not Found\n    at ignore-listed frames {\n  __isAuthError: true,\n  status: 400,\n  code: 'refresh_token_not_found'\n}"}
+{"timestamp":"00:02:54.024","source":"Server","level":"ERROR","message":"AuthApiError: Invalid Refresh Token: Refresh Token Not Found\n    at ignore-listed frames {\n  __isAuthError: true,\n  status: 400,\n  code: 'refresh_token_not_found'\n}"}
+{"timestamp":"00:02:54.049","source":"Server","level":"ERROR","message":"AuthApiError: Invalid Refresh Token: Refresh Token Not Found\n    at ignore-listed frames {\n  __isAuthError: true,\n  status: 400,\n  code: 'refresh_token_not_found'\n}"}
+{"timestamp":"00:02:54.074","source":"Server","level":"ERROR","message":"AuthApiError: Invalid Refresh Token: Refresh Token Not Found\n    at ignore-listed frames {\n  __isAuthError: true,\n  status: 400,\n  code: 'refresh_token_not_found'\n}"}
+{"timestamp":"00:02:54.120","source":"Server","level":"ERROR","message":"AuthApiError: Invalid Refresh Token: Refresh Token Not Found\n    at ignore-listed frames {\n  __isAuthError: true,\n  status: 400,\n  code: 'refresh_token_not_found'\n}"}
+{"timestamp":"00:02:54.144","source":"Server","level":"ERROR","message":"AuthApiError: Invalid Refresh Token: Refresh Token Not Found\n    at ignore-listed frames {\n  __isAuthError: true,\n  status: 400,\n  code: 'refresh_token_not_found'\n}"}
+{"timestamp":"00:02:54.170","source":"Server","level":"ERROR","message":"AuthApiError: Invalid Refresh Token: Refresh Token Not Found\n    at ignore-listed frames {\n  __isAuthError: true,\n  status: 400,\n  code: 'refresh_token_not_found'\n}"}
+{"timestamp":"00:02:54.226","source":"Browser","level":"INFO","message":"%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold"}
