@@ -45,7 +45,9 @@ const MiniCertificate = ({ achievement, eventName }) => {
 
 export default function ParticipantDashboard() {
   const { myEvents, invitations, certificates } = useParticipantContext();
-  const userName = localStorage.getItem('username') || 'Participant';
+  const userName = localStorage.getItem('full_name') || 'Participant';
+  const userRole = localStorage.getItem('role') || 'Participant';
+  const userHandle = localStorage.getItem('username') || '';
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const [hoveredCard, setHoveredCard] = useState(null); // id or type
 
@@ -155,9 +157,18 @@ export default function ParticipantDashboard() {
     <div className="slide-up-anim">
       <header style={pageHeaderStyle}>
         <div>
-          <div style={eyebrowBadgeStyle}>
-            <span className="material-symbols-rounded" style={{ fontSize: '14px', color: colors.accent }}>waving_hand</span>
-            Welcome back, {userName.split(' ')[0]}!
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '12px' }}>
+            {localStorage.getItem(`pfp_${userHandle}`) && (
+              <img 
+                src={localStorage.getItem(`pfp_${userHandle}`)} 
+                alt="Profile" 
+                style={{ width: '44px', height: '44px', borderRadius: '50%', objectFit: 'cover', border: `2px solid ${colors.accentBg}` }} 
+              />
+            )}
+            <div style={{ ...eyebrowBadgeStyle, marginBottom: 0 }}>
+              <span className="material-symbols-rounded" style={{ fontSize: '14px', color: colors.accent }}>waving_hand</span>
+              Welcome back, {userName.split(' ')[0]}!
+            </div>
           </div>
           <h1 style={pageTitleStyle}>Participant Dashboard</h1>
           <p style={pageDescriptionStyle}>Your competition journey at a glance. All live scores, upcoming events, and achievements.</p>

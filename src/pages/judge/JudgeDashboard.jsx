@@ -5,7 +5,9 @@ import { colors } from '../../styles/colors';
 
 export default function JudgeDashboard() {
   const { event, participants, segments, scores, submittedSegments } = useJudgeContext();
-  const userName = localStorage.getItem('username') || 'Judge';
+    const userName = localStorage.getItem('full_name') || 'Judge';
+    const userRole = localStorage.getItem('role') || 'Judge';
+    const userHandle = localStorage.getItem('username') || '';
   const navigate = useNavigate();
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const [hoveredSegment, setHoveredSegment] = useState(null);
@@ -200,9 +202,18 @@ export default function JudgeDashboard() {
       {/* ── Page Header ── */}
       <div style={pageHeaderStyle}>
         <div>
-          <div style={eyebrowBadgeStyle}>
-            <span className="material-symbols-rounded" style={{ fontSize: '14px', color: colors.accent }}>waving_hand</span>
-            Welcome back, {userName.split(' ')[0]}!
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '12px' }}>
+            {localStorage.getItem(`pfp_${userHandle}`) && (
+              <img 
+                src={localStorage.getItem(`pfp_${userHandle}`)} 
+                alt="Profile" 
+                style={{ width: '44px', height: '44px', borderRadius: '50%', objectFit: 'cover', border: `2px solid ${colors.accentBg}` }} 
+              />
+            )}
+            <div style={eyebrowBadgeStyle}>
+              <span className="material-symbols-rounded" style={{ fontSize: '14px', color: colors.accent }}>waving_hand</span>
+              Welcome back, {userName.split(' ')[0]}!
+            </div>
           </div>
           <h1 style={pageTitleStyle}>Judge Dashboard</h1>
           <p style={pageDescriptionStyle}>

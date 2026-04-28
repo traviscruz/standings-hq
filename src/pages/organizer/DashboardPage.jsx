@@ -39,7 +39,9 @@ const StatusBadge = ({ status }) => {
 
 export default function DashboardPage() {
   const { selectedEvent, participants, judges, rubrics, showToast, updateEvent } = useEventContext();
-  const userName = localStorage.getItem('username') || 'Organizer';
+  const userName = localStorage.getItem('full_name') || 'Organizer';
+  const userRole = localStorage.getItem('role') || 'Organizer';
+  const userHandle = localStorage.getItem('username') || '';
   const navigate = useNavigate();
   const [showLogModal, setShowLogModal] = useState(false);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
@@ -149,14 +151,16 @@ export default function DashboardPage() {
     <div style={styles.pageContainer}>
       <header style={styles.pageHeader}>
         <div>
-          <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
             <StatusBadge status={selectedEvent.status} />
-            <div style={{ 
-               display: 'inline-flex', alignItems: 'center', gap: '8px', 
-               padding: '6px 14px', background: 'rgba(59, 130, 246, 0.08)', borderRadius: '100px', 
-               fontSize: '11px', fontWeight: '800', color: colors.navy, 
-               textTransform: 'uppercase', letterSpacing: '0.05em' 
-            }}>
+            {localStorage.getItem(`pfp_${userHandle}`) && (
+              <img 
+                src={localStorage.getItem(`pfp_${userHandle}`)} 
+                alt="Profile" 
+                style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover', border: `2px solid ${colors.accentBg}` }} 
+              />
+            )}
+            <div style={{ ...styles.eyebrow, marginBottom: 0 }}>
                <span className="material-symbols-rounded" style={{ fontSize: '14px', color: colors.accent }}>waving_hand</span>
                Welcome, {userName.split(' ')[0]}!
             </div>

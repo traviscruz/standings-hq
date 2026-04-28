@@ -1,406 +1,404 @@
-import React, { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { API_URL } from '../../config';
+import { useNavigate } from 'react-router-dom';
 import { colors } from '../../styles/colors';
 
 export default function ProfilePage() {
   const navigate = useNavigate();
-  const location = useLocation();
   const [activeHover, setActiveHover] = useState(null);
-  const [formData, setFormData] = useState({
-    fname: 'Juan',
-    lname: 'Dela Cruz',
-    username: 'juandc_99',
-    email: 'juan.delacruz@example.com',
-  });
-  const [currentRole, setCurrentRole] = useState(location.pathname.startsWith('/organizer') ? 'Organizer' : 'Participant');
   const [isSaving, setIsSaving] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [formData, setFormData] = useState({
+    fname: localStorage.getItem('fname') || '',
+    lname: localStorage.getItem('lname') || '',
+    username: localStorage.getItem('username') || '',
+    email: localStorage.getItem('email') || '',
+  });
+  const [currentRole, setCurrentRole] = useState(localStorage.getItem('role') || 'Participant');
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
 
-  const handleSave = () => {
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const isMobile = windowWidth <= 768;
+
+  const handleSave = async () => {
     setIsSaving(true);
-    setTimeout(() => {
-      setIsSaving(false);
+    const userId = localStorage.getItem('user_id');
+    try {
+      const response = await fetch(`${API_URL}/auth/update-profile`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          userId,
+          first_name: formData.fname,
+          last_name: formData.lname,
+          username: formData.username,
+          email: formData.email
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Update failed');
+
+      localStorage.setItem('fname', formData.fname);
+      localStorage.setItem('lname', formData.lname);
+      localStorage.setItem('username', formData.username);
+      localStorage.setItem('email', formData.email);
+      localStorage.setItem('full_name', `${formData.fname} ${formData.lname}`);
+
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
-    }, 1000);
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const switchRole = (role) => {
     setCurrentRole(role);
+    localStorage.setItem('role', role);
     const target = role === 'Organizer' ? '/organizer/dashboard' : '/participant/dashboard';
     navigate(target);
   };
 
   const styles = {
     container: {
-      maxWidth: '1100px',
+      maxWidth: '1200px',
       margin: '0 auto',
       animation: 'slideUp 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards',
     },
-    header: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '24px',
+    pageHeader: {
       marginBottom: '40px',
-      padding: '32px',
-      background: '#fff',
-      borderRadius: '24px',
-      border: `1px solid ${colors.borderSoft}`,
-      boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      flexDirection: isMobile ? 'column' : 'row',
+      gap: '24px',
     },
-    avatar: {
-      width: '80px',
-      height: '80px',
-      borderRadius: '24px',
-      background: `linear-gradient(135deg, ${colors.navy} 0%, ${colors.navySoft} 100%)`,
-      color: '#fff',
-      display: 'grid',
-      placeItems: 'center',
-      fontSize: '28px',
-      fontWeight: '800',
-      boxShadow: '0 8px 16px rgba(30, 45, 74, 0.15)',
-    },
-    headerInfo: {
-      flex: 1,
-    },
-    title: {
-      fontSize: '28px',
+    eyebrow: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '8px',
+      padding: '6px 14px',
+      background: 'rgba(59, 130, 246, 0.08)',
+      borderRadius: '100px',
+      fontSize: '11px',
       fontWeight: '800',
       color: colors.navy,
-      letterSpacing: '-0.02em',
+      textTransform: 'uppercase',
+      letterSpacing: '0.05em',
+      marginBottom: '12px',
+    },
+    pageTitle: {
+      fontFamily: "'DM Sans', sans-serif",
+      fontSize: isMobile ? '28px' : '36px',
+      fontWeight: '900',
+      color: colors.navy,
+      letterSpacing: '-0.04em',
+      lineHeight: '1.1',
       margin: 0,
     },
-    subtitle: {
-      fontSize: '15px',
-      color: colors.inkMuted,
-      marginTop: '4px',
+    pageSub: {
+      color: colors.inkSoft,
+      fontSize: '16px',
+      marginTop: '12px',
     },
     grid: {
       display: 'grid',
-      gridTemplateColumns: '1fr 1fr',
-      gap: '24px',
+      gridTemplateColumns: isMobile ? '1fr' : 'repeat(12, 1fr)',
+      gap: '32px',
     },
-    sectionCard: {
+    // --- DASHBOARD STYLE CARDS ---
+    card: (span, color = colors.accent) => ({
+      gridColumn: isMobile ? 'span 1' : `span ${span}`,
       background: '#fff',
+      border: `1.5px solid ${colors.borderSoft}`,
       borderRadius: '24px',
-      border: `1px solid ${colors.borderSoft}`,
-      overflow: 'hidden',
+      padding: '32px',
       boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
-    },
-    sectionHead: {
-      padding: '20px 24px',
-      borderBottom: `1px solid ${colors.borderSoft}`,
+      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
       display: 'flex',
-      alignItems: 'center',
-      gap: '12px',
-      background: '#FAFBFC',
-    },
-    sectionTitle: {
-      fontSize: '15px',
-      fontWeight: '700',
+      flexDirection: 'column',
+      gap: '24px',
+    }),
+    iconWrapper: (bg, color) => ({
+      width: '44px',
+      height: '44px',
+      borderRadius: '14px',
+      background: bg,
+      color: color,
+      display: 'grid',
+      placeItems: 'center',
+      marginBottom: '8px',
+      boxShadow: '0 4px 10px rgba(0,0,0,0.05)',
+    }),
+    cardTitle: {
+      fontSize: '18px',
+      fontWeight: '800',
       color: colors.navy,
+      fontFamily: "'DM Sans', sans-serif",
     },
-    sectionBody: {
-      padding: '24px',
-    },
-    formGroup: {
-      marginBottom: '20px',
-    },
+    // --- FORM ELEMENTS ---
     label: {
       fontSize: '11px',
-      fontWeight: '800',
+      fontWeight: '900',
       textTransform: 'uppercase',
-      letterSpacing: '0.06em',
+      letterSpacing: '0.08em',
       color: colors.inkMuted,
-      marginBottom: '8px',
+      marginBottom: '10px',
       display: 'block',
     },
     input: (focused) => ({
       width: '100%',
-      height: '46px',
+      height: '48px',
       padding: '0 16px',
-      borderRadius: '12px',
-      border: `1.5px solid ${focused ? colors.accent : colors.border}`,
+      borderRadius: '14px',
+      border: `1.5px solid ${focused ? colors.accent : colors.borderSoft}`,
       fontSize: '14.5px',
       color: colors.navy,
       background: focused ? '#fff' : colors.pageBg,
       outline: 'none',
-      transition: 'all 0.2s',
-      fontFamily: "'Inter', sans-serif",
+      transition: 'all 0.25s',
+      fontWeight: '600',
     }),
-    primaryBtn: (hovered, variant = 'navy') => ({
-      width: '100%',
+    btn: (hovered, primary = false) => ({
       height: '48px',
+      padding: '0 28px',
       borderRadius: '14px',
-      background: variant === 'navy' ? (hovered ? colors.navySoft : colors.navy) : (hovered ? colors.accentDeep : colors.accent),
-      color: '#fff',
-      border: 'none',
-      fontSize: '15px',
+      background: primary ? (hovered ? colors.navySoft : colors.navy) : (hovered ? colors.pageBg : '#fff'),
+      color: primary ? '#fff' : (hovered ? colors.navy : colors.inkSoft),
+      border: primary ? 'none' : `1.5px solid ${hovered ? colors.navy : colors.borderSoft}`,
+      fontSize: '14.5px',
       fontWeight: '700',
       cursor: 'pointer',
-      transition: 'all 0.22s cubic-bezier(0.4, 0, 0.2, 1)',
+      transition: 'all 0.25s',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
       gap: '10px',
-      boxShadow: hovered ? '0 8px 16px rgba(15, 23, 42, 0.15)' : 'none',
-      transform: hovered ? 'translateY(-1px)' : 'none',
+      transform: hovered ? 'translateY(-2px)' : 'none',
     }),
-    roleGrid: {
-      display: 'grid',
-      gridTemplateColumns: '1fr',
-      gap: '16px',
-    },
-    roleChoice: (active, hovered) => ({
+    roleOption: (active, hovered) => ({
       padding: '20px',
       borderRadius: '18px',
       border: `1.5px solid ${active ? colors.accent : (hovered ? colors.border : colors.borderSoft)}`,
-      background: active ? colors.accentBg : (hovered ? colors.pageBg : '#fff'),
+      background: active ? colors.accentBg : '#fff',
       cursor: 'pointer',
-      transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+      transition: 'all 0.25s',
       display: 'flex',
       alignItems: 'center',
       gap: '16px',
-      position: 'relative',
-    }),
-    roleIcon: (active) => ({
-      width: '44px',
-      height: '44px',
-      borderRadius: '12px',
-      background: active ? colors.accent : colors.pageBg,
-      color: active ? '#fff' : colors.inkMuted,
-      display: 'grid',
-      placeItems: 'center',
-    }),
-    badge: {
-      fontSize: '10px',
-      fontWeight: '800',
-      padding: '4px 10px',
-      borderRadius: '100px',
-      background: colors.successBg,
-      color: colors.success,
-      border: `1px solid ${colors.success}33`,
-      textTransform: 'uppercase',
-      letterSpacing: '0.04em',
-    }
+    })
   };
 
   return (
     <div style={styles.container}>
-      {/* ── Profile Header ── */}
-      <div style={styles.header}>
-        <div style={styles.avatar}>JD</div>
-        <div style={styles.headerInfo}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <h1 style={styles.title}>{formData.fname} {formData.lname}</h1>
-            <span style={styles.badge}>Active {currentRole}</span>
+      <header style={styles.pageHeader}>
+        <div>
+          <div style={styles.eyebrow}>
+            <span className="material-symbols-rounded" style={{ fontSize: '14px', color: colors.accent }}>account_circle</span>
+            Account & Workspace
           </div>
-          <p style={styles.subtitle}>@{formData.username} · {formData.email}</p>
+          <h1 style={styles.pageTitle}>Profile Settings</h1>
+          <p style={styles.pageSub}>Manage your identity, role, and workspace security.</p>
         </div>
-        <div style={{ display: 'flex', gap: '12px' }}>
-          <button 
-            style={{ ...styles.primaryBtn(activeHover === 'save', 'accent'), width: 'auto', padding: '0 24px' }}
-            onMouseEnter={() => setActiveHover('save')}
-            onMouseLeave={() => setActiveHover(null)}
-            onClick={handleSave}
-            disabled={isSaving}
-          >
-            {isSaving ? 'Saving...' : 'Save Changes'}
-            {!isSaving && <span className="material-symbols-rounded">check_circle</span>}
-          </button>
-        </div>
-      </div>
+        <button 
+          style={styles.btn(activeHover === 'save', true)}
+          onMouseEnter={() => setActiveHover('save')}
+          onMouseLeave={() => setActiveHover(null)}
+          onClick={handleSave}
+          disabled={isSaving}
+        >
+          {isSaving ? (
+            <div style={{ width: '18px', height: '18px', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+          ) : (
+            <><span className="material-symbols-rounded">save</span> Save Changes</>
+          )}
+        </button>
+      </header>
 
       <div style={styles.grid}>
-        {/* ── Personal Information ── */}
-        <div style={styles.sectionCard}>
-          <div style={styles.sectionHead}>
-            <span className="material-symbols-rounded" style={{ color: colors.accent }}>badge</span>
-            <span style={styles.sectionTitle}>Personal Information</span>
+        {/* LEFT COLUMN: PERSONAL INFO */}
+        <div style={styles.card(7)}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '32px', marginBottom: '8px' }}>
+            {/* PROFILE PHOTO UPLOAD */}
+            <div style={{ position: 'relative', flexShrink: 0 }}>
+              <div style={{ 
+                width: '100px', height: '100px', borderRadius: '50%', overflow: 'hidden',
+                background: colors.pageBg, border: `3px solid #fff`, boxShadow: '0 8px 20px rgba(0,0,0,0.08)',
+                display: 'grid', placeItems: 'center'
+              }}>
+                {localStorage.getItem(`pfp_${formData.username}`) ? (
+                  <img src={localStorage.getItem(`pfp_${formData.username}`)} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  <span style={{ fontSize: '32px', fontWeight: '800', color: colors.border }}>{formData.fname[0]}{formData.lname[0]}</span>
+                )}
+              </div>
+              <label style={{ 
+                position: 'absolute', bottom: '0', right: '0', 
+                width: '32px', height: '32px', borderRadius: '50%', background: colors.navy,
+                color: '#fff', display: 'grid', placeItems: 'center', cursor: 'pointer',
+                border: '2px solid #fff', boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
+              }}>
+                <input type="file" hidden accept="image/*" onChange={(e) => {
+                  const file = e.target.files[0];
+                  if (file) {
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                      localStorage.setItem(`pfp_${formData.username}`, reader.result);
+                      setFormData({...formData});
+                      setShowSuccess(true);
+                    };
+                    reader.readAsDataURL(file);
+                  }
+                }} />
+                <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>photo_camera</span>
+              </label>
+            </div>
+
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
+                <div style={styles.iconWrapper(colors.accentBg, colors.accent)}>
+                  <span className="material-symbols-rounded">badge</span>
+                </div>
+                <h2 style={styles.cardTitle}>Identity & Contact</h2>
+              </div>
+              <p style={{ fontSize: '13px', color: colors.inkMuted, lineHeight: '1.5' }}>
+                Update your personal photo and public profile details. This photo will be visible to other participants and organizers.
+              </p>
+            </div>
           </div>
-          <div style={styles.sectionBody}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>First Name</label>
-                <input 
-                  style={styles.input(activeHover === 'fname')} 
-                  value={formData.fname}
-                  onFocus={() => setActiveHover('fname')}
-                  onBlur={() => setActiveHover(null)}
-                  onChange={(e) => setFormData({...formData, fname: e.target.value})}
-                />
-              </div>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Last Name</label>
-                <input 
-                  style={styles.input(activeHover === 'lname')} 
-                  value={formData.lname}
-                  onFocus={() => setActiveHover('lname')}
-                  onBlur={() => setActiveHover(null)}
-                  onChange={(e) => setFormData({...formData, lname: e.target.value})}
-                />
-              </div>
-            </div>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Username</label>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '20px' }}>
+            <div>
+              <label style={styles.label}>First Name</label>
               <input 
-                style={styles.input(activeHover === 'username')} 
-                value={formData.username}
-                onFocus={() => setActiveHover('username')}
+                style={styles.input(activeHover === 'fname')}
+                onFocus={() => setActiveHover('fname')}
                 onBlur={() => setActiveHover(null)}
-                onChange={(e) => setFormData({...formData, username: e.target.value})}
+                value={formData.fname}
+                onChange={(e) => setFormData({...formData, fname: e.target.value})}
               />
             </div>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Email Address</label>
+            <div>
+              <label style={styles.label}>Last Name</label>
               <input 
-                style={styles.input(activeHover === 'email')} 
-                value={formData.email}
-                onFocus={() => setActiveHover('email')}
+                style={styles.input(activeHover === 'lname')}
+                onFocus={() => setActiveHover('lname')}
                 onBlur={() => setActiveHover(null)}
-                onChange={(e) => setFormData({...formData, email: e.target.value})}
+                value={formData.lname}
+                onChange={(e) => setFormData({...formData, lname: e.target.value})}
               />
             </div>
+          </div>
+
+          <div>
+            <label style={styles.label}>Username Handle</label>
+            <input 
+              style={styles.input(activeHover === 'username')}
+              onFocus={() => setActiveHover('username')}
+              onBlur={() => setActiveHover(null)}
+              value={formData.username}
+              onChange={(e) => setFormData({...formData, username: e.target.value})}
+            />
+          </div>
+
+          <div>
+            <label style={styles.label}>Email Address</label>
+            <input 
+              style={{ ...styles.input(false), background: colors.pageBg, color: colors.inkMuted, cursor: 'not-allowed' }}
+              value={formData.email}
+              readOnly
+            />
           </div>
         </div>
 
-        {/* ── Right Column: Role & Security ── */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          {/* ── Role Switcher ── */}
-          <div style={styles.sectionCard}>
-            <div style={styles.sectionHead}>
-              <span className="material-symbols-rounded" style={{ color: colors.warning }}>switch_account</span>
-              <span style={styles.sectionTitle}>Account Role</span>
-            </div>
-            <div style={styles.sectionBody}>
-              <p style={{ fontSize: '14px', color: colors.inkMuted, marginBottom: '20px', lineHeight: '1.5' }}>
-                Toggle your account mode to access role-specific dashboards and features.
-              </p>
-              <div style={styles.roleGrid}>
-                {[
-                  { id: 'Participant', icon: 'person', desc: 'Join events and view standings.' },
-                  { id: 'Organizer', icon: 'event_note', desc: 'Create and manage events.' }
-                ].map(r => (
-                  <div 
-                    key={r.id}
-                    style={styles.roleChoice(currentRole === r.id, activeHover === `role-${r.id}`)}
-                    onMouseEnter={() => setActiveHover(`role-${r.id}`)}
-                    onMouseLeave={() => setActiveHover(null)}
-                    onClick={() => switchRole(r.id)}
-                  >
-                    <div style={styles.roleIcon(currentRole === r.id)}>
-                      <span className="material-symbols-rounded">{r.icon}</span>
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: '700', color: colors.navy, fontSize: '15px' }}>{r.id}</div>
-                      <div style={{ fontSize: '12px', color: colors.inkMuted, marginTop: '2px' }}>{r.desc}</div>
-                    </div>
-                    {currentRole === r.id && (
-                      <span className="material-symbols-rounded" style={{ color: colors.accent, fontSize: '20px' }}>check_circle</span>
-                    )}
-                  </div>
-                ))}
+        {/* RIGHT COLUMN: ROLE & SIGNATURE */}
+        <div style={{ ...styles.card(5), gap: '32px' }}>
+          {/* ROLE SWITCHER */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px' }}>
+              <div style={styles.iconWrapper(colors.warningBg, colors.warning)}>
+                <span className="material-symbols-rounded">switch_account</span>
               </div>
+              <h2 style={styles.cardTitle}>Account Role</h2>
+            </div>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {[
+                { id: 'Participant', icon: 'person', desc: 'Join and view standings' },
+                { id: 'Organizer', icon: 'stadium', desc: 'Manage events & judging' }
+              ].map(r => (
+                <div 
+                  key={r.id}
+                  style={styles.roleOption(currentRole === r.id, activeHover === `r-${r.id}`)}
+                  onMouseEnter={() => setActiveHover(`r-${r.id}`)}
+                  onMouseLeave={() => setActiveHover(null)}
+                  onClick={() => switchRole(r.id)}
+                >
+                  <div style={{ 
+                    width: '40px', height: '40px', borderRadius: '10px', 
+                    background: currentRole === r.id ? colors.accent : colors.pageBg,
+                    color: currentRole === r.id ? '#fff' : colors.navy,
+                    display: 'grid', placeItems: 'center'
+                  }}>
+                    <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>{r.icon}</span>
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: '800', color: colors.navy, fontSize: '14px' }}>{r.id}</div>
+                    <div style={{ fontSize: '12px', color: colors.inkMuted }}>{r.desc}</div>
+                  </div>
+                  {currentRole === r.id && <span className="material-symbols-rounded" style={{ marginLeft: 'auto', color: colors.accent }}>check_circle</span>}
+                </div>
+              ))}
             </div>
           </div>
 
-          {/* ── E-Signature (New) ── */}
-          <div style={styles.sectionCard}>
-            <div style={styles.sectionHead}>
-              <span className="material-symbols-rounded" style={{ color: colors.accent }}>draw</span>
-              <span style={styles.sectionTitle}>Digital E-Signature</span>
+          {/* SIGNATURE */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px' }}>
+              <div style={styles.iconWrapper('#EEF2FF', '#6366F1')}>
+                <span className="material-symbols-rounded">draw</span>
+              </div>
+              <h2 style={styles.cardTitle}>E-Signature</h2>
             </div>
-            <div style={styles.sectionBody}>
-              <p style={{ fontSize: '13px', color: colors.inkMuted, marginBottom: '16px', lineHeight: '1.5' }}>
-                Upload your signature to automatically sign official documents and e-certificates.
-              </p>
-              
-              {!localStorage.getItem(`esign_${formData.username}`) ? (
-                <label style={{ 
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
-                  padding: '24px', border: `2px dashed ${activeHover === 'esign-up' ? colors.accent : colors.border}`,
-                  borderRadius: '16px', cursor: 'pointer', background: colors.pageBg, transition: 'all 0.2s'
-                }}
-                onMouseEnter={() => setActiveHover('esign-up')}
-                onMouseLeave={() => setActiveHover(null)}
-                >
+            
+            <div style={{ 
+              height: '120px', border: `2px dashed ${colors.border}`, borderRadius: '18px', 
+              background: colors.pageBg, display: 'grid', placeItems: 'center', position: 'relative'
+            }}>
+              {localStorage.getItem(`esign_${formData.username}`) ? (
+                <div style={{ textAlign: 'center' }}>
+                  <img src={localStorage.getItem(`esign_${formData.username}`)} alt="Sig" style={{ maxHeight: '70px' }} />
+                  <button 
+                    onClick={() => { localStorage.removeItem(`esign_${formData.username}`); setFormData({...formData}); }}
+                    style={{ position: 'absolute', top: '10px', right: '10px', background: '#fff', border: `1px solid ${colors.border}`, borderRadius: '50%', width: '28px', height: '28px', display: 'grid', placeItems: 'center', cursor: 'pointer', color: colors.error }}
+                  >
+                    <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>close</span>
+                  </button>
+                </div>
+              ) : (
+                <label style={{ cursor: 'pointer', textAlign: 'center' }}>
                   <input type="file" hidden accept="image/*" onChange={(e) => {
                     const file = e.target.files[0];
                     if (file) {
                       const reader = new FileReader();
                       reader.onloadend = () => {
                         localStorage.setItem(`esign_${formData.username}`, reader.result);
-                        setFormData({...formData}); // trigger re-render
+                        setFormData({...formData});
                         setShowSuccess(true);
                       };
                       reader.readAsDataURL(file);
                     }
                   }} />
-                  <span className="material-symbols-rounded" style={{ fontSize: '32px', color: colors.inkMuted }}>upload_file</span>
-                  <span style={{ fontSize: '12px', fontWeight: '700', color: colors.navy }}>UPLOAD SIGNATURE</span>
+                  <span className="material-symbols-rounded" style={{ fontSize: '32px', color: colors.border, marginBottom: '4px' }}>upload_file</span>
+                  <p style={{ fontSize: '12px', color: colors.inkMuted, fontWeight: '700' }}>Upload PNG</p>
                 </label>
-              ) : (
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ 
-                    background: '#fff', border: `1px solid ${colors.border}`, borderRadius: '12px', 
-                    padding: '12px', marginBottom: '16px', display: 'grid', placeItems: 'center' 
-                  }}>
-                    <img src={localStorage.getItem(`esign_${formData.username}`)} alt="Signature" style={{ maxHeight: '60px', objectFit: 'contain' }} />
-                  </div>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <label style={{ ...styles.primaryBtn(activeHover === 'sig-ch', 'navy'), height: '36px', fontSize: '12px', cursor: 'pointer' }}
-                           onMouseEnter={() => setActiveHover('sig-ch')} onMouseLeave={() => setActiveHover(null)}>
-                      <input type="file" hidden accept="image/*" onChange={(e) => {
-                        const file = e.target.files[0];
-                        if (file) {
-                          const reader = new FileReader();
-                          reader.onloadend = () => {
-                            localStorage.setItem(`esign_${formData.username}`, reader.result);
-                            setFormData({...formData});
-                            setShowSuccess(true);
-                          };
-                          reader.readAsDataURL(file);
-                        }
-                      }} />
-                      Change
-                    </label>
-                    <button style={{ ...styles.primaryBtn(activeHover === 'sig-rm'), height: '36px', fontSize: '12px', background: colors.pageBg, color: colors.coral, border: `1px solid ${colors.border}` }}
-                           onMouseEnter={() => setActiveHover('sig-rm')} onMouseLeave={() => setActiveHover(null)}
-                           onClick={() => { localStorage.removeItem(`esign_${formData.username}`); setFormData({...formData}); }}>
-                      Remove
-                    </button>
-                  </div>
-                </div>
               )}
-            </div>
-          </div>
-
-          {/* ── Security ── */}
-          <div style={styles.sectionCard}>
-            <div style={styles.sectionHead}>
-              <span className="material-symbols-rounded" style={{ color: colors.coral }}>lock</span>
-              <span style={styles.sectionTitle}>Security</span>
-            </div>
-            <div style={styles.sectionBody}>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Update Password</label>
-                <div style={{ display: 'flex', gap: '12px' }}>
-                  <input 
-                    type="password"
-                    style={{ ...styles.input(activeHover === 'pw'), flex: 1 }} 
-                    placeholder="••••••••"
-                    onFocus={() => setActiveHover('pw')}
-                    onBlur={() => setActiveHover(null)}
-                  />
-                  <button 
-                    style={{ ...styles.primaryBtn(activeHover === 'pw-btn'), width: 'auto', padding: '0 16px', height: '46px', background: colors.pageBg, color: colors.navy, border: `1.5px solid ${colors.border}` }}
-                    onMouseEnter={() => setActiveHover('pw-btn')}
-                    onMouseLeave={() => setActiveHover(null)}
-                  >
-                    Set New
-                  </button>
-                </div>
-              </div>
             </div>
           </div>
         </div>
@@ -409,12 +407,12 @@ export default function ProfilePage() {
       {showSuccess && (
         <div style={{
           position: 'fixed', bottom: '32px', left: '50%', transform: 'translateX(-50%)',
-          background: colors.success, color: '#fff', padding: '12px 24px', borderRadius: '100px',
-          display: 'flex', alignItems: 'center', gap: '10px', boxShadow: '0 10px 25px rgba(16, 185, 129, 0.3)',
+          background: colors.navy, color: '#fff', padding: '12px 24px', borderRadius: '16px',
+          display: 'flex', alignItems: 'center', gap: '10px', boxShadow: '0 10px 25px rgba(15, 23, 42, 0.2)',
           animation: 'pillDrop 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28)', zIndex: 1000,
         }}>
-          <span className="material-symbols-rounded">check_circle</span>
-          Profile updated successfully!
+          <span className="material-symbols-rounded" style={{ color: colors.success }}>check_circle</span>
+          Profile synced successfully!
         </div>
       )}
     </div>

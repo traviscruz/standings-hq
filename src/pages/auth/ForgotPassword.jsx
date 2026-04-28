@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { colors } from '../../styles/colors';
+import { API_URL } from '../../config';
 
 export default function ForgotPassword() {
   const [step, setStep] = useState(1);
@@ -8,6 +9,10 @@ export default function ForgotPassword() {
   const [error, setError] = useState('');
   const [activeHover, setActiveHover] = useState(null);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  const [otp, setOtp] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   React.useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
@@ -18,17 +23,50 @@ export default function ForgotPassword() {
   const isDesktop = windowWidth > 1024;
   const isMobile = windowWidth <= 768;
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!email) {
       setError('Please enter your email address.');
       return;
     }
-    if (!email.includes('@')) {
-      setError('Please enter a valid email address.');
+    setLoading(true);
+    setError('');
+    try {
+      const response = await fetch(`${API_URL}/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to send reset code');
+      setStep(2);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!otp || !newPassword) {
+      setError('Please enter both the code and your new password.');
       return;
     }
+    setLoading(true);
     setError('');
-    setStep(2);
+    try {
+      const response = await fetch(`${API_URL}/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, code: otp, newPassword }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Reset failed');
+      setStep(3);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   /* ── Styles ── */
@@ -149,6 +187,24 @@ export default function ForgotPassword() {
       transition: 'all 0.25s',
       fontFamily: "'Inter', sans-serif",
     }),
+    passwordWrapper: {
+      position: 'relative',
+    },
+    passToggle: {
+      position: 'absolute',
+      right: '12px',
+      top: '50%',
+      transform: 'translateY(-50%)',
+      background: 'none',
+      border: 'none',
+      cursor: 'pointer',
+      color: colors.inkMuted,
+      padding: '8px',
+      display: 'grid',
+      placeItems: 'center',
+      borderRadius: '8px',
+      transition: 'all 0.2s',
+    },
     primaryBtn: (hovered) => ({
       width: '100%',
       height: '54px',
@@ -264,6 +320,7 @@ export default function ForgotPassword() {
         {`
           @keyframes fadeInUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
           @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-10px); } }
+          @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         `}
       </style>
 
@@ -294,10 +351,10 @@ export default function ForgotPassword() {
               <p style={styles.pageSub}>Don't worry, even the best organizers need a reset sometimes. Enter your email to recover your workspace.</p>
 
               <div style={styles.formGroup}>
-                <label style={styles.label}>Email Address</label>
+                <label style={styles.label}>Email</label>
                 <input
                   type="email"
-                  placeholder="organizer@organization.com"
+                  placeholder="Enter your email address"
                   style={styles.input(activeHover === 'email', !!error)}
                   onFocus={() => setActiveHover('email')}
                   onBlur={() => setActiveHover(null)}
@@ -312,9 +369,13 @@ export default function ForgotPassword() {
                 onMouseEnter={() => setActiveHover('send')}
                 onMouseLeave={() => setActiveHover(null)}
                 onClick={handleSend}
+                disabled={loading}
               >
-                Send Recovery Link
-                <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>forward_to_inbox</span>
+                {loading ? (
+                  <div style={{ width: '20px', height: '20px', border: '2.5px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                ) : (
+                  'Send Recovery Code'
+                )}
               </button>
 
               <div style={{ textAlign: 'left', marginTop: '32px', fontSize: '14.5px', color: colors.inkMid }}>
@@ -324,15 +385,125 @@ export default function ForgotPassword() {
           )}
 
           {step === 2 && (
+            <div style={{ animation: 'fadeInUp 0.6s' }}>
+              <span style={styles.eyebrow}>Step 2: Verification</span>
+              <h1 style={styles.pageTitle}>Check your <br /> <span style={{ color: colors.accent }}>inbox.</span></h1>
+              <p style={{ ...styles.pageSub, marginBottom: '12px' }}>We've sent a 6-digit recovery code to <strong>{email}</strong>.</p>
+              <p style={{ fontSize: '13.5px', color: colors.inkMid, marginBottom: '32px', textAlign: 'center' }}>
+                Don't see it? Check your <strong>spam or junk</strong> folder.
+              </p>
+
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginBottom: '32px' }}>
+                {[0, 1, 2, 3, 4, 5].map((index) => (
+                  <input
+                    key={index}
+                    id={`otp-reset-${index}`}
+                    type="text"
+                    maxLength={1}
+                    value={otp[index] || ''}
+                    onPaste={(e) => {
+                      e.preventDefault();
+                      const pasteData = e.clipboardData.getData('text').replace(/[^0-9]/g, '').slice(0, 6);
+                      if (pasteData) {
+                        setOtp(pasteData);
+                        const nextIndex = Math.min(pasteData.length, 5);
+                        document.getElementById(`otp-reset-${nextIndex}`).focus();
+                      }
+                    }}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/[^0-9]/g, '').slice(-1);
+                      if (val) {
+                        const newOtp = otp.split('');
+                        newOtp[index] = val;
+                        const finalOtp = newOtp.join('').slice(0, 6);
+                        setOtp(finalOtp);
+                        if (index < 5) document.getElementById(`otp-reset-${index + 1}`).focus();
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Backspace') {
+                        if (!otp[index] && index > 0) {
+                          const newOtp = otp.split('');
+                          newOtp[index - 1] = '';
+                          setOtp(newOtp.join(''));
+                          document.getElementById(`otp-reset-${index - 1}`).focus();
+                        } else {
+                          const newOtp = otp.split('');
+                          newOtp[index] = '';
+                          setOtp(newOtp.join(''));
+                        }
+                      }
+                    }}
+                    style={{
+                      width: '50px',
+                      height: '60px',
+                      textAlign: 'center',
+                      fontSize: '24px',
+                      fontWeight: '800',
+                      borderRadius: '12px',
+                      border: `2px solid ${activeHover === `otp-reset-${index}` ? colors.accent : colors.borderSoft}`,
+                      background: colors.pageBg,
+                      outline: 'none',
+                      transition: 'all 0.2s',
+                      color: colors.navy
+                    }}
+                    onFocus={() => setActiveHover(`otp-reset-${index}`)}
+                    onBlur={() => setActiveHover(null)}
+                  />
+                ))}
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>New Password</label>
+                <div style={styles.passwordWrapper}>
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    style={styles.input(activeHover === 'pass', !!error)}
+                    onFocus={() => setActiveHover('pass')}
+                    onBlur={() => setActiveHover(null)}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                  />
+                  <button 
+                    style={styles.passToggle}
+                    onClick={() => setShowPassword(!showPassword)}
+                    type="button"
+                  >
+                    <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>
+                      {showPassword ? 'visibility_off' : 'visibility'}
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {error && <p style={{ color: colors.error, fontSize: '13px', fontWeight: '600', marginBottom: '16px' }}>{error}</p>}
+
+              <button
+                style={styles.primaryBtn(activeHover === 'reset')}
+                onMouseEnter={() => setActiveHover('reset')}
+                onMouseLeave={() => setActiveHover(null)}
+                onClick={handleResetPassword}
+                disabled={loading}
+              >
+                {loading ? (
+                  <div style={{ width: '20px', height: '20px', border: '2.5px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                ) : (
+                  'Reset Password'
+                )}
+              </button>
+            </div>
+          )}
+
+          {step === 3 && (
             <div style={{ textAlign: 'left', animation: 'fadeInUp 0.6s' }}>
               <div style={styles.successIcon}>
-                <span className="material-symbols-rounded" style={{ fontSize: '40px' }}>mark_email_read</span>
+                <span className="material-symbols-rounded" style={{ fontSize: '40px' }}>task_alt</span>
               </div>
-              <h1 style={styles.pageTitle}>Check your inbox.</h1>
-              <p style={{ ...styles.pageSub, marginBottom: '32px' }}>A secure recovery link has been dispatched to <strong>{email}</strong>. It will expire in 15 minutes.</p>
-              <Link to="/login" style={styles.ghostBtn(activeHover === 'back-btn')} onMouseEnter={() => setActiveHover('back-btn')} onMouseLeave={() => setActiveHover(null)} onClick={() => setStep(1)}>
-                Return to Login
-                <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>login</span>
+              <h1 style={styles.pageTitle}>Password Reset <br /> <span style={{ color: colors.success }}>Successful.</span></h1>
+              <p style={{ ...styles.pageSub, marginBottom: '32px' }}>Your account security has been updated. You can now sign in with your new credentials.</p>
+              <Link to="/login" style={styles.primaryBtn(activeHover === 'back-btn')} onMouseEnter={() => setActiveHover('back-btn')} onMouseLeave={() => setActiveHover(null)}>
+                Sign In Now
               </Link>
             </div>
           )}

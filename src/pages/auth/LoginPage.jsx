@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { colors } from '../../styles/colors';
+import { API_URL } from '../../config';
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -9,6 +10,7 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [activeHover, setActiveHover] = useState(null);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  const [loading, setLoading] = useState(false);
 
   React.useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
@@ -19,23 +21,43 @@ export default function LoginPage() {
   const isDesktop = windowWidth > 1024;
   const isMobile = windowWidth <= 768;
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!email || !password) {
       setError('Please enter both email and password.');
       return;
     }
 
-    if (email === 'juan@email.com' && password === 'password') {
-      localStorage.setItem('username', 'Juan Dela Cruz');
-      window.location.href = '/organizer/dashboard';
-    } else if (email === 'judge@email.com' && password === 'password') {
-      localStorage.setItem('username', 'Marian Rivera');
-      window.location.href = '/judge/dashboard';
-    } else if (email === 'riley@email.com' && password === 'password') {
-      localStorage.setItem('username', 'Riley Cruz');
-      window.location.href = '/participant/dashboard';
-    } else {
-      setError('Invalid email or password. Please try again.');
+    setLoading(true);
+    setError('');
+    try {
+      const response = await fetch(`${API_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await response.json();
+      
+      if (!response.ok) throw new Error(data.error || 'Login failed');
+
+      // Save user info
+      localStorage.setItem('user_id', data.user.id);
+      localStorage.setItem('fname', data.profile.first_name);
+      localStorage.setItem('lname', data.profile.last_name);
+      localStorage.setItem('username', data.profile.username);
+      localStorage.setItem('email', data.profile.email);
+      localStorage.setItem('role', data.profile.role);
+      localStorage.setItem('full_name', `${data.profile.first_name} ${data.profile.last_name}`);
+      localStorage.setItem('session', JSON.stringify(data.session));
+
+      // Redirect based on role
+      const role = data.profile.role;
+      if (role === 'Organizer') window.location.href = '/organizer/dashboard';
+      else if (role === 'Judge') window.location.href = '/judge/dashboard';
+      else window.location.href = '/participant/dashboard';
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -304,6 +326,7 @@ export default function LoginPage() {
           @keyframes fadeInUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
           @keyframes shake { 10%, 90% { transform: translate3d(-1px, 0, 0); } 20%, 80% { transform: translate3d(2px, 0, 0); } 30%, 50%, 70% { transform: translate3d(-4px, 0, 0); } 40%, 60% { transform: translate3d(4px, 0, 0); } }
           @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-10px); } }
+          @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         `}
       </style>
 
@@ -339,10 +362,10 @@ export default function LoginPage() {
           )}
 
           <div style={styles.formGroup}>
-            <label style={styles.label}>Corporate Email</label>
+            <label style={styles.label}>Email or Username</label>
             <input 
-              type="email" 
-              placeholder="name@organization.com" 
+              type="text" 
+              placeholder="Enter your email or username" 
               style={styles.input(activeHover === 'email-focus', !!error)}
               onFocus={() => setActiveHover('email-focus')}
               onBlur={() => setActiveHover(null)}
@@ -392,9 +415,13 @@ export default function LoginPage() {
             onMouseEnter={() => setActiveHover('login-btn')}
             onMouseLeave={() => setActiveHover(null)}
             onClick={handleLogin}
+            disabled={loading}
           >
-            Sign In to Workspace
-            <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>login</span>
+            {loading ? (
+              <div style={{ width: '20px', height: '20px', border: '2.5px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+            ) : (
+              'Sign In to Workspace'
+            )}
           </button>
 
           <p style={styles.footerText}>
@@ -406,14 +433,6 @@ export default function LoginPage() {
             >Create one</Link>
           </p>
 
-          <div style={{ marginTop: '48px', borderTop: `1px solid ${colors.borderSoft}`, paddingTop: '32px' }}>
-            <p style={{ ...styles.label, textAlign: 'center', marginBottom: '16px' }}>Immediate Demo Access</p>
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <button style={styles.demoBtn(activeHover === 'demo-1')} onMouseEnter={() => setActiveHover('demo-1')} onMouseLeave={() => setActiveHover(null)} onClick={() => { setEmail('juan@email.com'); setPassword('password'); }}>Organizer</button>
-              <button style={styles.demoBtn(activeHover === 'demo-2')} onMouseEnter={() => setActiveHover('demo-2')} onMouseLeave={() => setActiveHover(null)} onClick={() => { setEmail('judge@email.com'); setPassword('password'); }}>Judge</button>
-              <button style={styles.demoBtn(activeHover === 'demo-3')} onMouseEnter={() => setActiveHover('demo-3')} onMouseLeave={() => setActiveHover(null)} onClick={() => { setEmail('riley@email.com'); setPassword('password'); }}>Participant</button>
-            </div>
-          </div>
         </div>
       </div>
 

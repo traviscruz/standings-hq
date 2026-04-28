@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { colors } from '../../styles/colors';
+import { API_URL } from '../../config';
 
 export default function RegisterPage() {
   const [step, setStep] = useState(0);
@@ -10,6 +11,60 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const [activeHover, setActiveHover] = useState(null);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  const [otp, setOtp] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleRegister = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const response = await fetch(`${API_URL}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: formData.email,
+          username: formData.username,
+          fname: formData.fname,
+          lname: formData.lname,
+          role: formData.role
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to send OTP');
+      setStep(4);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const response = await fetch(`${API_URL}/auth/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: formData.email,
+          code: otp,
+          password: formData.password,
+          username: formData.username,
+          fname: formData.fname,
+          lname: formData.lname,
+          role: formData.role
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Verification failed');
+      setStep(5);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   React.useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
@@ -37,6 +92,18 @@ export default function RegisterPage() {
       if (step === 3 && (pwScore < 2 || formData.password !== formData.confirmPassword)) {
         if (pwScore < 2) setError('Please create a stronger password.');
         else setError('Passwords do not match.');
+        return;
+      }
+      if (step === 3) {
+        handleRegister();
+        return;
+      }
+      if (step === 4 && !otp) {
+        setError('Please enter the verification code.');
+        return;
+      }
+      if (step === 4) {
+        handleVerifyOtp();
         return;
       }
     }
@@ -334,6 +401,8 @@ export default function RegisterPage() {
       <style>
         {`
           @keyframes fadeInUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+          @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+          @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
           @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-10px); } }
         `}
       </style>
@@ -359,31 +428,35 @@ export default function RegisterPage() {
         </div>
 
         <div style={styles.contentWrapper}>
-          {step < 4 && (
+          {step < 5 && (
             <>
               <span style={styles.eyebrow}>
-                {step === 0 ? 'Getting Started' : `Step ${step} of 3`}
+                {step === 0 ? 'Getting Started' : `Step ${step} of 4`}
               </span>
               <h1 style={styles.pageTitle}>
                 {step === 0 ? "First, who are you?" 
                  : step === 1 ? "What's your name?" 
                  : step === 2 ? "Create your profile." 
-                 : "Secure your workspace."}
+                 : step === 3 ? "Secure your workspace."
+                 : "Verify your email."}
               </h1>
               <p style={styles.pageSub}>
                 {step === 0 ? "Select your role in the StandingsHQ ecosystem to customize your experience." 
                  : step === 1 ? "Let's get the basics down before we configure your dashboard." 
                  : step === 2 ? "This is how you'll be identified across all portals." 
-                 : "Use a strong password to protect your event data and integrity."}
+                 : step === 3 ? "Use a strong password to protect your event data and integrity."
+                 : `We've sent a 6-digit code to ${formData.email}.`}
               </p>
 
-              {step > 0 && (
+              {step > 0 && step < 5 && (
                 <div style={styles.stepIndicator}>
                   <div style={styles.stepDot(step === 1, step > 1)}>{step > 1 ? '✓' : '1'}</div>
                   <div style={styles.stepLine(step > 1)}></div>
                   <div style={styles.stepDot(step === 2, step > 2)}>{step > 2 ? '✓' : '2'}</div>
                   <div style={styles.stepLine(step > 2)}></div>
                   <div style={styles.stepDot(step === 3, step > 3)}>{step > 3 ? '✓' : '3'}</div>
+                  <div style={styles.stepLine(step > 3)}></div>
+                  <div style={styles.stepDot(step === 4, step > 4)}>{step > 4 ? '✓' : '4'}</div>
                 </div>
               )}
             </>
@@ -392,7 +465,7 @@ export default function RegisterPage() {
           {step === 0 && (
             <div style={{ animation: 'fadeIn 0.3s ease' }}>
               {roles.map((r) => (
-                <div 
+                <div
                   key={r.title}
                   style={styles.roleCard(formData.role === r.title, activeHover === r.title)}
                   onMouseEnter={() => setActiveHover(r.title)}
@@ -419,7 +492,6 @@ export default function RegisterPage() {
                 onClick={() => rGo(1)}
               >
                 Continue as {formData.role || '...'}
-                <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>arrow_forward</span>
               </button>
             </div>
           )}
@@ -429,11 +501,11 @@ export default function RegisterPage() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
                 <div style={styles.formGroup}>
                   <label style={styles.label}>First Name</label>
-                  <input type="text" style={styles.input(activeHover === 'fn', !!error)} onFocus={() => setActiveHover('fn')} onBlur={() => setActiveHover(null)} placeholder="John" value={formData.fname} onChange={(e) => setFormData({ ...formData, fname: e.target.value })} />
+                  <input type="text" style={styles.input(activeHover === 'fn', !!error)} onFocus={() => setActiveHover('fn')} onBlur={() => setActiveHover(null)} placeholder="Enter your first name" value={formData.fname} onChange={(e) => setFormData({ ...formData, fname: e.target.value })} />
                 </div>
                 <div style={styles.formGroup}>
                   <label style={styles.label}>Last Name</label>
-                  <input type="text" style={styles.input(activeHover === 'ln', !!error)} onFocus={() => setActiveHover('ln')} onBlur={() => setActiveHover(null)} placeholder="Doe" value={formData.lname} onChange={(e) => setFormData({ ...formData, lname: e.target.value })} />
+                  <input type="text" style={styles.input(activeHover === 'ln', !!error)} onFocus={() => setActiveHover('ln')} onBlur={() => setActiveHover(null)} placeholder="Enter your last name" value={formData.lname} onChange={(e) => setFormData({ ...formData, lname: e.target.value })} />
                 </div>
               </div>
               {error && <p style={{ color: colors.error, fontSize: '13px', fontWeight: '600', marginBottom: '16px' }}>{error}</p>}
@@ -444,7 +516,6 @@ export default function RegisterPage() {
                 onClick={() => rGo(2)}
               >
                 Account Details
-                <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>arrow_forward</span>
               </button>
             </div>
           )}
@@ -453,11 +524,11 @@ export default function RegisterPage() {
             <div style={{ animation: 'fadeIn 0.3s ease' }}>
               <div style={styles.formGroup}>
                 <label style={styles.label}>Username</label>
-                <input type="text" style={styles.input(activeHover === 'un', !!error)} onFocus={() => setActiveHover('un')} onBlur={() => setActiveHover(null)} placeholder="johndoe_hq" value={formData.username} onChange={(e) => setFormData({ ...formData, username: e.target.value })} />
+                <input type="text" style={styles.input(activeHover === 'un', !!error)} onFocus={() => setActiveHover('un')} onBlur={() => setActiveHover(null)} placeholder="Choose a unique username" value={formData.username} onChange={(e) => setFormData({ ...formData, username: e.target.value })} />
               </div>
               <div style={styles.formGroup}>
-                <label style={styles.label}>Email Address</label>
-                <input type="email" style={styles.input(activeHover === 'em', !!error)} onFocus={() => setActiveHover('em')} onBlur={() => setActiveHover(null)} placeholder="john@events.com" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
+                <label style={styles.label}>Email</label>
+                <input type="email" style={styles.input(activeHover === 'em', !!error)} onFocus={() => setActiveHover('em')} onBlur={() => setActiveHover(null)} placeholder="Enter your email address" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
               </div>
               {error && <p style={{ color: colors.error, fontSize: '13px', fontWeight: '600', marginBottom: '16px' }}>{error}</p>}
               <button
@@ -467,7 +538,6 @@ export default function RegisterPage() {
                 onClick={() => rGo(3)}
               >
                 Security Setup
-                <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>arrow_forward</span>
               </button>
             </div>
           )}
@@ -509,9 +579,9 @@ export default function RegisterPage() {
                   />
                 </div>
                 {formData.confirmPassword && (
-                   <div style={{ marginTop: '12px' }}>
-                     <Rule valid={formData.password === formData.confirmPassword} text="Passwords match" />
-                   </div>
+                  <div style={{ marginTop: '12px' }}>
+                    <Rule valid={formData.password === formData.confirmPassword} text="Passwords match" />
+                  </div>
                 )}
               </div>
               {error && <p style={{ color: colors.error, fontSize: '13px', fontWeight: '600', marginBottom: '16px' }}>{error}</p>}
@@ -520,24 +590,115 @@ export default function RegisterPage() {
                 onMouseEnter={() => setActiveHover('finish')}
                 onMouseLeave={() => setActiveHover(null)}
                 onClick={() => rGo(4)}
+                disabled={loading}
               >
-                Complete Registration
-                <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>verified</span>
+                {loading ? (
+                  <div style={{ width: '20px', height: '20px', border: '2.5px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                ) : (
+                  'Complete Registration'
+                )}
               </button>
             </div>
           )}
 
           {step === 4 && (
+            <div style={{ animation: 'fadeIn 0.3s ease' }}>
+              <span style={styles.eyebrow}>Final Step: Verification</span>
+              <h1 style={styles.pageTitle}>Check your <br /> <span style={{ color: colors.accent }}>inbox.</span></h1>
+              <p style={{ ...styles.pageSub, marginBottom: '12px' }}>We've sent a 6-digit activation code to <strong>{formData.email}</strong>.</p>
+              <p style={{ fontSize: '13.5px', color: colors.inkMid, marginBottom: '32px', textAlign: 'center' }}>
+                Don't see it? Check your <strong>spam or junk</strong> folder.
+              </p>
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginBottom: '32px' }}>
+                {[0, 1, 2, 3, 4, 5].map((index) => (
+                  <input
+                    key={index}
+                    id={`otp-${index}`}
+                    type="text"
+                    maxLength={1}
+                    value={otp[index] || ''}
+                    onPaste={(e) => {
+                      e.preventDefault();
+                      const pasteData = e.clipboardData.getData('text').replace(/[^0-9]/g, '').slice(0, 6);
+                      if (pasteData) {
+                        setOtp(pasteData);
+                        const nextIndex = Math.min(pasteData.length, 5);
+                        document.getElementById(`otp-${nextIndex}`).focus();
+                      }
+                    }}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/[^0-9]/g, '').slice(-1);
+                      if (val) {
+                        const newOtp = otp.split('');
+                        newOtp[index] = val;
+                        const finalOtp = newOtp.join('').slice(0, 6);
+                        setOtp(finalOtp);
+                        if (index < 5) document.getElementById(`otp-${index + 1}`).focus();
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Backspace') {
+                        if (!otp[index] && index > 0) {
+                          const newOtp = otp.split('');
+                          newOtp[index - 1] = '';
+                          setOtp(newOtp.join(''));
+                          document.getElementById(`otp-${index - 1}`).focus();
+                        } else {
+                          const newOtp = otp.split('');
+                          newOtp[index] = '';
+                          setOtp(newOtp.join(''));
+                        }
+                      }
+                    }}
+                    style={{
+                      width: '50px',
+                      height: '60px',
+                      textAlign: 'center',
+                      fontSize: '24px',
+                      fontWeight: '800',
+                      borderRadius: '12px',
+                      border: `2px solid ${activeHover === `otp-${index}` ? colors.accent : colors.borderSoft}`,
+                      background: colors.pageBg,
+                      outline: 'none',
+                      transition: 'all 0.2s',
+                      color: colors.navy
+                    }}
+                    onFocus={() => setActiveHover(`otp-${index}`)}
+                    onBlur={() => setActiveHover(null)}
+                  />
+                ))}
+              </div>
+              <p style={{ fontSize: '13px', color: colors.inkMid, marginBottom: '24px', textAlign: 'center' }}>
+                Didn't receive the code? <button type="button" style={{ background: 'none', border: 'none', color: colors.accent, fontWeight: 700, cursor: 'pointer', padding: 0 }} onClick={handleRegister}>Resend Code</button>
+              </p>
+              {error && <p style={{ color: colors.error, fontSize: '13px', fontWeight: '600', marginBottom: '16px', textAlign: 'center' }}>{error}</p>}
+              <button
+                style={styles.primaryBtn(activeHover === 'verify', 'accent')}
+                onMouseEnter={() => setActiveHover('verify')}
+                onMouseLeave={() => setActiveHover(null)}
+                onClick={() => rGo(5)}
+                disabled={loading}
+              >
+                {loading ? (
+                  <div style={{ width: '20px', height: '20px', border: '2.5px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                ) : (
+                  'Verify & Activate'
+                )}
+              </button>
+            </div>
+          )}
+
+          {step === 5 && (
             <div style={{ textAlign: 'left', animation: 'fadeInUp 0.6s' }}>
               <div style={{ width: '80px', height: '80px', borderRadius: '24px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', display: 'grid', placeItems: 'center', marginBottom: '32px', color: colors.success, boxShadow: `0 12px 24px rgba(16, 185, 129, 0.15)` }}>
                 <span className="material-symbols-rounded" style={{ fontSize: '40px' }}>verified_user</span>
               </div>
               <h2 style={{ ...styles.pageTitle, fontSize: '32px' }}>Welcome, {formData.role}.</h2>
               <p style={{ ...styles.pageSub, marginBottom: '32px' }}>Your {formData.role.toLowerCase()} profile has been activated. You now have full access to the StandingsHQ high-precision ecosystem.</p>
-              <Link 
-                to={formData.role === 'Organizer' ? "/organizer/dashboard" : formData.role === 'Judge' ? "/judge/dashboard" : "/participant/dashboard"} 
-                style={{ ...styles.primaryBtn(activeHover === 'dash'), textDecoration: 'none' }} 
-                onMouseEnter={() => setActiveHover('dash')} 
+              <Link
+                to={formData.role === 'Organizer' ? "/organizer/dashboard" : formData.role === 'Judge' ? "/judge/dashboard" : "/participant/dashboard"}
+                style={{ ...styles.primaryBtn(activeHover === 'dash'), textDecoration: 'none' }}
+                onMouseEnter={() => setActiveHover('dash')}
                 onMouseLeave={() => setActiveHover(null)}
               >
                 Enter Your Hub
@@ -552,7 +713,7 @@ export default function RegisterPage() {
       <div style={styles.visualPanel}>
         <div style={styles.bgGradient} />
         <div style={styles.bgPattern} />
-        
+
         <div style={styles.visualContent}>
           <div style={{ marginBottom: '48px' }}>
             <div style={{ display: 'inline-flex', padding: '16px', background: 'rgba(59, 130, 246, 0.1)', borderRadius: '24px', marginBottom: '24px', animation: 'float 4s ease-in-out infinite', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
@@ -565,15 +726,15 @@ export default function RegisterPage() {
               Elite standings infrastructure for professional events. Automate ranking, evaluation, and certification in real-time.
             </p>
           </div>
-          
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {[
               { icon: 'bolt', title: 'Ultra-low Latency', desc: 'Real-time scoring updates for live audiences.' },
               { icon: 'hub', title: 'Unified Ecosystem', desc: 'One account for organizers, judges, and users.' },
               { icon: 'workspace_premium', title: 'Automated Compliance', desc: 'Built-in rubric validation and audit trails.' }
             ].map((item, i) => (
-              <div 
-                key={i} 
+              <div
+                key={i}
                 style={{ ...styles.featureCard, transform: activeHover === `feat-${i}` ? 'translateX(10px)' : 'none' }}
                 onMouseEnter={() => setActiveHover(`feat-${i}`)}
                 onMouseLeave={() => setActiveHover(null)}
