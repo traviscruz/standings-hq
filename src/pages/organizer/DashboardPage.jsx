@@ -38,7 +38,7 @@ const StatusBadge = ({ status }) => {
 };
 
 export default function DashboardPage() {
-  const { selectedEvent, participants, judges, rubrics, showToast, updateEvent } = useEventContext();
+  const { selectedEvent, participants, judges, rubrics, showToast, updateEvent, eventsLoading } = useEventContext();
   const userName = localStorage.getItem('full_name') || 'Organizer';
   const userRole = localStorage.getItem('role') || 'Organizer';
   const userHandle = localStorage.getItem('username') || '';
@@ -58,18 +58,39 @@ export default function DashboardPage() {
   const isTablet = windowWidth <= 1024;
   const isDesktop = windowWidth > 1024;
 
+  // Guard: loading or no events yet
+  if (eventsLoading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '50vh', flexDirection: 'column', gap: '12px' }}>
+        <span className="material-symbols-rounded" style={{ fontSize: '40px', color: colors.accent, animation: 'spin 1s linear infinite' }}>progress_activity</span>
+        <p style={{ color: colors.inkMuted, fontSize: '14px' }}>Loading your workspace…</p>
+        <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  if (!selectedEvent) {
+    return (
+      <div style={{ textAlign: 'center', padding: '80px 32px' }}>
+        <span className="material-symbols-rounded" style={{ fontSize: '48px', color: colors.border, display: 'block', marginBottom: '12px' }}>event_busy</span>
+        <p style={{ color: colors.inkMuted, fontSize: '15px' }}>No events yet. Create one to get started.</p>
+      </div>
+    );
+  }
+
+  const countdown = getCountdown(selectedEvent.startDate, selectedEvent.startTime);
+  const duration = getDuration(selectedEvent.startDate, selectedEvent.endDate);
   const accepted = judges.filter(j => j.rsvp === 'Accepted' || j.status === 'Accepted').length;
   const pending = participants.filter(p => p.status === 'Pending').length;
   const scoredCount = participants.filter(p => p.score != null).length;
   const totalWeight = rubrics.reduce((s, r) => s + r.weight, 0);
-  const countdown = getCountdown(selectedEvent.startDate, selectedEvent.startTime);
-  const duration = getDuration(selectedEvent.startDate, selectedEvent.endDate);
+
 
   const goLive = () => {
     const prev = selectedEvent.status;
-    updateEvent(selectedEvent.id, { status: 'Active' });
+    updateEvent(selectedEvent.id, { status: 'active' });
     showToast(`"${selectedEvent.name}" is now live!`, 'success', () => {
-      updateEvent(selectedEvent.id, { status: prev });
+      updateEvent(selectedEvent.id, { status: prev.toLowerCase() });
       showToast('Status reverted.', 'info');
     });
   };

@@ -1,32 +1,63 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useEventContext } from './OrganizerLayout';
 import { colors } from '../../styles/colors';
+import { GoogleMap, useJsApiLoader, Marker, Autocomplete } from '@react-google-maps/api';
 
-const STATUS_OPTIONS = ['Upcoming', 'Active', 'Completed', 'Cancelled'];
-const TYPE_OPTIONS = ['Academic', 'Sports', 'Arts & Culture', 'Technology', 'Science', 'Debate', 'Dance / Performing Arts', 'Other'];
+const GOOGLE_MAPS_API_KEY = process.env.REACT_APP_GOOGLE_MAPS_API_KEY || 'AIzaSyCbrk9Fnf3heYkZXpUtyjrxCI55JrdrnOI';
+
+const STATUS_OPTIONS  = ['Upcoming', 'Active', 'Completed', 'Cancelled'];
+const TYPE_OPTIONS    = ['Academic', 'Sports', 'Performing Arts', 'Arts & Culture', 'Technology', 'Science', 'Debate', 'Other'];
+
+/* ── Inline validation ─────────────────────────────────────────── */
+function validate(form) {
+  const errors = {};
+  if (!form.name || form.name.trim().length < 3)
+    errors.name = 'Event name must be at least 3 characters.';
+  if (form.name && form.name.trim().length > 120)
+    errors.name = 'Event name must be 120 characters or fewer.';
+  if (!form.type)
+    errors.type = 'Please select a category.';
+  if (!form.startDate)
+    errors.startDate = 'Start date is required.';
+  if (!form.endDate)
+    errors.endDate = 'End date is required.';
+  if (form.startDate && form.endDate && form.endDate < form.startDate)
+    errors.endDate = 'End date must be on or after the start date.';
+  if (form.startDate && form.endDate && form.startDate === form.endDate) {
+    if (form.startTime && form.endTime && form.endTime <= form.startTime)
+      errors.endTime = 'End time must be after start time on same-day events.';
+  }
+  if (form.description && form.description.length > 1000)
+    errors.description = `Description is too long (${form.description.length}/1000).`;
+  return errors;
+}
 
 export default function EventSettingsPage() {
-  const { selectedEvent, updateEvent, deleteEvent, showToast, setSelectedEventId, eventsList } = useEventContext();
+  const { selectedEvent, updateEvent, deleteEvent, showToast, setSelectedEventId, eventsList, eventsLoading } = useEventContext();
   const navigate = useNavigate();
 
   const [form, setForm] = useState({
-    name: selectedEvent.name,
-    type: selectedEvent.type,
-    startDate: selectedEvent.startDate,
-    startTime: selectedEvent.startTime,
-    endDate: selectedEvent.endDate,
-    endTime: selectedEvent.endTime,
-    description: selectedEvent.description,
-    visibility: selectedEvent.visibility,
-    status: selectedEvent.status,
-    location: selectedEvent.location || '',
+    name: '', type: '', startDate: '', startTime: '',
+    endDate: '', endTime: '', description: '', visibility: 'Public', status: 'Upcoming', location: '',
   });
+  const [errors, setErrors]             = useState({});
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [saving, setSaving]             = useState(false);
+  const [saved, setSaved]               = useState(false);
   const [activeBtnHover, setActiveBtnHover] = useState(null);
-  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  const [windowWidth, setWindowWidth]   = useState(window.innerWidth);
+
+  // Google Maps
+  const { isLoaded } = useJsApiLoader({
+    id: 'google-map-script',
+    googleMapsApiKey: GOOGLE_MAPS_API_KEY,
+    libraries: ['places'],
+  });
+  const [mapCenter, setMapCenter] = useState({ lat: 14.5995, lng: 120.9842 });
+  const [markerPos, setMarkerPos] = useState(null);
+  const autocompleteRef = useRef(null);
 
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
@@ -36,36 +67,125 @@ export default function EventSettingsPage() {
 
   const isTablet = windowWidth <= 1024;
 
-  React.useEffect(() => {
+  // Sync form when selectedEvent changes
+  useEffect(() => {
+    if (!selectedEvent) return;
     setForm({
-      name: selectedEvent.name, type: selectedEvent.type,
-      startDate: selectedEvent.startDate, startTime: selectedEvent.startTime,
-      endDate: selectedEvent.endDate, endTime: selectedEvent.endTime,
-      description: selectedEvent.description, visibility: selectedEvent.visibility, status: selectedEvent.status,
-      location: selectedEvent.location || '',
+      name:        selectedEvent.name        || '',
+      type:        selectedEvent.type        || '',
+      startDate:   selectedEvent.startDate   || '',
+      startTime:   selectedEvent.startTime   || '',
+      endDate:     selectedEvent.endDate     || '',
+      endTime:     selectedEvent.endTime     || '',
+      description: selectedEvent.description || '',
+      visibility:  selectedEvent.visibility  || 'Public',
+      status:      selectedEvent.status      || 'Upcoming',
+      location:    selectedEvent.location    || '',
     });
-  }, [selectedEvent.id]);
+    setErrors({});
+    setSaved(false);
+    // Sync map center if lat/lng exist on the event
+    if (selectedEvent.latitude && selectedEvent.longitude) {
+      const pos = { lat: selectedEvent.latitude, lng: selectedEvent.longitude };
+      setMapCenter(pos);
+      setMarkerPos(pos);
+    } else {
+      setMarkerPos(null);
+    }
+  }, [selectedEvent?.id]);
 
-  const set = (key, val) => { setForm(prev => ({ ...prev, [key]: val })); setSaved(false); };
+  const set = (key, val) => {
+    // Status validation: block setting Active if outside event date window
+    if (key === 'status' && val === 'Active') {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const startDate = form.startDate ? new Date(form.startDate + 'T00:00:00') : null;
+      const endDate   = form.endDate   ? new Date(form.endDate   + 'T00:00:00') : null;
 
-  const handleSave = () => {
-    updateEvent(selectedEvent.id, form);
-    setSaved(true);
-    showToast('Event settings saved.', 'success');
+      if (startDate && today < startDate) {
+        showToast(
+          `Can't set as Active yet — event starts on ${startDate.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}.`,
+          'error'
+        );
+        return;
+      }
+      if (endDate && today > endDate) {
+        showToast(
+          `Event ended on ${endDate.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}. Mark it as Completed instead.`,
+          'error'
+        );
+        return;
+      }
+    }
+
+    setForm(prev => ({ ...prev, [key]: val }));
+    setSaved(false);
+    if (errors[key]) setErrors(prev => { const e = { ...prev }; delete e[key]; return e; });
   };
-  const handleCancel = () => {
-    updateEvent(selectedEvent.id, { status: 'Cancelled' });
+
+  const handleSave = async () => {
+    const errs = validate(form);
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
+      showToast('Please fix the highlighted errors before saving.', 'error');
+      return;
+    }
+    setSaving(true);
+    try {
+      await updateEvent(selectedEvent.id, {
+        name:       form.name.trim(),
+        type:       form.type,
+        start_date: form.startDate,
+        start_time: form.startTime,
+        end_date:   form.endDate,
+        end_time:   form.endTime,
+        description: form.description,
+        visibility:  form.visibility,
+        status:      form.status.toLowerCase(),
+        location:    form.location,
+      });
+      setSaved(true);
+      showToast('Event settings saved successfully.', 'success');
+    } catch {
+      showToast('Failed to save. Please try again.', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancel = async () => {
+    await updateEvent(selectedEvent.id, { status: 'cancelled' });
     setShowCancelConfirm(false);
     showToast(`"${selectedEvent.name}" has been cancelled.`, 'info');
   };
-  const handleDelete = () => {
+
+  const handleDelete = async () => {
     const remaining = eventsList.filter(e => e.id !== selectedEvent.id);
     if (remaining.length > 0) setSelectedEventId(remaining[0].id);
-    deleteEvent(selectedEvent.id);
+    await deleteEvent(selectedEvent.id);
     setShowDeleteConfirm(false);
     navigate('/organizer/events/manage');
     showToast('Event deleted permanently.', 'info');
   };
+
+  /* ── Styles ── */
+  const fieldStyle = (hasError) => ({
+    width: '100%',
+    height: '42px',
+    padding: '0 14px',
+    border: `1.5px solid ${hasError ? '#EF4444' : colors.border}`,
+    borderRadius: '12px',
+    fontSize: '14px',
+    fontFamily: "'Inter', sans-serif",
+    outline: 'none',
+    color: colors.navy,
+    background: hasError ? '#FFF5F5' : '#fff',
+    transition: 'all 0.2s',
+    boxSizing: 'border-box',
+  });
+
+  const inputFocus = (e) => { e.target.style.borderColor = colors.accent; e.target.style.boxShadow = `0 0 0 3px ${colors.accentGlow}`; };
+  const inputBlur  = (e) => { e.target.style.boxShadow = 'none'; };
 
   const styles = {
     pageHeader: {
@@ -143,19 +263,14 @@ export default function EventSettingsPage() {
       marginBottom: '8px',
       display: 'block',
     },
-    input: {
-      width: '100%',
-      height: '42px',
-      padding: '0 14px',
-      border: `1.5px solid ${colors.border}`,
-      borderRadius: '12px',
-      fontSize: '14px',
-      fontFamily: "'Inter', sans-serif",
-      outline: 'none',
-      color: colors.navy,
-      background: '#fff',
-      transition: 'all 0.2s',
-      boxSizing: 'border-box',
+    errorMsg: {
+      fontSize: '12px',
+      color: '#EF4444',
+      fontWeight: 600,
+      marginTop: '6px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '4px',
     },
     modalOverlay: {
       position: 'fixed',
@@ -190,25 +305,53 @@ export default function EventSettingsPage() {
     },
   };
 
-  const inputFocus = (e) => { e.target.style.borderColor = colors.accent; e.target.style.boxShadow = `0 0 0 3px ${colors.accentGlow}`; };
-  const inputBlur = (e) => { e.target.style.borderColor = colors.border; e.target.style.boxShadow = 'none'; };
+  // Loading / no event guard
+  if (eventsLoading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '40vh', flexDirection: 'column', gap: '12px' }}>
+        <span className="material-symbols-rounded" style={{ fontSize: '40px', color: colors.accent, animation: 'spin 1s linear infinite' }}>progress_activity</span>
+        <p style={{ color: colors.inkMuted, fontSize: '14px' }}>Loading event settings…</p>
+      </div>
+    );
+  }
+
+  if (!selectedEvent) {
+    return (
+      <div style={{ textAlign: 'center', padding: '80px 32px' }}>
+        <span className="material-symbols-rounded" style={{ fontSize: '48px', color: colors.border, display: 'block', marginBottom: '12px' }}>calendar_month</span>
+        <p style={{ color: colors.inkMuted, fontSize: '15px', marginBottom: '16px' }}>No event selected.</p>
+        <button style={styles.btn(false, true)} onClick={() => navigate('/organizer/events/create')}>
+          Create your first event
+        </button>
+      </div>
+    );
+  }
 
   return (
     <>
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+
       <div style={styles.pageHeader}>
         <div>
-          <h1 style={styles.pageTitle}>Event Settings</h1>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 12px', borderRadius: '100px', background: colors.accentBg, border: `1px solid rgba(59,130,246,0.15)`, marginBottom: '12px' }}>
+            <span className="material-symbols-rounded" style={{ fontSize: '14px', color: colors.accent }}>settings</span>
+            <span style={{ fontSize: '12px', fontWeight: 700, color: colors.accent, letterSpacing: '0.04em' }}>Event Settings</span>
+          </div>
+          <h1 style={styles.pageTitle}>Configure Event</h1>
           <p style={styles.pageDescription}>
             Manage all settings for <strong style={{ color: colors.navy }}>{selectedEvent.name}</strong>.
           </p>
         </div>
         <button
-          style={{ ...styles.btn(activeBtnHover === 'save', true), minWidth: '140px' }}
+          style={{ ...styles.btn(activeBtnHover === 'save', true), minWidth: '140px', opacity: saving ? 0.7 : 1 }}
           onMouseEnter={() => setActiveBtnHover('save')}
           onMouseLeave={() => setActiveBtnHover(null)}
           onClick={handleSave}
+          disabled={saving}
         >
-          {saved ? (
+          {saving ? (
+            <><span className="material-symbols-rounded" style={{ fontSize: '18px', animation: 'spin 1s linear infinite' }}>progress_activity</span> Saving…</>
+          ) : saved ? (
             <><span className="material-symbols-rounded" style={{ fontSize: '18px' }}>check_circle</span> Saved!</>
           ) : (
             <><span className="material-symbols-rounded" style={{ fontSize: '18px' }}>save</span> Save Changes</>
@@ -219,6 +362,7 @@ export default function EventSettingsPage() {
       <div style={{ display: 'grid', gridTemplateColumns: isTablet ? '1fr' : '1fr 320px', gap: '28px', alignItems: 'flex-start' }}>
         {/* ── Left Column ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
           {/* Basic Info */}
           <div style={styles.formSection}>
             <div style={styles.formSectionHead}>
@@ -226,44 +370,140 @@ export default function EventSettingsPage() {
             </div>
             <div style={{ ...styles.formSectionBody, display: 'flex', flexDirection: 'column', gap: '20px' }}>
               <div>
-                <label style={styles.label}>Event Name</label>
-                <input type="text" style={styles.input} value={form.name} onChange={e => set('name', e.target.value)} onFocus={inputFocus} onBlur={inputBlur} />
+                <label style={styles.label}>Event Name <span style={{ color: '#EF4444' }}>*</span></label>
+                <input
+                  type="text"
+                  style={fieldStyle(!!errors.name)}
+                  value={form.name}
+                  onChange={e => set('name', e.target.value)}
+                  onFocus={inputFocus} onBlur={inputBlur}
+                  placeholder="Enter event name..."
+                  maxLength={120}
+                />
+                {errors.name && <div style={styles.errorMsg}><span className="material-symbols-rounded" style={{ fontSize: '14px' }}>error</span>{errors.name}</div>}
               </div>
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <div>
-                  <label style={styles.label}>Event Type</label>
-                  <select style={styles.input} value={form.type} onChange={e => set('type', e.target.value)} onFocus={inputFocus} onBlur={inputBlur}>
+                  <label style={styles.label}>Category <span style={{ color: '#EF4444' }}>*</span></label>
+                  <select style={{ ...fieldStyle(!!errors.type), cursor: 'pointer' }} value={form.type} onChange={e => set('type', e.target.value)} onFocus={inputFocus} onBlur={inputBlur}>
+                    <option value="">Select category…</option>
                     {TYPE_OPTIONS.map(t => <option key={t}>{t}</option>)}
                   </select>
-                </div>
-                <div>
-                  <label style={styles.label}>Status</label>
-                  <select
-                    style={{ ...styles.input, color: form.status === 'Active' ? colors.success : form.status === 'Cancelled' ? colors.coral : 'inherit' }}
-                    value={form.status} onChange={e => set('status', e.target.value)} onFocus={inputFocus} onBlur={inputBlur}
-                  >
-                    {STATUS_OPTIONS.map(s => <option key={s}>{s}</option>)}
-                  </select>
+                  {errors.type && <div style={styles.errorMsg}><span className="material-symbols-rounded" style={{ fontSize: '14px' }}>error</span>{errors.type}</div>}
                 </div>
               </div>
+
+              {/* Status — radio cards */}
               <div>
-                <label style={styles.label}>Description</label>
-                <textarea
-                  style={{ ...styles.input, height: 'auto', padding: '12px 14px', resize: 'vertical', fontFamily: 'inherit', lineHeight: '1.5' }}
-                  rows={3} value={form.description} onChange={e => set('description', e.target.value)} onFocus={inputFocus} onBlur={inputBlur}
-                />
+                <label style={styles.label}>Event Status</label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '10px' }}>
+                  {[
+                    { value: 'Upcoming',  icon: 'schedule',     color: '#92400E', bg: '#FEF3C7', border: '#FDE68A',  desc: 'Not started' },
+                    { value: 'Active',    icon: 'sensors',      color: '#166534', bg: '#DCFCE7', border: '#86EFAC',  desc: 'Live now' },
+                    { value: 'Completed', icon: 'check_circle', color: '#1E3A8A', bg: '#EFF6FF', border: '#BFDBFE',  desc: 'Finished' },
+                    { value: 'Cancelled', icon: 'cancel',       color: '#991B1B', bg: '#FEF2F2', border: '#FECACA',  desc: 'Cancelled' },
+                  ].map(({ value, icon, color, bg, border, desc }) => {
+                    const isSelected = form.status === value;
+                    return (
+                      <label key={value} style={{
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
+                        padding: '14px 10px',
+                        border: `2px solid ${isSelected ? border : colors.borderSoft}`,
+                        borderRadius: '14px',
+                        cursor: 'pointer',
+                        background: isSelected ? bg : '#fff',
+                        transition: 'all 0.2s',
+                        textAlign: 'center',
+                      }}>
+                        <input type="radio" name="status" value={value} checked={isSelected} onChange={() => set('status', value)} style={{ display: 'none' }} />
+                        <span className="material-symbols-rounded" style={{ fontSize: '22px', color: isSelected ? color : colors.inkMuted }}>{icon}</span>
+                        <span style={{ fontSize: '12px', fontWeight: 700, color: isSelected ? color : colors.navy, letterSpacing: '0.02em' }}>{value}</span>
+                        <span style={{ fontSize: '10px', color: colors.inkMuted, fontWeight: 500 }}>{desc}</span>
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
+
+              <div>
+                <label style={styles.label}>Description <span style={{ color: colors.inkMuted, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(optional · {form.description.length}/1000)</span></label>
+                <textarea
+                  style={{ ...fieldStyle(!!errors.description), height: 'auto', padding: '12px 14px', resize: 'vertical', fontFamily: 'inherit', lineHeight: '1.5' }}
+                  rows={3}
+                  value={form.description}
+                  onChange={e => set('description', e.target.value)}
+                  onFocus={inputFocus} onBlur={inputBlur}
+                  maxLength={1000}
+                  placeholder="Describe your event..."
+                />
+                {errors.description && <div style={styles.errorMsg}><span className="material-symbols-rounded" style={{ fontSize: '14px' }}>error</span>{errors.description}</div>}
+              </div>
+
               <div>
                 <label style={styles.label}>Venue / Address</label>
-                <input 
-                  type="text" 
-                  style={styles.input} 
-                  value={form.location} 
-                  onChange={e => set('location', e.target.value)} 
-                  onFocus={inputFocus} 
-                  onBlur={inputBlur} 
-                  placeholder="Official event location..."
-                />
+                {isLoaded ? (
+                  <Autocomplete
+                    onLoad={(instance) => { autocompleteRef.current = instance; }}
+                    onPlaceChanged={() => {
+                      const ac = autocompleteRef.current;
+                      if (ac) {
+                        const place = ac.getPlace();
+                        if (place && place.geometry) {
+                          const addr = place.formatted_address;
+                          const lat = place.geometry.location.lat();
+                          const lng = place.geometry.location.lng();
+                          set('location', addr);
+                          setMapCenter({ lat, lng });
+                          setMarkerPos({ lat, lng });
+                        }
+                      }
+                    }}
+                  >
+                    <input
+                      type="text"
+                      style={fieldStyle(false)}
+                      value={form.location}
+                      onChange={e => set('location', e.target.value)}
+                      onFocus={inputFocus} onBlur={inputBlur}
+                      placeholder="Search for a venue or address..."
+                    />
+                  </Autocomplete>
+                ) : (
+                  <input
+                    type="text"
+                    style={fieldStyle(false)}
+                    value={form.location}
+                    onChange={e => set('location', e.target.value)}
+                    onFocus={inputFocus} onBlur={inputBlur}
+                    placeholder="Enter venue or address..."
+                  />
+                )}
+
+                {isLoaded && (
+                  <div style={{ height: '280px', width: '100%', borderRadius: '14px', overflow: 'hidden', border: `1px solid ${colors.borderSoft}`, marginTop: '14px' }}>
+                    <GoogleMap
+                      mapContainerStyle={{ height: '100%', width: '100%' }}
+                      center={mapCenter}
+                      zoom={markerPos ? 15 : 11}
+                      onClick={(e) => {
+                        const lat = e.latLng.lat();
+                        const lng = e.latLng.lng();
+                        setMarkerPos({ lat, lng });
+                      }}
+                      options={{
+                        disableDefaultUI: true,
+                        zoomControl: true,
+                        styles: [
+                          { featureType: 'all', elementType: 'labels.text.fill', stylers: [{ color: '#1F2937' }] },
+                          { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#DBEAFE' }] },
+                        ],
+                      }}
+                    >
+                      {markerPos && <Marker position={markerPos} />}
+                    </GoogleMap>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -274,10 +514,22 @@ export default function EventSettingsPage() {
               <span className="material-symbols-rounded">schedule</span> Schedule
             </div>
             <div style={{ ...styles.formSectionBody, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-              {[['Start Date', 'startDate', 'date'], ['Start Time', 'startTime', 'time'], ['End Date', 'endDate', 'date'], ['End Time', 'endTime', 'time']].map(([label, key, type]) => (
+              {[
+                { label: 'Start Date', key: 'startDate', type: 'date', req: true },
+                { label: 'Start Time', key: 'startTime', type: 'time', req: true },
+                { label: 'End Date',   key: 'endDate',   type: 'date', req: true },
+                { label: 'End Time',   key: 'endTime',   type: 'time', req: true },
+              ].map(({ label, key, type, req }) => (
                 <div key={key}>
-                  <label style={styles.label}>{label}</label>
-                  <input type={type} style={styles.input} value={form[key]} onChange={e => set(key, e.target.value)} onFocus={inputFocus} onBlur={inputBlur} />
+                  <label style={styles.label}>{label} {req && <span style={{ color: '#EF4444' }}>*</span>}</label>
+                  <input
+                    type={type}
+                    style={fieldStyle(!!errors[key])}
+                    value={form[key]}
+                    onChange={e => set(key, e.target.value)}
+                    onFocus={inputFocus} onBlur={inputBlur}
+                  />
+                  {errors[key] && <div style={styles.errorMsg}><span className="material-symbols-rounded" style={{ fontSize: '14px' }}>error</span>{errors[key]}</div>}
                 </div>
               ))}
             </div>
@@ -289,12 +541,12 @@ export default function EventSettingsPage() {
               <span className="material-symbols-rounded">visibility</span> Visibility
             </div>
             <div style={styles.formSectionBody}>
-              <div style={{ display: 'flex', gap: '12px' }}>
+              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                 {['Public', 'Private'].map(v => (
                   <label key={v} style={{
                     display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 20px',
                     border: `2px solid ${form.visibility === v ? colors.accent : colors.borderSoft}`,
-                    borderRadius: '14px', cursor: 'pointer', flex: 1,
+                    borderRadius: '14px', cursor: 'pointer', flex: 1, minWidth: '160px',
                     background: form.visibility === v ? colors.accentBg : '#fff', transition: 'all 0.2s',
                   }}>
                     <input type="radio" name="visibility" value={v} checked={form.visibility === v} onChange={() => set('visibility', v)} style={{ display: 'none' }} />
@@ -314,94 +566,31 @@ export default function EventSettingsPage() {
 
         {/* ── Right Column ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', position: isTablet ? 'static' : 'sticky', top: '24px' }}>
-          {/* Current Status */}
+
+          {/* Event Meta */}
           <div style={styles.formSection}>
             <div style={styles.formSectionHead}>
-              <span className="material-symbols-rounded">info</span> Current Status
+              <span className="material-symbols-rounded">info</span> Event Info
             </div>
             <div style={styles.formSectionBody}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {[{ label: 'Event ID', value: `#${selectedEvent.id}` }, { label: 'Created', value: selectedEvent.createdAt }, { label: 'Status', value: selectedEvent.status }].map(({ label, value }) => (
-                  <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: colors.pageBg, borderRadius: '10px' }}>
-                    <span style={{ fontSize: '13px', color: colors.inkMuted, fontWeight: 600 }}>{label}</span>
-                    <span style={{ fontSize: '13px', fontWeight: 700, color: colors.navy }}>{value}</span>
+                {[
+                  { label: 'Event ID',  value: `#${String(selectedEvent.id).substring(0, 8)}` },
+                  { label: 'Created',   value: selectedEvent.createdAt ? new Date(selectedEvent.createdAt).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : '—' },
+                  { label: 'Status',    value: selectedEvent.status || '—' },
+                  { label: 'Organizer', value: localStorage.getItem('full_name') || localStorage.getItem('username') || '—' },
+                ].map(({ label, value }) => (
+                  <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: colors.pageBg, borderRadius: '10px', gap: '8px' }}>
+                    <span style={{ fontSize: '13px', color: colors.inkMuted, fontWeight: 600, flexShrink: 0 }}>{label}</span>
+                    <span style={{ fontSize: '13px', fontWeight: 700, color: colors.navy, textAlign: 'right', wordBreak: 'break-all' }}>{value}</span>
                   </div>
                 ))}
               </div>
             </div>
           </div>
-
-          {/* Danger Zone */}
-          <div style={{ ...styles.formSection, border: '1px solid #FEE2E2' }}>
-            <div style={{ ...styles.formSectionHead, color: '#DC2626', borderBottom: '1px solid #FEE2E2' }}>
-              <span className="material-symbols-rounded">warning</span> Danger Zone
-            </div>
-            <div style={{ ...styles.formSectionBody, display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div>
-                <p style={{ fontSize: '13px', color: colors.inkMuted, marginBottom: '10px', lineHeight: '1.5' }}>
-                  Cancel this event. Participants will be notified. This can be reversed by changing the status.
-                </p>
-                <button
-                  onClick={() => setShowCancelConfirm(true)}
-                  onMouseEnter={() => setActiveBtnHover('cancel-ev')}
-                  onMouseLeave={() => setActiveBtnHover(null)}
-                  style={{ ...styles.btn(activeBtnHover === 'cancel-ev'), width: '100%', borderColor: '#FECACA', color: '#DC2626' }}
-                >
-                  <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>cancel</span> Cancel Event
-                </button>
-              </div>
-              <div style={{ borderTop: '1px solid #FEE2E2', paddingTop: '14px' }}>
-                <p style={{ fontSize: '13px', color: colors.inkMuted, marginBottom: '10px', lineHeight: '1.5' }}>
-                  Permanently delete this event and all associated data.
-                </p>
-                <button
-                  onClick={() => setShowDeleteConfirm(true)}
-                  onMouseEnter={() => setActiveBtnHover('delete-ev')}
-                  onMouseLeave={() => setActiveBtnHover(null)}
-                  style={{ ...styles.btn(activeBtnHover === 'delete-ev', true), width: '100%', background: '#DC2626' }}
-                >
-                  <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>delete_forever</span> Delete Event
-                </button>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
-
-      {/* Cancel Confirm */}
-      {showCancelConfirm && (
-        <div style={styles.modalOverlay} onClick={() => setShowCancelConfirm(false)}>
-          <div style={styles.modalContainer()} onClick={e => e.stopPropagation()}>
-            <h2 style={styles.modalTitle}>Cancel Event?</h2>
-            <p style={{ fontSize: '14px', color: colors.inkSoft, lineHeight: '1.5', marginBottom: '28px' }}>
-              "{selectedEvent.name}" will be marked as Cancelled. You can restore it by changing the status in settings.
-            </p>
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-              <button style={styles.btn(activeBtnHover === 'gb')} onClick={() => setShowCancelConfirm(false)} onMouseEnter={() => setActiveBtnHover('gb')} onMouseLeave={() => setActiveBtnHover(null)}>Go Back</button>
-              <button style={{ ...styles.btn(activeBtnHover === 'yc', true), background: '#D97706' }} onClick={handleCancel} onMouseEnter={() => setActiveBtnHover('yc')} onMouseLeave={() => setActiveBtnHover(null)}>Yes, Cancel Event</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Confirm */}
-      {showDeleteConfirm && (
-        <div style={styles.modalOverlay} onClick={() => setShowDeleteConfirm(false)}>
-          <div style={styles.modalContainer()} onClick={e => e.stopPropagation()}>
-            <div style={{ width: '52px', height: '52px', background: '#FEE2E2', borderRadius: '50%', display: 'grid', placeItems: 'center', margin: '0 auto 20px' }}>
-              <span className="material-symbols-rounded" style={{ color: '#DC2626', fontSize: '26px' }}>delete_forever</span>
-            </div>
-            <h2 style={{ ...styles.modalTitle, textAlign: 'center' }}>Delete "{selectedEvent.name}"?</h2>
-            <p style={{ fontSize: '14px', color: colors.inkSoft, textAlign: 'center', lineHeight: '1.5', marginBottom: '28px' }}>
-              All participants, judges, rubrics, and results will be permanently removed. This cannot be undone.
-            </p>
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-              <button style={styles.btn(activeBtnHover === 'cd')} onClick={() => setShowDeleteConfirm(false)} onMouseEnter={() => setActiveBtnHover('cd')} onMouseLeave={() => setActiveBtnHover(null)}>Cancel</button>
-              <button style={{ ...styles.btn(activeBtnHover === 'dp', true), background: '#DC2626' }} onClick={handleDelete} onMouseEnter={() => setActiveBtnHover('dp')} onMouseLeave={() => setActiveBtnHover(null)}>Delete Permanently</button>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }
+

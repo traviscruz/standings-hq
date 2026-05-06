@@ -8,7 +8,7 @@ const AI_SUMMARIES = {
 };
 
 export default function PublishPage() {
-  const { selectedEvent, participants, showToast } = useEventContext();
+  const { selectedEvent, participants, showToast, eventsLoading } = useEventContext();
   const ranked = [...participants].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
   const [p1, p2, p3] = [ranked[0]?.name, ranked[1]?.name, ranked[2]?.name];
 
@@ -18,6 +18,25 @@ export default function PublishPage() {
   const [visibility, setVisibility] = useState({ scores: true, judgeScores: false, comments: false, archived: true });
   const [published, setPublished] = useState(false);
   const [activeBtnHover, setActiveBtnHover] = useState(null);
+
+  if (eventsLoading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '40vh', flexDirection: 'column', gap: '12px' }}>
+        <span className="material-symbols-rounded" style={{ fontSize: '40px', color: colors.accent, animation: 'spin 1s linear infinite' }}>progress_activity</span>
+        <p style={{ color: colors.inkMuted, fontSize: '14px' }}>Loading publish settings…</p>
+        <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  if (!selectedEvent) {
+    return (
+      <div style={{ textAlign: 'center', padding: '80px 32px' }}>
+        <span className="material-symbols-rounded" style={{ fontSize: '48px', color: colors.border, display: 'block', marginBottom: '12px' }}>event_busy</span>
+        <p style={{ color: colors.inkMuted, fontSize: '15px' }}>No event selected.</p>
+      </div>
+    );
+  }
 
   const scoredCount = participants.filter(p => p.score != null).length;
 

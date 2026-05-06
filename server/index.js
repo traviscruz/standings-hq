@@ -11,11 +11,11 @@ app.use(express.json());
 
 // Import Routes
 const authRoutes = require('./routes/auth');
-// const eventRoutes = require('./routes/events'); // You can add this later!
+const eventRoutes = require('./routes/events');
 
 // Use Routes
 app.use('/api/auth', authRoutes);
-// app.use('/api/events', eventRoutes);
+app.use('/api/events', eventRoutes);
 
 // Health Check
 app.get('/', (req, res) => {

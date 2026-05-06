@@ -1,117 +1,29 @@
 import React, { useState, createContext, useContext, useEffect, useRef } from 'react';
 import { NavLink, Outlet, useNavigate, Link, useLocation } from 'react-router-dom';
 import { colors } from '../../styles/colors';
+import { API_URL as API_BASE } from '../../config';
 
 const EventContext = createContext();
 export const useEventContext = () => useContext(EventContext);
 // ... SEED DATA REMAINS UNCHANGED ...
 
-// ─── INITIAL SEED DATA ───────────────────────────────────────────────────────
-const SEED_EVENTS = [
-  {
-    id: 1,
-    name: 'Palarong Pambansa 2026',
-    type: 'Sports',
-    startDate: '2026-12-05',
-    startTime: '08:00',
-    endDate: '2026-12-06',
-    endTime: '17:00',
-    description: 'Annual national athletic competition for students across the Philippines.',
-    location: 'Cebu City Sports Center, Cebu',
-    visibility: 'Public',
-    status: 'Upcoming',
-    createdAt: '2026-03-10',
-  },
-  {
-    id: 2,
-    name: 'Metro Manila Debate Open',
-    type: 'Academic',
-    startDate: '2026-10-15',
-    startTime: '09:00',
-    endDate: '2026-10-15',
-    endTime: '18:00',
-    description: 'An open debate championship for collegiate teams across Metro Manila.',
-    location: 'UP Diliman, Quezon City',
-    visibility: 'Private',
-    status: 'Active',
-    createdAt: '2026-02-20',
-  },
-  {
-    id: 3,
-    name: 'Quezon City IT Olympics',
-    type: 'Technology',
-    startDate: '2026-11-20',
-    startTime: '08:00',
-    endDate: '2026-11-21',
-    endTime: '16:00',
-    description: 'A battle of tech skills including coding, networking, and cybersecurity.',
-    location: 'SMX Convention Center, Pasay',
-    visibility: 'Public',
-    status: 'Upcoming',
-    createdAt: '2026-03-01',
-  },
-  {
-    id: 4,
-    name: 'Regional Science Fair 2025',
-    type: 'Academic',
-    startDate: '2025-08-10',
-    startTime: '07:00',
-    endDate: '2025-08-11',
-    endTime: '17:00',
-    description: 'Concluded annual Science Fair for the region. Archived.',
-    location: 'University of Science & Tech, Davao',
-    visibility: 'Public',
-    status: 'Completed',
-    createdAt: '2025-06-01',
-  },
-];
 
-const SEED_PARTICIPANTS = {
-  1: [{ id: 101, name: 'Jose Rizal', email: 'jrizal@calamba.ph', team: 'La Solidaridad', status: 'Registered', score: 88.5 }],
-  2: [
-    { id: 201, name: 'Antonio Luna', email: 'aluna@pharmy.gov', team: 'Sharpshooters', status: 'Registered', score: 94.2 },
-    { id: 202, name: 'Emilio Aguinaldo', email: 'emilio@kawit.ph', team: 'Magdalo', status: 'Pending', score: null },
-  ],
-  3: [{ id: 301, name: 'Andres Bonifacio', email: 'supremo@kkk.org', team: 'Magdiwang', status: 'Pending', score: null }],
-  4: [
-    { id: 401, name: 'Gabriela Silang', email: 'gsilang@ilocos.ph', team: 'Team Alpha', status: 'Registered', score: 91.0 },
-    { id: 402, name: 'Melchora Aquino', email: 'tandang@sora.ph', team: 'Team Beta', status: 'Registered', score: 87.5 },
-    { id: 403, name: 'Diego Silang', email: 'diego@ilocos.ph', team: 'Team Alpha', status: 'Registered', score: 82.0 },
-  ],
-};
+// Normalize DB snake_case → camelCase & capitalize status
+const normalizeEvent = (e) => ({
+  ...e,
+  startDate:  e.start_date  || e.startDate  || '',
+  startTime:  e.start_time  || e.startTime  || '',
+  endDate:    e.end_date    || e.endDate    || '',
+  endTime:    e.end_time    || e.endTime    || '',
+  createdAt:  e.created_at  || e.createdAt  || '',
+  status:     e.status ? (e.status.charAt(0).toUpperCase() + e.status.slice(1)) : 'Upcoming',
+  visibility: e.visibility  || 'Public',
+});
 
-const SEED_JUDGES = {
-  1: [{ id: 1001, name: 'Sarah Geronimo', role: 'Head Judge', expertise: 'Performance Arts', status: 'Accepted' }],
-  2: [
-    { id: 2001, name: 'Marian Rivera', role: 'Technical Judge', expertise: 'Argumentation', status: 'Pending' },
-    { id: 2002, name: 'Dingdong Dantes', role: 'Head Judge', expertise: 'Logic & Rhetoric', status: 'Accepted' },
-  ],
-  3: [],
-  4: [
-    { id: 4001, name: 'Dr. Jose Reyes', role: 'Head Judge', expertise: 'Applied Sciences', status: 'Accepted' },
-    { id: 4002, name: 'Prof. Ana Santos', role: 'Line Judge', expertise: 'Mathematics', status: 'Accepted' },
-  ],
-};
+const SEED_PARTICIPANTS = {};
+const SEED_JUDGES      = {};
 
-const SEED_RUBRICS = {
-  1: [
-    { id: 1, name: 'Athleticism & Technique', weight: 40, description: 'Precision and mastery of athletic skills.' },
-    { id: 2, name: 'Teamwork & Coordination', weight: 30, description: 'Synchronization and collaborative effort.' },
-    { id: 3, name: 'Showmanship', weight: 20, description: 'Energy, confidence, and stage presence.' },
-    { id: 4, name: 'Costume & Props', weight: 10, description: 'Relevance and aesthetics of attire and stage design.' },
-  ],
-  2: [
-    { id: 1, name: 'Content & Logic', weight: 40, description: 'Accuracy, relevance, and strength of arguments.' },
-    { id: 2, name: 'Delivery & Rebuttal', weight: 35, description: 'Clarity, pace, and ability to counter arguments.' },
-    { id: 3, name: 'Research & Evidence', weight: 25, description: 'Quality of sources and factual support used.' },
-  ],
-  3: [],
-  4: [
-    { id: 1, name: 'Scientific Method', weight: 35, description: 'Proper hypothesis, methodology and analysis.' },
-    { id: 2, name: 'Innovation', weight: 35, description: 'Uniqueness and real-world applicability of the study.' },
-    { id: 3, name: 'Presentation', weight: 30, description: 'Visual design and clarity of communication.' },
-  ],
-};
+const SEED_RUBRICS = {};
 
 export default function OrganizerLayout() {
   const navigate = useNavigate();
@@ -127,12 +39,14 @@ export default function OrganizerLayout() {
   const dropdownRef = useRef(null);
   const timeoutRef = useRef(null);
 
-  const [eventsList, setEventsList] = useState(SEED_EVENTS);
+  const [eventsList, setEventsList] = useState([]);
+  const [eventsLoading, setEventsLoading] = useState(true);
+  const [eventsError, setEventsError] = useState(null);
   const [participantsData, setParticipantsData] = useState(SEED_PARTICIPANTS);
   const [judgesData, setJudgesData] = useState(SEED_JUDGES);
   const [rubricsData, setRubricsData] = useState(SEED_RUBRICS);
   const [toast, setToast] = useState(null);
-  const [selectedEventId, setSelectedEventId] = useState(2); // Start on the active one
+  const [selectedEventId, setSelectedEventId] = useState(null);
 
   const selectedEvent = eventsList.find(e => e.id === selectedEventId) || eventsList[0];
   const userName = localStorage.getItem('username') || 'Event Admin';
@@ -166,27 +80,65 @@ export default function OrganizerLayout() {
   const setRubrics = (eventId, criteria) =>
     setRubricsData(prev => ({ ...prev, [eventId]: criteria }));
 
+  // ─── FETCH EVENTS ON MOUNT ─────────────────────────────────────────────────
+  useEffect(() => {
+    const organizerId = localStorage.getItem('user_id');
+    const url = organizerId
+      ? `${API_BASE}/events?organizer_id=${organizerId}`
+      : `${API_BASE}/events`;
+
+    fetch(url)
+      .then(r => r.json())
+      .then(json => {
+        if (json.success) {
+          const normalized = json.data.map(normalizeEvent);
+          setEventsList(normalized);
+          if (normalized.length > 0) setSelectedEventId(normalized[0].id);
+        } else {
+          setEventsError(json.error || 'Failed to load events.');
+        }
+      })
+      .catch(err => setEventsError(err.message))
+      .finally(() => setEventsLoading(false));
+  }, []);
+
   const addEvent = (eventData, isRestore = false) => {
-    const newId = isRestore ? eventData.id : Date.now();
-    const newEvent = isRestore ? eventData : { ...eventData, id: newId, status: 'Upcoming', createdAt: new Date().toISOString().split('T')[0] };
-    setEventsList(prev => [newEvent, ...prev]);
-    if (!isRestore) {
-      setParticipantsData(prev => ({ ...prev, [newId]: [] }));
-      setJudgesData(prev => ({ ...prev, [newId]: [] }));
-      setRubricsData(prev => ({ ...prev, [newId]: [] }));
-    }
-    setSelectedEventId(newId);
-    return newId;
+    const normalized = normalizeEvent(isRestore ? eventData : {
+      ...eventData,
+      status: 'upcoming',
+      created_at: new Date().toISOString(),
+    });
+    setEventsList(prev => [normalized, ...prev]);
+    setSelectedEventId(normalized.id);
+    return normalized.id;
   };
 
-  const updateEvent = (eventId, changes) =>
+  const updateEvent = async (eventId, changes) => {
+    // Optimistic local update
     setEventsList(prev => prev.map(e => e.id === eventId ? { ...e, ...changes } : e));
+    try {
+      await fetch(`${API_BASE}/events/${eventId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(changes),
+      });
+    } catch (err) {
+      console.error('[updateEvent]', err.message);
+    }
+  };
 
-  const deleteEvent = (eventId) => {
+  const deleteEvent = async (eventId) => {
+    // Optimistic local removal
     setEventsList(prev => prev.filter(e => e.id !== eventId));
     if (selectedEventId === eventId) {
       const remaining = eventsList.filter(e => e.id !== eventId);
       if (remaining.length > 0) setSelectedEventId(remaining[0].id);
+      else setSelectedEventId(null);
+    }
+    try {
+      await fetch(`${API_BASE}/events/${eventId}`, { method: 'DELETE' });
+    } catch (err) {
+      console.error('[deleteEvent]', err.message);
     }
   };
 
@@ -472,7 +424,7 @@ export default function OrganizerLayout() {
   const jCount = getJudges().length;
 
   const contextValue = {
-    selectedEvent, eventsList,
+    selectedEvent, eventsList, eventsLoading, eventsError,
     participants: getParticipants(), judges: getJudges(), rubrics: getRubrics(),
     getParticipants, getJudges, getRubrics,
     addParticipant, removeParticipant, updateParticipant,
@@ -558,10 +510,14 @@ export default function OrganizerLayout() {
                 onMouseLeave={() => setHoveredLink(null)}
                 onClick={() => { setIsDropdownOpen(!isDropdownOpen); setSwitcherSearch(''); }}
               >
-                <div style={styles.eventSwitcherIcon}>{selectedEvent.name.substring(0, 1)}</div>
+                <div style={styles.eventSwitcherIcon}>
+                  {eventsLoading ? <span className="material-symbols-rounded" style={{ fontSize: '16px', color: '#fff' }}>hourglass_top</span> : (selectedEvent?.name?.substring(0, 1) || '+')}
+                </div>
                 <div style={{ flex: 1, overflow: 'hidden' }}>
                   <div style={styles.eventSwitcherLabel}>Workspace</div>
-                  <div style={styles.eventSwitcherName}>{selectedEvent.name}</div>
+                  <div style={styles.eventSwitcherName}>
+                    {eventsLoading ? 'Loading events…' : (selectedEvent?.name || 'No event selected')}
+                  </div>
                 </div>
                 <span className="material-symbols-rounded" style={{ color: colors.inkMuted, fontSize: '18px' }}>unfold_more</span>
               </div>

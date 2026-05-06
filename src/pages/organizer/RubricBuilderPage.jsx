@@ -97,7 +97,7 @@ function useUndo() {
 
 /* ═══════════════════════════════════════════════════════════════════════ */
 export default function RubricBuilderPage() {
-  const { selectedEvent, rubrics, setRubrics, showToast } = useEventContext();
+  const { selectedEvent, rubrics, setRubrics, showToast, eventsLoading } = useEventContext();
   const undo = useUndo();
 
   const [criteria, setCriteria] = useState(rubrics.length > 0 ? rubrics : []);
@@ -315,6 +315,25 @@ export default function RubricBuilderPage() {
 
   const inputFocus = (e) => { e.target.style.borderColor = colors.accent; e.target.style.boxShadow = `0 0 0 3px ${colors.accentGlow}`; };
   const inputBlur = (e) => { e.target.style.borderColor = colors.border; e.target.style.boxShadow = 'none'; };
+
+  if (eventsLoading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '40vh', flexDirection: 'column', gap: '12px' }}>
+        <span className="material-symbols-rounded" style={{ fontSize: '40px', color: colors.accent, animation: 'spin 1s linear infinite' }}>progress_activity</span>
+        <p style={{ color: colors.inkMuted, fontSize: '14px' }}>Loading rubric settings…</p>
+        <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  if (!selectedEvent) {
+    return (
+      <div style={{ textAlign: 'center', padding: '80px 32px' }}>
+        <span className="material-symbols-rounded" style={{ fontSize: '48px', color: colors.border, display: 'block', marginBottom: '12px' }}>event_busy</span>
+        <p style={{ color: colors.inkMuted, fontSize: '15px' }}>No event selected.</p>
+      </div>
+    );
+  }
 
   /* ── CHOOSE VIEW ── */
   if (mode === 'choose') {

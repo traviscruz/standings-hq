@@ -154,7 +154,7 @@ function useUndo() {
 
 /* ═══════════════════════════════════════════════════════════════════════ */
 export default function ParticipantsPage() {
-  const { selectedEvent, participants, addParticipant, removeParticipant, updateParticipant, showToast } = useEventContext();
+  const { selectedEvent, participants, addParticipant, removeParticipant, updateParticipant, showToast, eventsLoading } = useEventContext();
 
   const undo = useUndo();
 
@@ -475,6 +475,25 @@ export default function ParticipantsPage() {
       animation: 'undoSlideUp 0.25s cubic-bezier(0.34,1.56,0.64,1)',
     },
   };
+
+  if (eventsLoading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '40vh', flexDirection: 'column', gap: '12px' }}>
+        <span className="material-symbols-rounded" style={{ fontSize: '40px', color: colors.accent, animation: 'spin 1s linear infinite' }}>progress_activity</span>
+        <p style={{ color: colors.inkMuted, fontSize: '14px' }}>Loading participants…</p>
+        <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  if (!selectedEvent) {
+    return (
+      <div style={{ textAlign: 'center', padding: '80px 32px' }}>
+        <span className="material-symbols-rounded" style={{ fontSize: '48px', color: colors.border, display: 'block', marginBottom: '12px' }}>event_busy</span>
+        <p style={{ color: colors.inkMuted, fontSize: '15px' }}>No event selected.</p>
+      </div>
+    );
+  }
 
   return (
     <>

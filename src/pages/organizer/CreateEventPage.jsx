@@ -1,14 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useEventContext } from './OrganizerLayout';
 import { colors } from '../../styles/colors';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import '../../styles/datepicker.css';
-import { format, parse } from 'date-fns';
+import { format } from 'date-fns';
+import { API_URL } from '../../config';
 import { GoogleMap, useJsApiLoader, Marker, Autocomplete } from '@react-google-maps/api';
 
-const GOOGLE_MAPS_API_KEY = process.env.REACT_APP_GOOGLE_MAPS_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
+const GOOGLE_MAPS_API_KEY = process.env.REACT_APP_GOOGLE_MAPS_API_KEY || 'AIzaSyCbrk9Fnf3heYkZXpUtyjrxCI55JrdrnOI';
 
 function formatDate(date) {
   if (!date) return '—';
@@ -20,7 +21,7 @@ function getDuration(start, end) {
   return diff === 1 ? '1 day' : `${diff} days`;
 }
 
-const EVENT_TYPES = ['Academic', 'Sports', 'Arts & Culture', 'Technology', 'Science', 'Debate', 'Dance / Performing Arts', 'Other'];
+const EVENT_TYPES = ['Academic', 'Sports', 'Arts & Culture', 'Technology', 'Science', 'Debate', 'Performing Arts', 'Other'];
 
 const CustomRangeInput = React.forwardRef(({ value, onClick, startDate, endDate, className }, ref) => (
   <div style={{ position: 'relative', cursor: 'pointer' }} onClick={onClick} ref={ref}>
@@ -47,17 +48,18 @@ export default function CreateEventPage() {
   const navigate = useNavigate();
 
   const [form, setForm] = useState({
-    name: '', customName: '', type: '',
+    name: '', type: '', customType: '',
     startDate: null, startTime: new Date(new Date().setHours(8, 0, 0, 0)),
     endDate: null, endTime: new Date(new Date().setHours(17, 0, 0, 0)),
     description: '', visibility: 'Public',
     location: '',
   });
 
-  const [useCustomName, setUseCustomName] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState({});
   const [activeBtnHover, setActiveBtnHover] = useState(null);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   // Google Maps State
   const { isLoaded } = useJsApiLoader({
@@ -67,6 +69,7 @@ export default function CreateEventPage() {
   });
   const [mapCenter, setMapCenter] = useState({ lat: 14.5995, lng: 120.9842 }); // Manila default
   const [markerPos, setMarkerPos] = useState(null);
+  const autocompleteRef = useRef(null);
 
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
@@ -76,7 +79,10 @@ export default function CreateEventPage() {
 
   const isTablet = windowWidth <= 1024;
 
-  const set = (key, val) => setForm(prev => ({ ...prev, [key]: val }));
+  const set = (key, val) => {
+    setForm(prev => ({ ...prev, [key]: val }));
+    if (errors[key]) setErrors(prev => { const e = { ...prev }; delete e[key]; return e; });
+  };
 
   // Helper for time restrictions
   const getMinMaxTimes = () => {
@@ -96,29 +102,79 @@ export default function CreateEventPage() {
 
   const { min: launchMinTime, max: launchMaxTime } = getMinMaxTimes();
 
+  const validate = () => {
+    const e = {};
+    const finalType = form.type === 'Other' ? form.customType : form.type;
+    const today = format(new Date(), 'yyyy-MM-dd');
+    if (!form.name || form.name.trim().length < 3) e.name = 'Event name must be at least 3 characters.';
+    if (form.name && form.name.trim().length > 120) e.name = 'Event name must be 120 characters or fewer.';
+    if (!finalType) e.type = form.type === 'Other' ? 'Please enter a custom category.' : 'Please select a category.';
+    if (!form.startDate) e.startDate = 'Start date is required.';
+    else if (format(form.startDate, 'yyyy-MM-dd') < today) e.startDate = 'Start date cannot be in the past.';
+    if (!form.endDate) e.endDate = 'End date is required.';
+    else if (form.startDate && format(form.endDate, 'yyyy-MM-dd') < format(form.startDate, 'yyyy-MM-dd')) e.endDate = 'End date must be on or after the start date.';
+    if (form.startDate && form.endDate && format(form.startDate, 'yyyy-MM-dd') === format(form.endDate, 'yyyy-MM-dd')) {
+      if (form.startTime && form.endTime && format(form.endTime, 'HH:mm') <= format(form.startTime, 'HH:mm'))
+        e.endTime = 'End time must be after start time on same-day events.';
+    }
+    if (form.description && form.description.length > 1000) e.description = `Description is too long (${form.description.length}/1000).`;
+    return e;
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    const name = useCustomName ? form.customName : form.name;
-    if (!name || !form.type || !form.startDate || !form.endDate) {
-      showToast('Please fill in all required fields.', 'error');
+    const errs = validate();
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
+      showToast('Please fix the highlighted fields.', 'error');
       return;
     }
+    setErrors({});
+    setShowConfirm(true);
+  };
+
+  const confirmSubmit = async () => {
+    setShowConfirm(false);
+    const finalType = form.type === 'Other' ? form.customType : form.type;
+    const organizer_id = localStorage.getItem('user_id') || null;
+
     setLoading(true);
-    setTimeout(() => {
-      addEvent({ 
-        name, 
-        type: form.type, 
-        startDate: format(form.startDate, 'yyyy-MM-dd'), 
-        startTime: format(form.startTime, 'HH:mm'), 
-        endDate: format(form.endDate, 'yyyy-MM-dd'), 
-        endTime: format(form.endTime, 'HH:mm'), 
-        description: form.description, 
-        location: form.location, 
-        visibility: form.visibility 
+    try {
+      const payload = {
+        organizer_id,
+        name: form.name,
+        type: finalType,
+        start_date: format(form.startDate, 'yyyy-MM-dd'),
+        start_time: format(form.startTime, 'HH:mm'),
+        end_date: format(form.endDate, 'yyyy-MM-dd'),
+        end_time: format(form.endTime, 'HH:mm'),
+        description: form.description || null,
+        location: form.location || null,
+        latitude: markerPos ? markerPos.lat : null,
+        longitude: markerPos ? markerPos.lng : null,
+        visibility: form.visibility,
+      };
+
+      const res = await fetch(`${API_URL}/events`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       });
-      showToast(`Event "${name}" created successfully!`, 'success');
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'Failed to create event.');
+      }
+
+      addEvent({ ...payload, id: json.data.id });
+      showToast(`Event "${form.name}" created successfully!`, 'success');
       navigate('/organizer/dashboard');
-    }, 1200);
+    } catch (err) {
+      showToast(err.message || 'Something went wrong. Please try again.', 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const styles = {
@@ -239,34 +295,20 @@ export default function CreateEventPage() {
               <span className="material-symbols-rounded">edit</span> Core Identity
             </div>
             <div style={styles.formSectionBody}>
-              {!useCustomName ? (
-                <div>
-                  <label style={styles.label}>Event Template Name</label>
-                  <select style={styles.input} value={form.name} onChange={e => set('name', e.target.value)} required={!useCustomName} onFocus={inputFocus} onBlur={inputBlur}>
-                    <option value="">— Select a template —</option>
-                    <option>Palarong Pambansa</option>
-                    <option>Regional Science Fair</option>
-                    <option>Interschool Debate Championship</option>
-                    <option>National IT Olympics</option>
-                    <option>Cultural Arts Festival</option>
-                    <option>Mathematics Olympiad</option>
-                    <option>Dance Sport Championships</option>
-                  </select>
-                  <div style={{ marginTop: '14px' }}>
-                    <button type="button" style={styles.linkBtn} onClick={() => setUseCustomName(true)}>
-                      Or define a bespoke event name →
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <label style={styles.label}>Bespoke Event Name <span style={{ color: colors.coral }}>*</span></label>
-                  <input type="text" style={styles.input} placeholder="e.g. Metro Manila Debate Open 2026" value={form.customName} onChange={e => set('customName', e.target.value)} required autoFocus onFocus={inputFocus} onBlur={inputBlur} />
-                  <div style={{ marginTop: '14px' }}>
-                    <button type="button" style={styles.linkBtn} onClick={() => setUseCustomName(false)}>← Revert to templates</button>
-                  </div>
-                </div>
-              )}
+              <div>
+                <label style={styles.label}>Event Name <span style={{ color: colors.coral }}>*</span></label>
+                <input 
+                  type="text" 
+                  style={{ ...styles.input, borderColor: errors.name ? '#EF4444' : undefined, background: errors.name ? '#FFF5F5' : undefined }} 
+                  placeholder="Enter event name..." 
+                  value={form.name} 
+                  onChange={e => set('name', e.target.value)} 
+                  onFocus={inputFocus} 
+                  onBlur={inputBlur} 
+                  maxLength={120}
+                />
+                {errors.name && <div style={{ fontSize: '12px', color: '#EF4444', fontWeight: 600, marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}><span className="material-symbols-rounded" style={{ fontSize: '14px' }}>error</span>{errors.name}</div>}
+              </div>
             </div>
           </div>
 
@@ -278,10 +320,28 @@ export default function CreateEventPage() {
             <div style={{ ...styles.formSectionBody, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '24px' }}>
               <div>
                 <label style={styles.label}>Competition Vertical <span style={{ color: colors.coral }}>*</span></label>
-                <select style={styles.input} value={form.type} onChange={e => set('type', e.target.value)} required onFocus={inputFocus} onBlur={inputBlur}>
+                <select style={{ ...styles.input, borderColor: errors.type ? '#EF4444' : undefined, background: errors.type ? '#FFF5F5' : undefined }} value={form.type} onChange={e => set('type', e.target.value)} onFocus={inputFocus} onBlur={inputBlur}>
                   <option value="">— Select category —</option>
                   {EVENT_TYPES.map(t => <option key={t}>{t}</option>)}
                 </select>
+                {errors.type && !form.customType && <div style={{ fontSize: '12px', color: '#EF4444', fontWeight: 600, marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}><span className="material-symbols-rounded" style={{ fontSize: '14px' }}>error</span>{errors.type}</div>}
+                
+                {form.type === 'Other' && (
+                  <div style={{ marginTop: '14px', animation: 'slideDown 0.3s ease-out' }}>
+                    <label style={styles.label}>Custom Category <span style={{ color: colors.coral }}>*</span></label>
+                    <input 
+                      type="text" 
+                      style={{ ...styles.input, borderColor: errors.type ? '#EF4444' : undefined, background: errors.type ? '#FFF5F5' : undefined }} 
+                      placeholder="Enter custom category..." 
+                      value={form.customType} 
+                      onChange={e => set('customType', e.target.value)} 
+                      autoFocus 
+                      onFocus={inputFocus} 
+                      onBlur={inputBlur} 
+                    />
+                    {errors.type && <div style={{ fontSize: '12px', color: '#EF4444', fontWeight: 600, marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}><span className="material-symbols-rounded" style={{ fontSize: '14px' }}>error</span>{errors.type}</div>}
+                  </div>
+                )}
               </div>
               <div>
                 <label style={styles.label}>Privacy Model</label>
@@ -320,17 +380,19 @@ export default function CreateEventPage() {
                   onChange={(update) => {
                     const [start, end] = update;
                     setForm(prev => ({ ...prev, startDate: start, endDate: end }));
+                    if (errors.startDate || errors.endDate) setErrors(prev => { const e = { ...prev }; delete e.startDate; delete e.endDate; return e; });
                   }}
                   isClearable={true}
                   minDate={new Date()}
-                  required
                   customInput={
                     <CustomRangeInput 
                       startDate={form.startDate} 
-                      endDate={form.endDate} 
+                      endDate={form.endDate}
+                      hasError={!!(errors.startDate || errors.endDate)}
                     />
                   }
                 />
+                {(errors.startDate || errors.endDate) && <div style={{ fontSize: '12px', color: '#EF4444', fontWeight: 600, marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}><span className="material-symbols-rounded" style={{ fontSize: '14px' }}>error</span>{errors.startDate || errors.endDate}</div>}
               </div>
               
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
@@ -363,6 +425,7 @@ export default function CreateEventPage() {
                     minTime={new Date(new Date().setHours(0, 0, 0, 0))}
                     maxTime={new Date(new Date().setHours(23, 59, 59, 999))}
                   />
+                  {errors.endTime && <div style={{ fontSize: '12px', color: '#EF4444', fontWeight: 600, marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}><span className="material-symbols-rounded" style={{ fontSize: '14px' }}>error</span>{errors.endTime}</div>}
                 </div>
               </div>
             </div>
@@ -379,25 +442,26 @@ export default function CreateEventPage() {
                   <label style={styles.label}>Search Venue Address</label>
                   {isLoaded ? (
                     <Autocomplete
-                      onLoad={(autocomplete) => {
-                        window.autocomplete = autocomplete;
-                      }}
+                      onLoad={(instance) => { autocompleteRef.current = instance; }}
                       onPlaceChanged={() => {
-                        const place = window.autocomplete.getPlace();
-                        if (place.geometry) {
-                          const addr = place.formatted_address;
-                          const lat = place.geometry.location.lat();
-                          const lng = place.geometry.location.lng();
-                          set('location', addr);
-                          setMapCenter({ lat, lng });
-                          setMarkerPos({ lat, lng });
+                        const ac = autocompleteRef.current;
+                        if (ac) {
+                          const place = ac.getPlace();
+                          if (place && place.geometry) {
+                            const addr = place.formatted_address;
+                            const lat = place.geometry.location.lat();
+                            const lng = place.geometry.location.lng();
+                            set('location', addr);
+                            setMapCenter({ lat, lng });
+                            setMarkerPos({ lat, lng });
+                          }
                         }
                       }}
                     >
                       <input 
                         type="text" 
                         style={styles.input} 
-                        placeholder="Search for a location (e.g. Hilton Manila)" 
+                        placeholder="Search for a venue or address..." 
                         value={form.location} 
                         onChange={e => set('location', e.target.value)} 
                         onFocus={inputFocus} 
@@ -445,7 +509,7 @@ export default function CreateEventPage() {
                     <span className="material-symbols-rounded" style={{ color: colors.inkMuted, fontSize: '32px', marginBottom: '8px' }}>map</span>
                     <p style={{ fontSize: '13px', color: colors.inkMuted, margin: 0 }}>
                       Google Maps preview requires an API key. <br/>
-                      <span style={{ fontSize: '11px', opacity: 0.7 }}>Search will still work if you add REACT_APP_GOOGLE_MAPS_API_KEY to your .env</span>
+                      <span style={{ fontSize: '11px', opacity: 0.7 }}>Check your .env.local for REACT_APP_GOOGLE_MAPS_API_KEY</span>
                     </p>
                   </div>
                 )}
@@ -504,14 +568,14 @@ export default function CreateEventPage() {
                 <div style={{ background: colors.navy, borderRadius: '20px', padding: '28px', color: '#fff', boxShadow: '0 20px 40px -10px rgba(15,23,42,0.3)', marginBottom: '20px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '18px' }}>
                     <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', background: 'rgba(255,255,255,0.1)', padding: '4px 10px', borderRadius: '100px', color: '#fff' }}>
-                      {form.type || 'Undefined Category'}
+                      {(form.type === 'Other' ? form.customType : form.type) || 'Undefined Category'}
                     </div>
                     <span className="material-symbols-rounded" style={{ color: 'rgba(255,255,255,0.4)', fontSize: '18px' }}>
                       {form.visibility === 'Public' ? 'public' : 'lock'}
                     </span>
                   </div>
                   <h2 style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '22px', fontWeight: 800, marginBottom: '14px', lineHeight: 1.2 }}>
-                    {(useCustomName ? form.customName : form.name) || <span style={{ opacity: 0.2 }}>Event Name</span>}
+                    {form.name || <span style={{ opacity: 0.2 }}>Event Name</span>}
                   </h2>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', opacity: 0.7, marginBottom: '6px' }}>
                     <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>calendar_month</span>
@@ -544,6 +608,88 @@ export default function CreateEventPage() {
           </div>
         )}
       </div>
-    </div>
+
+      {/* ── Confirmation Modal ── */}
+    {showConfirm && (
+      <div style={{
+        position: 'fixed', inset: 0, zIndex: 1000,
+        background: 'rgba(15, 23, 42, 0.55)',
+        backdropFilter: 'blur(6px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        animation: 'fadeIn 0.2s ease-out',
+        padding: '24px',
+      }}>
+        <div style={{
+          background: '#fff',
+          borderRadius: '24px',
+          padding: '36px',
+          maxWidth: '460px',
+          width: '100%',
+          boxShadow: '0 32px 64px -12px rgba(15,23,42,0.35)',
+          animation: 'modalUp 0.3s cubic-bezier(0.23, 1, 0.32, 1)',
+        }}>
+          {/* Icon */}
+          <div style={{ width: '56px', height: '56px', borderRadius: '16px', background: colors.accentBg, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px' }}>
+            <span className="material-symbols-rounded" style={{ fontSize: '28px', color: colors.accent }}>rocket_launch</span>
+          </div>
+
+          {/* Title */}
+          <h2 style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '22px', fontWeight: 800, color: colors.navy, margin: '0 0 8px', letterSpacing: '-0.02em' }}>
+            Confirm Event Creation
+          </h2>
+          <p style={{ fontSize: '14px', color: colors.inkMid, lineHeight: 1.6, margin: '0 0 24px' }}>
+            You're about to establish this event. Please review the details below before proceeding.
+          </p>
+
+          {/* Summary */}
+          <div style={{ background: colors.pageBg, borderRadius: '14px', padding: '16px 20px', marginBottom: '28px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {[
+              { icon: 'edit', label: 'Event Name', value: form.name },
+              { icon: 'category', label: 'Category', value: form.type === 'Other' ? form.customType : form.type },
+              { icon: 'calendar_month', label: 'Dates', value: form.startDate && form.endDate ? `${format(form.startDate, 'MMM d')} — ${format(form.endDate, 'MMM d, yyyy')}` : '—' },
+              { icon: 'pin_drop', label: 'Venue', value: form.location || 'Not specified' },
+              { icon: form.visibility === 'Public' ? 'public' : 'lock', label: 'Visibility', value: form.visibility },
+            ].map(({ icon, label, value }) => (
+              <div key={label} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                <span className="material-symbols-rounded" style={{ fontSize: '16px', color: colors.accent, marginTop: '1px', flexShrink: 0 }}>{icon}</span>
+                <div>
+                  <div style={{ fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: colors.inkMuted, marginBottom: '1px' }}>{label}</div>
+                  <div style={{ fontSize: '13.5px', fontWeight: 600, color: colors.navy }}>{value}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Actions */}
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <button
+              type="button"
+              onClick={() => setShowConfirm(false)}
+              style={{
+                flex: 1, padding: '12px', borderRadius: '14px', fontSize: '14px', fontWeight: 600,
+                cursor: 'pointer', background: '#fff', color: colors.inkSoft,
+                border: `1.5px solid ${colors.border}`, transition: 'all 0.2s', fontFamily: "'Inter', sans-serif",
+              }}
+            >
+              Go Back
+            </button>
+            <button
+              type="button"
+              onClick={confirmSubmit}
+              style={{
+                flex: 2, padding: '12px', borderRadius: '14px', fontSize: '14px', fontWeight: 700,
+                cursor: 'pointer', background: colors.navy, color: '#fff',
+                border: 'none', transition: 'all 0.2s', fontFamily: "'Inter', sans-serif",
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+              }}
+            >
+              <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>check_circle</span>
+              Yes, Establish Event
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+  </div>
   );
 }
