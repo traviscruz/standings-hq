@@ -2,20 +2,45 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useEventContext } from './OrganizerLayout';
 import { colors } from '../../styles/colors';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
+import '../../styles/datepicker.css';
+import { format, parse } from 'date-fns';
+import { GoogleMap, useJsApiLoader, Marker, Autocomplete } from '@react-google-maps/api';
 
-function formatDate(dateStr) {
-  if (!dateStr) return '—';
-  return new Date(dateStr + 'T00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+const GOOGLE_MAPS_API_KEY = process.env.REACT_APP_GOOGLE_MAPS_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
+
+function formatDate(date) {
+  if (!date) return '—';
+  return format(date, 'MMMM d, yyyy');
 }
 function getDuration(start, end) {
   if (!start || !end) return null;
-  const s = new Date(start + 'T00:00');
-  const e = new Date(end + 'T00:00');
-  const diff = Math.ceil((e - s) / (1000 * 60 * 60 * 24)) + 1;
+  const diff = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
   return diff === 1 ? '1 day' : `${diff} days`;
 }
 
 const EVENT_TYPES = ['Academic', 'Sports', 'Arts & Culture', 'Technology', 'Science', 'Debate', 'Dance / Performing Arts', 'Other'];
+
+const CustomRangeInput = React.forwardRef(({ value, onClick, startDate, endDate, className }, ref) => (
+  <div style={{ position: 'relative', cursor: 'pointer' }} onClick={onClick} ref={ref}>
+    <input 
+      className={`datepicker-input ${className || ''}`}
+      style={{ paddingLeft: '44px', cursor: 'pointer' }}
+      value={startDate ? (
+        `Start: ${format(startDate, 'MMM d')}${endDate ? ` — End: ${format(endDate, 'MMM d, yyyy')}` : ' — Select End Date'}`
+      ) : ''}
+      readOnly
+      placeholder="Select event duration..."
+    />
+    <span className="material-symbols-rounded" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: colors.accent, fontSize: '20px' }}>event_repeat</span>
+    {startDate && !endDate && (
+      <div style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '10px', fontWeight: 700, color: colors.coral, background: 'rgba(239, 68, 68, 0.1)', padding: '4px 8px', borderRadius: '6px', animation: 'pulse 2s infinite' }}>
+        Finish Selection
+      </div>
+    )}
+  </div>
+));
 
 export default function CreateEventPage() {
   const { addEvent, showToast } = useEventContext();
@@ -23,15 +48,25 @@ export default function CreateEventPage() {
 
   const [form, setForm] = useState({
     name: '', customName: '', type: '',
-    startDate: '', startTime: '08:00',
-    endDate: '', endTime: '17:00',
+    startDate: null, startTime: new Date(new Date().setHours(8, 0, 0, 0)),
+    endDate: null, endTime: new Date(new Date().setHours(17, 0, 0, 0)),
     description: '', visibility: 'Public',
     location: '',
   });
+
   const [useCustomName, setUseCustomName] = useState(false);
   const [loading, setLoading] = useState(false);
   const [activeBtnHover, setActiveBtnHover] = useState(null);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+
+  // Google Maps State
+  const { isLoaded } = useJsApiLoader({
+    id: 'google-map-script',
+    googleMapsApiKey: GOOGLE_MAPS_API_KEY,
+    libraries: ['places']
+  });
+  const [mapCenter, setMapCenter] = useState({ lat: 14.5995, lng: 120.9842 }); // Manila default
+  const [markerPos, setMarkerPos] = useState(null);
 
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
@@ -43,6 +78,24 @@ export default function CreateEventPage() {
 
   const set = (key, val) => setForm(prev => ({ ...prev, [key]: val }));
 
+  // Helper for time restrictions
+  const getMinMaxTimes = () => {
+    const now = new Date();
+    const start = new Date(now);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(now);
+    end.setHours(23, 59, 59, 999);
+
+    const isToday = form.startDate && format(form.startDate, 'yyyy-MM-dd') === format(now, 'yyyy-MM-dd');
+    
+    return {
+      min: isToday ? now : start,
+      max: end
+    };
+  };
+
+  const { min: launchMinTime, max: launchMaxTime } = getMinMaxTimes();
+
   const handleSubmit = (e) => {
     e.preventDefault();
     const name = useCustomName ? form.customName : form.name;
@@ -52,7 +105,17 @@ export default function CreateEventPage() {
     }
     setLoading(true);
     setTimeout(() => {
-      addEvent({ name, type: form.type, startDate: form.startDate, startTime: form.startTime, endDate: form.endDate, endTime: form.endTime, description: form.description, location: form.location, visibility: form.visibility });
+      addEvent({ 
+        name, 
+        type: form.type, 
+        startDate: format(form.startDate, 'yyyy-MM-dd'), 
+        startTime: format(form.startTime, 'HH:mm'), 
+        endDate: format(form.endDate, 'yyyy-MM-dd'), 
+        endTime: format(form.endTime, 'HH:mm'), 
+        description: form.description, 
+        location: form.location, 
+        visibility: form.visibility 
+      });
       showToast(`Event "${name}" created successfully!`, 'success');
       navigate('/organizer/dashboard');
     }, 1200);
@@ -245,15 +308,63 @@ export default function CreateEventPage() {
           {/* Schedule */}
           <div style={styles.formSection}>
             <div style={styles.formSectionHead}>
-              <span className="material-symbols-rounded">schedule</span> Timeline Configuration
+              <span className="material-symbols-rounded">calendar_today</span> Event Schedule
             </div>
-            <div style={{ ...styles.formSectionBody, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '20px' }}>
-              {[['Commencement Date', 'startDate', 'date', true], ['Launch Time', 'startTime', 'time', false], ['Conclusion Date', 'endDate', 'date', true], ['Closing Time', 'endTime', 'time', false]].map(([label, key, type, req]) => (
-                <div key={key}>
-                  <label style={styles.label}>{label} {req && <span style={{ color: colors.coral }}>*</span>}</label>
-                  <input type={type} style={styles.input} value={form[key]} onChange={e => set(key, e.target.value)} required={req} onFocus={inputFocus} onBlur={inputBlur} />
+            <div style={{ ...styles.formSectionBody, display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              <div>
+                <label style={styles.label}>Event Window (Start & End) <span style={{ color: colors.coral }}>*</span></label>
+                <DatePicker
+                  selectsRange={true}
+                  startDate={form.startDate}
+                  endDate={form.endDate}
+                  onChange={(update) => {
+                    const [start, end] = update;
+                    setForm(prev => ({ ...prev, startDate: start, endDate: end }));
+                  }}
+                  isClearable={true}
+                  minDate={new Date()}
+                  required
+                  customInput={
+                    <CustomRangeInput 
+                      startDate={form.startDate} 
+                      endDate={form.endDate} 
+                    />
+                  }
+                />
+              </div>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                <div>
+                  <label style={styles.label}>Launch Time</label>
+                  <DatePicker
+                    selected={form.startTime}
+                    onChange={(date) => set('startTime', date)}
+                    showTimeSelect
+                    showTimeSelectOnly
+                    timeIntervals={15}
+                    timeCaption="Time"
+                    dateFormat="h:mm aa"
+                    className="datepicker-input"
+                    minTime={launchMinTime}
+                    maxTime={launchMaxTime}
+                  />
                 </div>
-              ))}
+                <div>
+                  <label style={styles.label}>Closing Time</label>
+                  <DatePicker
+                    selected={form.endTime}
+                    onChange={(date) => set('endTime', date)}
+                    showTimeSelect
+                    showTimeSelectOnly
+                    timeIntervals={15}
+                    timeCaption="Time"
+                    dateFormat="h:mm aa"
+                    className="datepicker-input"
+                    minTime={new Date(new Date().setHours(0, 0, 0, 0))}
+                    maxTime={new Date(new Date().setHours(23, 59, 59, 999))}
+                  />
+                </div>
+              </div>
             </div>
           </div>
 
@@ -263,16 +374,82 @@ export default function CreateEventPage() {
               <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>pin_drop</span> Venue & Address
             </div>
             <div style={styles.formSectionBody}>
-              <label style={styles.label}>Venue Address / Office Location</label>
-              <input 
-                type="text" 
-                style={styles.input} 
-                placeholder="e.g. Grand Ballroom, Hilton Manila" 
-                value={form.location} 
-                onChange={e => set('location', e.target.value)} 
-                onFocus={inputFocus} 
-                onBlur={inputBlur} 
-              />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div>
+                  <label style={styles.label}>Search Venue Address</label>
+                  {isLoaded ? (
+                    <Autocomplete
+                      onLoad={(autocomplete) => {
+                        window.autocomplete = autocomplete;
+                      }}
+                      onPlaceChanged={() => {
+                        const place = window.autocomplete.getPlace();
+                        if (place.geometry) {
+                          const addr = place.formatted_address;
+                          const lat = place.geometry.location.lat();
+                          const lng = place.geometry.location.lng();
+                          set('location', addr);
+                          setMapCenter({ lat, lng });
+                          setMarkerPos({ lat, lng });
+                        }
+                      }}
+                    >
+                      <input 
+                        type="text" 
+                        style={styles.input} 
+                        placeholder="Search for a location (e.g. Hilton Manila)" 
+                        value={form.location} 
+                        onChange={e => set('location', e.target.value)} 
+                        onFocus={inputFocus} 
+                        onBlur={inputBlur} 
+                      />
+                    </Autocomplete>
+                  ) : (
+                    <input 
+                      type="text" 
+                      style={styles.input} 
+                      placeholder="Loading Maps API..." 
+                      disabled 
+                    />
+                  )}
+                </div>
+
+                {isLoaded && GOOGLE_MAPS_API_KEY && (
+                  <div style={{ height: '300px', width: '100%', borderRadius: '14px', overflow: 'hidden', border: `1px solid ${colors.borderSoft}` }}>
+                    <GoogleMap
+                      mapContainerStyle={{ height: '100%', width: '100%' }}
+                      center={mapCenter}
+                      zoom={15}
+                      onClick={(e) => {
+                        const lat = e.latLng.lat();
+                        const lng = e.latLng.lng();
+                        setMarkerPos({ lat, lng });
+                        // Reverse geocoding could be added here to update address string
+                      }}
+                      options={{
+                        disableDefaultUI: true,
+                        zoomControl: true,
+                        styles: [
+                          { "featureType": "all", "elementType": "labels.text.fill", "stylers": [{ "color": "#1F2937" }] },
+                          { "featureType": "water", "elementType": "geometry", "stylers": [{ "color": "#DBEAFE" }] }
+                        ]
+                      }}
+                    >
+                      {markerPos && <Marker position={markerPos} />}
+                    </GoogleMap>
+                  </div>
+                )}
+                
+                {!GOOGLE_MAPS_API_KEY && (
+                  <div style={{ padding: '20px', background: colors.pageBg, borderRadius: '14px', border: `1px dashed ${colors.border}`, textAlign: 'center' }}>
+                    <span className="material-symbols-rounded" style={{ color: colors.inkMuted, fontSize: '32px', marginBottom: '8px' }}>map</span>
+                    <p style={{ fontSize: '13px', color: colors.inkMuted, margin: 0 }}>
+                      Google Maps preview requires an API key. <br/>
+                      <span style={{ fontSize: '11px', opacity: 0.7 }}>Search will still work if you add REACT_APP_GOOGLE_MAPS_API_KEY to your .env</span>
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -350,7 +527,9 @@ export default function CreateEventPage() {
                     <div style={{ fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', color: colors.inkMuted, marginBottom: '8px', letterSpacing: '0.05em' }}>Duration Manifest</div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ fontSize: '14px', fontWeight: 700, color: colors.navy }}>{getDuration(form.startDate, form.endDate) || '—'}</span>
-                      <span style={{ fontSize: '12px', color: colors.inkMuted }}>{form.startTime} - {form.endTime}</span>
+                      <span style={{ fontSize: '12px', color: colors.inkMuted }}>
+                        {form.startTime ? format(form.startTime, 'h:mm aa') : '—'} - {form.endTime ? format(form.endTime, 'h:mm aa') : '—'}
+                      </span>
                     </div>
                   </div>
                   <div style={{ padding: '16px', background: colors.pageBg, border: `1px dashed ${colors.border}`, borderRadius: '14px' }}>

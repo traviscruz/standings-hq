@@ -36,7 +36,7 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password }),
       });
       const data = await response.json();
-      
+
       if (!response.ok) throw new Error(data.error || 'Login failed');
 
       // Save user info
@@ -333,8 +333,8 @@ export default function LoginPage() {
       {/* ── AUTH SIDE ── */}
       <div style={styles.authPanel}>
         <div style={styles.header}>
-          <Link 
-            to="/" 
+          <Link
+            to="/"
             style={styles.backLink(activeHover === 'back')}
             onMouseEnter={() => setActiveHover('back')}
             onMouseLeave={() => setActiveHover(null)}
@@ -363,9 +363,9 @@ export default function LoginPage() {
 
           <div style={styles.formGroup}>
             <label style={styles.label}>Email or Username</label>
-            <input 
-              type="text" 
-              placeholder="Enter your email or username" 
+            <input
+              type="text"
+              placeholder="Enter your email or username"
               style={styles.input(activeHover === 'email-focus', !!error)}
               onFocus={() => setActiveHover('email-focus')}
               onBlur={() => setActiveHover(null)}
@@ -379,16 +379,16 @@ export default function LoginPage() {
               <label style={styles.label}>Password</label>
             </div>
             <div style={styles.passwordWrapper}>
-              <input 
-                type={showPassword ? "text" : "password"} 
-                placeholder="••••••••" 
+              <input
+                type={showPassword ? "text" : "password"}
+                placeholder="••••••••"
                 style={styles.input(activeHover === 'pass-focus', !!error)}
                 onFocus={() => setActiveHover('pass-focus')}
                 onBlur={() => setActiveHover(null)}
                 value={password}
                 onChange={(e) => { setPassword(e.target.value); setError(''); }}
               />
-              <button 
+              <button
                 style={styles.passToggle}
                 onClick={() => setShowPassword(!showPassword)}
                 onMouseEnter={() => setActiveHover('pass-toggle')}
@@ -400,8 +400,8 @@ export default function LoginPage() {
                 </span>
               </button>
             </div>
-            <Link 
-              to="/forgot-password" 
+            <Link
+              to="/forgot-password"
               style={styles.forgotLink(activeHover === 'forgot')}
               onMouseEnter={() => setActiveHover('forgot')}
               onMouseLeave={() => setActiveHover(null)}
@@ -410,7 +410,7 @@ export default function LoginPage() {
             </Link>
           </div>
 
-          <button 
+          <button
             style={styles.primaryBtn(activeHover === 'login-btn')}
             onMouseEnter={() => setActiveHover('login-btn')}
             onMouseLeave={() => setActiveHover(null)}
@@ -425,8 +425,8 @@ export default function LoginPage() {
           </button>
 
           <p style={styles.footerText}>
-            Don't have an account? <Link 
-              to="/register" 
+            Don't have an account? <Link
+              to="/register"
               style={styles.linkBtn(activeHover === 'reg')}
               onMouseEnter={() => setActiveHover('reg')}
               onMouseLeave={() => setActiveHover(null)}
@@ -440,7 +440,7 @@ export default function LoginPage() {
       <div style={styles.visualPanel}>
         <div style={styles.bgGradient} />
         <div style={styles.bgPattern} />
-        
+
         <div style={styles.visualContent}>
           <div style={{ marginBottom: '48px' }}>
             <div style={{ display: 'inline-flex', padding: '16px', background: 'rgba(59, 130, 246, 0.1)', borderRadius: '24px', marginBottom: '24px', animation: 'float 4s ease-in-out infinite', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
@@ -453,15 +453,15 @@ export default function LoginPage() {
               Elite standings infrastructure for professional events. Automate ranking, evaluation, and certification in real-time.
             </p>
           </div>
-          
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {[
               { icon: 'bolt', title: 'Ultra-low Latency', desc: 'Real-time scoring updates for live audiences.' },
               { icon: 'hub', title: 'Unified Ecosystem', desc: 'One account for organizers, judges, and users.' },
               { icon: 'workspace_premium', title: 'Automated Compliance', desc: 'Built-in rubric validation and audit trails.' }
             ].map((item, i) => (
-              <div 
-                key={i} 
+              <div
+                key={i}
                 style={{ ...styles.featureCard, transform: activeHover === `feat-${i}` ? 'translateX(10px)' : 'none' }}
                 onMouseEnter={() => setActiveHover(`feat-${i}`)}
                 onMouseLeave={() => setActiveHover(null)}
