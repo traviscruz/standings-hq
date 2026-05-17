@@ -1,100 +1,40 @@
 import React, { useState, createContext, useContext, useRef, useEffect } from 'react';
-import { NavLink, Outlet, useNavigate, Link } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate, Link, useLocation } from 'react-router-dom';
 import { colors } from '../../styles/colors';
 import { API_URL as API_BASE } from '../../config';
+import { createClient } from '../../utils/supabase/client';
 
 const JudgeContext = createContext();
 export const useJudgeContext = () => useContext(JudgeContext);
 
-// Mock event & rubric data
-const mockEvent = {
-  name: 'Mutya ng Barangay 2026',
-  date: 'Apr 12, 2026',
-  type: 'Barangay Pageant',
-};
-
-const pageantSegments = [
-  {
-    id: 'swimwear',
-    label: 'Swimwear / Casual Wear',
-    icon: 'beach_access',
-    color: '#D25E41',
-    colorBg: 'rgba(210,94,65,0.08)',
-    criteria: [
-      { id: 'sw1', name: 'Poise & Confidence', maxScore: 10 },
-      { id: 'sw2', name: 'Body Fitness & Proportion', maxScore: 10 },
-      { id: 'sw3', name: 'Overall Presentation', maxScore: 10 },
-    ],
-  },
-  {
-    id: 'natcos',
-    label: 'National Costume (NatCos)',
-    icon: 'style',
-    color: '#1E2D4A',
-    colorBg: 'rgba(30,45,74,0.08)',
-    criteria: [
-      { id: 'nc1', name: 'Cultural Authenticity', maxScore: 10 },
-      { id: 'nc2', name: 'Creativity & Design', maxScore: 10 },
-      { id: 'nc3', name: 'Stage Presence', maxScore: 10 },
-    ],
-  },
-  {
-    id: 'qa',
-    label: 'Question & Answer',
-    icon: 'record_voice_over',
-    color: '#7A5C8A',
-    colorBg: 'rgba(122,92,138,0.08)',
-    criteria: [
-      { id: 'qa1', name: 'Clarity & Articulation', maxScore: 10 },
-      { id: 'qa2', name: 'Content & Intelligence', maxScore: 10 },
-      { id: 'qa3', name: 'Confidence & Poise', maxScore: 10 },
-    ],
-  },
-  {
-    id: 'eveninggown',
-    label: 'Long Gown / Evening Gown',
-    icon: 'diamond',
-    color: '#8BA888',
-    colorBg: 'rgba(139,168,136,0.08)',
-    criteria: [
-      { id: 'eg1', name: 'Elegance & Grace', maxScore: 10 },
-      { id: 'eg2', name: 'Gown Appropriateness', maxScore: 10 },
-      { id: 'eg3', name: 'Walk & Overall Bearing', maxScore: 10 },
-    ],
-  },
-];
-
-const mockParticipants = [
-  { id: 1, name: 'Maria Santos', number: 1, barangay: 'Brgy. 001 - Bagong Silang' },
-  { id: 2, name: 'Ana Reyes', number: 2, barangay: 'Brgy. 002 - Maliwanag' },
-  { id: 3, name: 'Luz Dela Cruz', number: 3, barangay: 'Brgy. 003 - Masagana' },
-  { id: 4, name: 'Rosa Bautista', number: 4, barangay: 'Brgy. 004 - Pagasa' },
-  { id: 5, name: 'Elena Flores', number: 5, barangay: 'Brgy. 005 - Silangan' },
-];
-
-const buildInitialScores = () => {
-  const s = {};
-  mockParticipants.forEach(p => {
-    s[p.id] = {};
-    pageantSegments.forEach(seg => {
-      s[p.id][seg.id] = {};
-      seg.criteria.forEach(c => { s[p.id][seg.id][c.id] = ''; });
-    });
-  });
-  return s;
-};
-
 export default function JudgeLayout() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const supabase = createClient();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [toast, setToast] = useState(null);
   const timeoutRef = useRef(null);
-  const [scores, setScores] = useState(buildInitialScores);
+
+  // Dynamic States
+  const [eventsList, setEventsList] = useState([]);
+  const [eventsLoading, setEventsLoading] = useState(true);
+  const [selectedEventId, setSelectedEventId] = useState(null);
+  const [participants, setParticipants] = useState([]);
+  const [segments, setSegments] = useState([]);
+  const [scores, setScores] = useState({});
   const [submittedSegments, setSubmittedSegments] = useState({});
   const [invitations, setInvitations] = useState([]);
-  const userEmail = localStorage.getItem('email');
 
-  // Fetch Invitations
+  // Switcher Dropdown States
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [switcherSearch, setSwitcherSearch] = useState('');
+  const [isSearchHovered, setIsSearchHovered] = useState(false);
+
+  const dropdownRef = useRef(null);
+  const userEmail = localStorage.getItem('email');
+  const selectedEvent = eventsList.find(e => e.id === selectedEventId);
+
+  // Fetch Pending Invitations
   useEffect(() => {
     if (!userEmail) return;
 
@@ -105,6 +45,143 @@ export default function JudgeLayout() {
       })
       .catch(err => console.error('Error fetching judge invitations:', err));
   }, [userEmail]);
+
+  // Fetch Accepted Events
+  useEffect(() => {
+    if (!userEmail) {
+      setEventsLoading(false);
+      return;
+    }
+    setEventsLoading(true);
+    fetch(`${API_BASE}/judges/my-events?email=${userEmail}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.data.length > 0) {
+          setEventsList(data.data);
+          setSelectedEventId(data.data[0].id);
+        } else {
+          setEventsList([]);
+          setSelectedEventId(null);
+        }
+      })
+      .catch(err => console.error('Error fetching accepted events:', err))
+      .finally(() => setEventsLoading(false));
+  }, [userEmail]);
+
+  // Fetch active event participants & rubric configuration
+  useEffect(() => {
+    if (!selectedEventId) {
+      setParticipants([]);
+      setSegments([]);
+      return;
+    }
+
+    // 1. Fetch participants
+    fetch(`${API_BASE}/participants?event_id=${selectedEventId}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          const formatted = data.data.map((p, index) => ({
+            id: p.id,
+            name: p.name,
+            number: index + 1,
+            barangay: p.team || 'Independent',
+            email: p.email,
+            status: p.status,
+          }));
+          setParticipants(formatted);
+        }
+      })
+      .catch(err => console.error('Error fetching participants:', err));
+
+    // 2. Fetch rubric config from supabase
+    const fetchRubrics = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('event_rubrics')
+          .select('*')
+          .eq('event_id', selectedEventId)
+          .maybeSingle();
+
+        if (error) throw error;
+        if (data && data.config && data.config.rubrics) {
+          const scaleMax = data.config.scale?.max || 10;
+          const mapped = data.config.rubrics.map((r, idx) => ({
+            id: r.id,
+            label: r.label,
+            weight: r.weight,
+            icon: idx % 4 === 0 ? 'emoji_events' : idx % 4 === 1 ? 'military_tech' : idx % 4 === 2 ? 'workspace_premium' : 'hotel_class',
+            color: idx % 4 === 0 ? '#D25E41' : idx % 4 === 1 ? '#1E2D4A' : idx % 4 === 2 ? '#7A5C8A' : '#8BA888',
+            colorBg: idx % 4 === 0 ? 'rgba(210,94,65,0.08)' : idx % 4 === 1 ? 'rgba(30,45,74,0.08)' : idx % 4 === 2 ? 'rgba(122,92,138,0.08)' : 'rgba(139,168,136,0.08)',
+            criteria: [
+              {
+                id: r.id + '_score',
+                name: 'Score',
+                maxScore: scaleMax,
+              }
+            ]
+          }));
+          setSegments(mapped);
+        } else {
+          setSegments([]);
+        }
+      } catch (err) {
+        console.error('Error fetching event rubric config:', err);
+      }
+    };
+
+    fetchRubrics();
+  }, [selectedEventId, supabase]);
+
+  // Scores Initialization Effect
+  useEffect(() => {
+    if (!participants.length || !segments.length) return;
+    setScores(prev => {
+      const s = { ...prev };
+      participants.forEach(p => {
+        if (!s[p.id]) s[p.id] = {};
+        segments.forEach(seg => {
+          if (!s[p.id][seg.id]) s[p.id][seg.id] = {};
+          seg.criteria.forEach(c => {
+            if (s[p.id][seg.id][c.id] === undefined) {
+              s[p.id][seg.id][c.id] = '';
+            }
+          });
+        });
+      });
+      return s;
+    });
+  }, [participants, segments]);
+
+  // Fetch existing scores & submissions from backend
+  useEffect(() => {
+    if (!selectedEventId || !selectedEvent?.eventJudgeId) return;
+
+    fetch(`${API_BASE}/scores?event_id=${selectedEventId}&judge_id=${selectedEvent.eventJudgeId}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          if (data.scores) {
+            setScores(data.scores);
+          }
+          if (data.submittedSegments) {
+            setSubmittedSegments(data.submittedSegments);
+          }
+        }
+      })
+      .catch(err => console.error('Error fetching scores:', err));
+  }, [selectedEventId, selectedEvent?.eventJudgeId]);
+
+  // Click outside to close dropdown
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const userName = localStorage.getItem('username') || 'Official Judge';
   const userInitials = userName.split(' ').map(n => n[0]).join('').toUpperCase();
@@ -131,6 +208,7 @@ export default function JudgeLayout() {
   };
 
   const updateScore = (participantId, segmentId, criterionId, value) => {
+    // 1. Update state locally (for instant UI feedback)
     setScores(prev => ({
       ...prev,
       [participantId]: {
@@ -138,14 +216,76 @@ export default function JudgeLayout() {
         [segmentId]: { ...prev[participantId][segmentId], [criterionId]: value },
       },
     }));
+
+    // 2. Persist to backend in the background (autosave)
+    if (!selectedEventId || !selectedEvent?.eventJudgeId) return;
+    fetch(`${API_BASE}/scores/save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        event_id: selectedEventId,
+        judge_id: selectedEvent.eventJudgeId,
+        participant_id: participantId,
+        segment_id: segmentId,
+        criterion_id: criterionId,
+        score: value === '' ? null : parseFloat(value)
+      })
+    })
+    .catch(err => console.error('Error saving score:', err));
   };
 
   const submitSegment = (segmentId) => {
     const prevSubmitted = { ...submittedSegments };
+    
+    // 1. Update UI state optimistically
     setSubmittedSegments(prev => ({ ...prev, [segmentId]: true }));
-    showToast(`Scores for "${pageantSegments.find(s => s.id === segmentId)?.label}" locked and submitted.`, 'success', () => {
+    
+    // 2. Submit to backend
+    if (!selectedEventId || !selectedEvent?.eventJudgeId) return;
+    fetch(`${API_BASE}/scores/submit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        event_id: selectedEventId,
+        judge_id: selectedEvent.eventJudgeId,
+        segment_id: segmentId
+      })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        showToast(`Scores for "${segments.find(s => s.id === segmentId)?.label}" locked and submitted.`, 'success', () => {
+          // Revert (Undo) submission on the backend
+          fetch(`${API_BASE}/scores/revert`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              event_id: selectedEventId,
+              judge_id: selectedEvent.eventJudgeId,
+              segment_id: segmentId
+            })
+          })
+          .then(r => r.json())
+          .then(d => {
+            if (d.success) {
+              setSubmittedSegments(prevSubmitted);
+              showToast('Submission reverted.', 'info');
+            } else {
+              showToast('Failed to revert submission.', 'error');
+            }
+          })
+          .catch(err => console.error('Error reverting submission:', err));
+        });
+      } else {
+        // Rollback optimistic state
+        setSubmittedSegments(prevSubmitted);
+        showToast(data.error || 'Failed to submit scores.', 'error');
+      }
+    })
+    .catch(err => {
+      console.error('Error submitting segment:', err);
       setSubmittedSegments(prevSubmitted);
-      showToast('Submission reverted.', 'info');
+      showToast('Connection error. Failed to submit.', 'error');
     });
   };
 
@@ -368,11 +508,15 @@ export default function JudgeLayout() {
     animation: 'pillDrop 0.4s cubic-bezier(0.2, 1.2, 0.5, 1.2)',
   };
 
+  const filteredEvents = eventsList.filter(e =>
+    e.name.toLowerCase().includes(switcherSearch.toLowerCase())
+  );
+
   return (
     <JudgeContext.Provider value={{
-      event: mockEvent,
-      participants: mockParticipants,
-      segments: pageantSegments,
+      event: selectedEvent,
+      participants,
+      segments,
       scores,
       submittedSegments,
       invitations,
@@ -459,15 +603,135 @@ export default function JudgeLayout() {
               )}
             </div>
 
-            <div style={eventSwitcherStyle}>
-              <div style={eventSwitcherBtnStyle}>
-                <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: colors.accent, color: '#fff', display: 'grid', placeItems: 'center', fontWeight: '700', fontSize: '14px' }}>G</div>
-                <div style={{ flex: 1, textAlignment: 'left', overflow: 'hidden' }}>
-                  <div style={{ fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: colors.inkMuted, marginBottom: '1px' }}>Assigned Room</div>
-                  <div style={{ fontSize: '13.5px', fontWeight: '600', color: colors.navy, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Guest Judge Portal</div>
+            {/* Event Switcher */}
+            <div style={{ ...eventSwitcherStyle, zIndex: 999 }} ref={dropdownRef}>
+              <div
+                style={{
+                  ...eventSwitcherBtnStyle,
+                  backgroundColor: hoveredLink === 'switcher' ? '#fff' : colors.pageBg,
+                  border: `1px solid ${hoveredLink === 'switcher' ? colors.accentGlow : colors.borderSoft}`,
+                  boxShadow: hoveredLink === 'switcher' ? '0 4px 12px rgba(26,24,20,0.06)' : 'none',
+                  transform: hoveredLink === 'switcher' ? 'translateY(-1px)' : 'none',
+                }}
+                onMouseEnter={() => setHoveredLink('switcher')}
+                onMouseLeave={() => setHoveredLink(null)}
+                onClick={() => { setIsDropdownOpen(!isDropdownOpen); setSwitcherSearch(''); }}
+              >
+                <div style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '8px',
+                  background: colors.navy,
+                  color: '#fff',
+                  display: 'grid',
+                  placeItems: 'center',
+                  fontFamily: "'DM Sans', system-ui, sans-serif",
+                  fontWeight: '700',
+                  fontSize: '14px',
+                }}>
+                  {eventsLoading ? <span className="material-symbols-rounded" style={{ fontSize: '16px', color: '#fff' }}>hourglass_top</span> : (selectedEvent?.name?.substring(0, 1) || '—')}
                 </div>
-                <span className="material-symbols-rounded" style={{ color: colors.inkMuted, fontSize: '18px' }}>gavel</span>
+                <div style={{ flex: 1, overflow: 'hidden' }}>
+                  <div style={{ fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', color: colors.inkMuted, marginBottom: '1px', textAlign: 'left' }}>Assigned Room</div>
+                  <div style={{ fontSize: '13.5px', fontWeight: '600', color: colors.navy, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'left' }}>
+                    {eventsLoading ? 'Loading rooms...' : (selectedEvent?.name || 'No assigned room')}
+                  </div>
+                </div>
+                <span className="material-symbols-rounded" style={{ color: colors.inkMuted, fontSize: '18px' }}>unfold_more</span>
               </div>
+
+              {isDropdownOpen && (
+                <div style={{
+                  position: 'absolute',
+                  top: 'calc(100% + 8px)',
+                  left: 0,
+                  right: 0,
+                  background: '#fff',
+                  border: `1px solid ${colors.borderSoft}`,
+                  borderRadius: '16px',
+                  boxShadow: '0 16px 48px rgba(26,24,20,0.12)',
+                  zIndex: 1000,
+                  overflow: 'hidden',
+                  padding: '6px',
+                }}>
+                  <div style={{ padding: '8px 8px 4px' }}>
+                    <div style={{ position: 'relative' }}>
+                      <span className="material-symbols-rounded" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '16px', color: colors.inkMuted }}>search</span>
+                      <input
+                        type="text"
+                        value={switcherSearch}
+                        onChange={e => setSwitcherSearch(e.target.value)}
+                        placeholder="Search rooms..."
+                        onMouseEnter={() => setIsSearchHovered(true)}
+                        onMouseLeave={() => setIsSearchHovered(false)}
+                        style={{
+                          width: '100%',
+                          padding: '8px 10px 8px 32px',
+                          border: `1px solid ${isSearchHovered ? colors.accent : colors.borderSoft}`,
+                          borderRadius: '10px',
+                          fontSize: '13px',
+                          outline: 'none',
+                          transition: 'all 0.2s',
+                          boxSizing: 'border-box'
+                        }}
+                        autoFocus
+                      />
+                    </div>
+                  </div>
+                  <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                    {filteredEvents.length === 0 && (
+                      <div style={{ padding: '12px 16px', color: colors.inkMuted, fontSize: '13px', textAlign: 'center' }}>No assigned rooms found</div>
+                    )}
+                    {filteredEvents.map(ev => {
+                      const isSelected = ev.id === selectedEventId;
+                      const isThisHovered = hoveredLink === `ev-${ev.id}`;
+                      return (
+                        <div
+                          key={ev.id}
+                          style={{
+                            padding: '10px 12px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            borderRadius: '10px',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            background: isSelected ? colors.accentBg : (isThisHovered ? colors.pageBg : 'transparent'),
+                          }}
+                          onMouseEnter={() => setHoveredLink(`ev-${ev.id}`)}
+                          onMouseLeave={() => setHoveredLink(null)}
+                          onClick={() => {
+                            setSelectedEventId(ev.id);
+                            setIsDropdownOpen(false);
+                            navigate('/judge/dashboard');
+                            showToast(`Switched room to "${ev.name}"`, 'info');
+                          }}
+                        >
+                          <div style={{
+                            width: '28px',
+                            height: '28px',
+                            borderRadius: '8px',
+                            background: isSelected ? colors.accent : (isThisHovered ? colors.navySoft : colors.navy),
+                            color: '#fff',
+                            display: 'grid',
+                            placeItems: 'center',
+                            fontFamily: "'DM Sans', system-ui, sans-serif",
+                            fontWeight: '700',
+                            fontSize: '12px',
+                          }}>
+                            {ev.name.substring(0, 1)}
+                          </div>
+                          <div style={{ flex: 1, overflow: 'hidden', textAlign: 'left' }}>
+                            <div style={{ fontSize: '13px', fontWeight: 600, color: colors.navy, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ev.name}</div>
+                            <div style={{ fontSize: '11px', color: colors.inkMuted }}>{ev.status}</div>
+                          </div>
+                          {isSelected && <span className="material-symbols-rounded" style={{ color: colors.accent, fontSize: '16px' }}>check</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -538,7 +802,61 @@ export default function JudgeLayout() {
         </aside>
 
         <main style={mainStyle}>
-          <Outlet />
+          {(!selectedEventId && location.pathname !== '/judge/invites' && location.pathname !== '/judge/profile') ? (
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minHeight: '60vh',
+              textAlign: 'center',
+              maxWidth: '500px',
+              margin: '0 auto',
+              gap: '24px',
+              animation: 'slideUp 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards'
+            }}>
+              <div style={{
+                width: '80px',
+                height: '80px',
+                borderRadius: '24px',
+                background: 'rgba(59, 130, 246, 0.08)',
+                color: colors.accent,
+                display: 'grid',
+                placeItems: 'center',
+                marginBottom: '8px'
+              }}>
+                <span className="material-symbols-rounded" style={{ fontSize: '40px' }}>event_busy</span>
+              </div>
+              <h2 style={{ fontSize: '28px', fontWeight: '800', color: colors.navy, margin: 0, letterSpacing: '-0.02em', fontFamily: "'DM Sans', sans-serif" }}>No Active Event</h2>
+              <p style={{ fontSize: '15px', color: colors.inkSoft, lineHeight: 1.6, margin: 0 }}>
+                You don't have any accepted events yet. Please accept pending invitations to activate your dashboard.
+              </p>
+              <button
+                onClick={() => navigate('/judge/invites')}
+                style={{
+                  padding: '12px 28px',
+                  background: colors.navy,
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '14px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  transition: '0.2s',
+                  boxShadow: '0 4px 12px rgba(15, 31, 61, 0.15)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+                onMouseEnter={(e) => e.target.style.background = colors.navySoft}
+                onMouseLeave={(e) => e.target.style.background = colors.navy}
+              >
+                <span className="material-symbols-rounded">mail</span>
+                View Pending Invites
+              </button>
+            </div>
+          ) : (
+            <Outlet />
+          )}
         </main>
       </div>
 

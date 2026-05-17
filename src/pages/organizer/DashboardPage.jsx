@@ -47,6 +47,9 @@ export default function DashboardPage() {
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const [activeBtnHover, setActiveBtnHover] = useState(null);
   const [hoveredCard, setHoveredCard] = useState(null);
+  const [showGoLiveModal, setShowGoLiveModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
     window.addEventListener('resize', handleResize);
@@ -89,12 +92,44 @@ export default function DashboardPage() {
 
 
   const goLive = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const startDate = selectedEvent.startDate ? new Date(selectedEvent.startDate + 'T00:00:00') : null;
+    const endDate   = selectedEvent.endDate   ? new Date(selectedEvent.endDate   + 'T00:00:00') : null;
+
+    if (startDate && today < startDate) {
+      showToast(
+        `Can't go live yet — event starts on ${startDate.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}.`,
+        'error'
+      );
+      return;
+    }
+    if (endDate && today > endDate) {
+      showToast(
+        `Event ended on ${endDate.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}. Mark it as Completed in Settings instead.`,
+        'error'
+      );
+      return;
+    }
+    setShowGoLiveModal(true);
+  };
+
+  const confirmGoLive = () => {
     const prev = selectedEvent.status;
     updateEvent(selectedEvent.id, { status: 'active' });
+    setShowGoLiveModal(false);
     showToast(`"${selectedEvent.name}" is now live!`, 'success', () => {
       updateEvent(selectedEvent.id, { status: prev.toLowerCase() });
       showToast('Status reverted.', 'info');
     });
+  };
+
+  const handleShare = () => {
+    const shareUrl = `${window.location.origin}/leaderboard/${selectedEvent.id}`;
+    navigator.clipboard.writeText(shareUrl).catch(() => {});
+    setShareCopied(true);
+    setShowShareModal(true);
+    setTimeout(() => setShareCopied(false), 3000);
   };
 
   const styles = {
@@ -160,7 +195,46 @@ export default function DashboardPage() {
       placeItems: 'center',
       marginBottom: '8px',
       boxShadow: '0 4px 10px rgba(0,0,0,0.05)',
-    })
+    }),
+    eyebrow: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '8px',
+      padding: '6px 14px',
+      background: 'rgba(59, 130, 246, 0.08)',
+      borderRadius: '100px',
+      fontSize: '12px',
+      fontWeight: '700',
+      color: colors.navy,
+    },
+    modalOverlay: {
+      position: 'fixed',
+      top: 0, left: 0, right: 0, bottom: 0,
+      background: 'rgba(15, 31, 61, 0.45)',
+      backdropFilter: 'blur(6px)',
+      display: 'grid',
+      placeItems: 'center',
+      zIndex: 1000,
+      padding: '20px',
+    },
+    modalContainer: {
+      background: '#fff',
+      borderRadius: '24px',
+      width: '100%',
+      maxWidth: '440px',
+      boxShadow: '0 20px 60px rgba(15,23,42,0.18)',
+      padding: '36px',
+      animation: 'modalUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+    },
+    modalTitle: {
+      fontFamily: "'DM Sans', sans-serif",
+      fontSize: '22px',
+      fontWeight: '800',
+      color: colors.navy,
+      letterSpacing: '-0.02em',
+      margin: 0,
+      marginBottom: '10px',
+    },
   };
 
   const auditLogs = [
@@ -171,6 +245,7 @@ export default function DashboardPage() {
   ];
 
   return (
+    <>
     <div style={styles.pageContainer}>
       <header style={styles.pageHeader}>
         <div>
@@ -194,10 +269,20 @@ export default function DashboardPage() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '12px' }}>
-          <button style={styles.btn(activeBtnHover === 'share')} onMouseEnter={() => setActiveBtnHover('share')} onMouseLeave={() => setActiveBtnHover(null)}>
+          <button
+            style={styles.btn(activeBtnHover === 'share')}
+            onMouseEnter={() => setActiveBtnHover('share')}
+            onMouseLeave={() => setActiveBtnHover(null)}
+            onClick={handleShare}
+          >
             <span className="material-symbols-rounded">share</span> Share
           </button>
-          <button style={styles.btn(activeBtnHover === 'primary', true)} onMouseEnter={() => setActiveBtnHover('primary')} onMouseLeave={() => setActiveBtnHover(null)} onClick={goLive}>
+          <button
+            style={styles.btn(activeBtnHover === 'primary', true)}
+            onMouseEnter={() => setActiveBtnHover('primary')}
+            onMouseLeave={() => setActiveBtnHover(null)}
+            onClick={selectedEvent.status === 'Active' ? () => navigate('/organizer/analytics') : goLive}
+          >
             <span className="material-symbols-rounded">{selectedEvent.status === 'Active' ? 'leaderboard' : 'play_circle'}</span>
             {selectedEvent.status === 'Active' ? 'View Live Rankings' : 'Go Live Now'}
           </button>
@@ -299,6 +384,91 @@ export default function DashboardPage() {
 
           </div>
         </div>
-      </div>
-    );
+
+      {/* GO LIVE CONFIRMATION MODAL */}
+      {showGoLiveModal && (
+        <div style={styles.modalOverlay} onClick={() => setShowGoLiveModal(false)}>
+          <div style={styles.modalContainer} onClick={e => e.stopPropagation()}>
+            <div style={{ width: '56px', height: '56px', borderRadius: '16px', background: '#DCFCE7', display: 'grid', placeItems: 'center', marginBottom: '20px' }}>
+              <span className="material-symbols-rounded" style={{ fontSize: '28px', color: '#16A34A' }}>sensors</span>
+            </div>
+            <h2 style={styles.modalTitle}>Go Live Now?</h2>
+            <p style={{ fontSize: '14px', color: colors.inkSoft, lineHeight: '1.6', marginBottom: '28px' }}>
+              This will set <strong style={{ color: colors.navy }}>&#34;{selectedEvent.name}&#34;</strong> to <strong style={{ color: '#16A34A' }}>Active</strong>.
+              Judges will be able to start scoring and the leaderboard will update in real-time.
+            </p>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button
+                style={{ ...styles.btn(activeBtnHover === 'gl-cancel'), flex: 1 }}
+                onClick={() => setShowGoLiveModal(false)}
+                onMouseEnter={() => setActiveBtnHover('gl-cancel')}
+                onMouseLeave={() => setActiveBtnHover(null)}
+              >
+                Cancel
+              </button>
+              <button
+                style={{ ...styles.btn(activeBtnHover === 'gl-confirm', true), flex: 1, background: '#16A34A', boxShadow: activeBtnHover === 'gl-confirm' ? '0 8px 24px rgba(22,163,74,0.35)' : 'none' }}
+                onClick={confirmGoLive}
+                onMouseEnter={() => setActiveBtnHover('gl-confirm')}
+                onMouseLeave={() => setActiveBtnHover(null)}
+              >
+                <span className="material-symbols-rounded">sensors</span> Go Live
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SHARE MODAL */}
+      {showShareModal && (
+        <div style={styles.modalOverlay} onClick={() => setShowShareModal(false)}>
+          <div style={styles.modalContainer} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+              <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: colors.accentBg, display: 'grid', placeItems: 'center' }}>
+                <span className="material-symbols-rounded" style={{ fontSize: '24px', color: colors.accent }}>share</span>
+              </div>
+              <button onClick={() => setShowShareModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.inkMuted, padding: '4px', display: 'grid', placeItems: 'center', borderRadius: '8px' }}>
+                <span className="material-symbols-rounded">close</span>
+              </button>
+            </div>
+            <h2 style={styles.modalTitle}>Share Event</h2>
+            <p style={{ fontSize: '14px', color: colors.inkSoft, marginBottom: '20px' }}>Share the public leaderboard link with participants and your audience.</p>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', background: colors.pageBg, border: `1.5px solid ${colors.borderSoft}`, borderRadius: '14px', padding: '12px 16px', marginBottom: '20px' }}>
+              <span className="material-symbols-rounded" style={{ color: colors.inkMuted, fontSize: '18px', flexShrink: 0 }}>link</span>
+              <span style={{ fontSize: '13px', color: colors.inkMid, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>
+                {`${window.location.origin}/leaderboard/${selectedEvent.id}`}
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                style={{ ...styles.btn(activeBtnHover === 'copy-link', true), flex: 1, background: shareCopied ? '#16A34A' : colors.navy }}
+                onClick={() => {
+                  navigator.clipboard.writeText(`${window.location.origin}/leaderboard/${selectedEvent.id}`).catch(() => {});
+                  setShareCopied(true);
+                  setTimeout(() => setShareCopied(false), 3000);
+                  showToast('Link copied to clipboard!', 'success');
+                }}
+                onMouseEnter={() => setActiveBtnHover('copy-link')}
+                onMouseLeave={() => setActiveBtnHover(null)}
+              >
+                <span className="material-symbols-rounded">{shareCopied ? 'check_circle' : 'content_copy'}</span>
+                {shareCopied ? 'Copied!' : 'Copy Link'}
+              </button>
+              <button
+                style={{ ...styles.btn(activeBtnHover === 'open-link'), flex: 1 }}
+                onClick={() => window.open(`/leaderboard/${selectedEvent.id}`, '_blank')}
+                onMouseEnter={() => setActiveBtnHover('open-link')}
+                onMouseLeave={() => setActiveBtnHover(null)}
+              >
+                <span className="material-symbols-rounded">open_in_new</span> Open
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style>{`@keyframes modalUp { from { opacity: 0; transform: translateY(16px) scale(0.97); } to { opacity: 1; transform: none; } }`}</style>
+    </div>
+    </>
+  );
 }

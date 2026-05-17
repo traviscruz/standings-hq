@@ -20,19 +20,27 @@ export default function JudgeDashboard() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const totalSegments = segments.length;
-  const submittedCount = Object.keys(submittedSegments).length;
+  const totalSegments = segments ? segments.length : 0;
+  const submittedCount = submittedSegments ? Object.keys(submittedSegments).length : 0;
 
   const hasScored = (pId) => {
+    if (!segments || !scores) return false;
     return segments.some(seg =>
-      seg.criteria.some(c => scores[pId]?.[seg.id]?.[c.id] !== '')
+      seg.criteria.some(c => {
+        const val = scores[pId]?.[seg.id]?.[c.id];
+        return val !== undefined && val !== '';
+      })
     );
   };
 
   const getSegmentStatus = (segId) => {
-    if (submittedSegments[segId]) return 'submitted';
+    if (submittedSegments && submittedSegments[segId]) return 'submitted';
+    if (!participants || !segments || !scores) return 'pending';
     const filled = participants.every(p =>
-      segments.find(s => s.id === segId)?.criteria.every(c => scores[p.id]?.[segId]?.[c.id] !== '')
+      segments.find(s => s.id === segId)?.criteria.every(c => {
+        const val = scores[p.id]?.[segId]?.[c.id];
+        return val !== undefined && val !== '';
+      })
     );
     return filled ? 'ready' : 'pending';
   };
@@ -260,7 +268,7 @@ export default function JudgeDashboard() {
           </div>
           <div style={statValueStyle}>{submittedCount}<span style={{ fontSize: '18px', opacity: 0.5, fontWeight: 400 }}>/{totalSegments}</span></div>
           <div style={{ marginTop: '12px', height: '6px', background: 'rgba(241, 245, 249, 0.5)', borderRadius: '100px', overflow: 'hidden' }}>
-            <div style={{ height: '100%', width: `${(submittedCount / totalSegments) * 100}%`, background: colors.accent, borderRadius: '100px', transition: 'width 1s ease-out' }} />
+            <div style={{ height: '100%', width: `${totalSegments > 0 ? (submittedCount / totalSegments) * 100 : 0}%`, background: colors.accent, borderRadius: '100px', transition: 'width 1s ease-out' }} />
           </div>
         </div>
 

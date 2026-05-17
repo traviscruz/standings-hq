@@ -16,6 +16,7 @@ const billingRoutes = require('./routes/billing');
 const participantRoutes = require('./routes/participants');
 const judgeRoutes = require('./routes/judges');
 const userRoutes = require('./routes/users');
+const scoreRoutes = require('./routes/scores');
 
 // Use Routes
 app.use('/api/auth', authRoutes);
@@ -24,6 +25,7 @@ app.use('/api/billing', billingRoutes);
 app.use('/api/participants', participantRoutes);
 app.use('/api/judges', judgeRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/scores', scoreRoutes);
 
 // Health Check
 app.get('/', (req, res) => {

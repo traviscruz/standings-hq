@@ -400,13 +400,15 @@ export default function ProfilePage() {
           Account Settings
           {activeTab === 'account' && <div style={styles.tabIndicator} />}
         </button>
-        <button 
-          style={styles.tab(activeTab === 'plan')} 
-          onClick={() => setActiveTab('plan')}
-        >
-          Subscription Plan
-          {activeTab === 'plan' && <div style={styles.tabIndicator} />}
-        </button>
+        {currentRole.toLowerCase() === 'organizer' && (
+          <button 
+            style={styles.tab(activeTab === 'plan')} 
+            onClick={() => setActiveTab('plan')}
+          >
+            Subscription Plan
+            {activeTab === 'plan' && <div style={styles.tabIndicator} />}
+          </button>
+        )}
       </div>
 
       {activeTab === 'account' ? (
@@ -506,47 +508,9 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* RIGHT COLUMN: ROLE & SIGNATURE */}
-          <div style={{ ...styles.card(5), gap: '32px' }}>
-            {/* ROLE SWITCHER */}
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px' }}>
-                <div style={styles.iconWrapper(colors.warningBg, colors.warning)}>
-                  <span className="material-symbols-rounded">switch_account</span>
-                </div>
-                <h2 style={styles.cardTitle}>Account Role</h2>
-              </div>
-              
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {[
-                  { id: 'Participant', icon: 'person', desc: 'Join and view standings' },
-                  { id: 'Organizer', icon: 'stadium', desc: 'Manage events & judging' }
-                ].map(r => (
-                  <div 
-                    key={r.id}
-                    style={styles.roleOption(currentRole === r.id, activeHover === `r-${r.id}`)}
-                    onMouseEnter={() => setActiveHover(`r-${r.id}`)}
-                    onMouseLeave={() => setActiveHover(null)}
-                    onClick={() => switchRole(r.id)}
-                  >
-                    <div style={{ 
-                      width: '40px', height: '40px', borderRadius: '10px', 
-                      background: currentRole === r.id ? colors.accent : colors.pageBg,
-                      color: currentRole === r.id ? '#fff' : colors.navy,
-                      display: 'grid', placeItems: 'center'
-                    }}>
-                      <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>{r.icon}</span>
-                    </div>
-                    <div>
-                      <div style={{ fontWeight: '800', color: colors.navy, fontSize: '14px' }}>{r.id}</div>
-                      <div style={{ fontSize: '12px', color: colors.inkMuted }}>{r.desc}</div>
-                    </div>
-                    {currentRole === r.id && <span className="material-symbols-rounded" style={{ marginLeft: 'auto', color: colors.accent }}>check_circle</span>}
-                  </div>
-                ))}
-              </div>
-            </div>
-
+          {/* RIGHT COLUMN: SIGNATURE */}
+          <div style={{ ...styles.card(5), gap: '32px' }}
+          >
             {/* SIGNATURE */}
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px' }}>

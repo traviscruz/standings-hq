@@ -98,16 +98,30 @@ router.get('/', async (req, res) => {
 // Add a participant to an event
 router.post('/', async (req, res) => {
   try {
-    const { id, event_id, name, email, team, score, status } = req.body;
+    const { event_id, name, email, team, score, status } = req.body;
 
     if (!event_id || !name) {
       return res.status(400).json({ success: false, error: 'event_id and name are required' });
     }
 
+    // Check for duplicate by email to avoid PK conflicts
+    if (email) {
+      const { data: existing } = await supabase
+        .from('event_participants')
+        .select('id')
+        .eq('event_id', event_id)
+        .eq('email', email)
+        .maybeSingle();
+
+      if (existing) {
+        // Already invited — return existing record without error
+        return res.status(200).json({ success: true, data: existing, already_exists: true });
+      }
+    }
+
     const { data, error } = await supabase
       .from('event_participants')
       .insert([{
-        ...(id && { id }),
         event_id,
         name,
         email: email || null,

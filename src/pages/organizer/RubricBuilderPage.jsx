@@ -173,6 +173,10 @@ export default function RubricBuilderPage() {
   // Validation warning state
   const [valWarning, setValWarning] = useState("");
 
+  // Custom AI prompt states
+  const [promptText, setPromptText] = useState("");
+  const [isPromptLoading, setIsPromptLoading] = useState(false);
+
   // Safety Lock Check: Evaluates all states (even pending/upcoming status is locked if start_date is past or today)
   const isRubricLocked = () => {
     if (!selectedEvent) return false;
@@ -288,13 +292,21 @@ Return ONLY the raw JSON object. No markdown, no wrappers.
         })
       });
 
+      if (!response.ok) {
+        throw new Error(`Gemini API responded with status ${response.status}`);
+      }
+
       const data = await response.json();
+      if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || !data.candidates[0].content.parts || !data.candidates[0].content.parts[0]) {
+        throw new Error("Invalid response shape from Gemini API");
+      }
+
       const text = data.candidates[0].content.parts[0].text;
       const parsed = JSON.parse(text);
       setLoading(false);
       return parsed;
     } catch (err) {
-      console.warn("Offline suggestion fallback.");
+      console.warn("Offline suggestion fallback:", err.message || err);
       setLoading(false);
       return getOfflineSuggestion(stepNumber, title, category);
     }
@@ -328,6 +340,123 @@ Return ONLY the raw JSON object. No markdown, no wrappers.
     } else if (step === 5) {
       const rb = config.rubrics?.length > 0 ? config.rubrics : sug?.rubrics?.map((r, idx) => ({ id: `crit-${idx}`, label: r.label, weight: Math.max(1, r.weight) })) || [];
       setCustomVal({ rubrics: rb.map(r => ({ ...r, weight: Math.max(1, Number(r.weight) || 1) })) });
+    }
+  };
+
+  // Run custom prompt optimization via Gemini API
+  const handlePromptSubmit = async (e) => {
+    if (e) e.preventDefault();
+    if (!promptText || !promptText.trim()) return;
+    if (!selectedEvent) return;
+
+    setIsPromptLoading(true);
+    const title = selectedEvent.name;
+    const desc = selectedEvent.description || "";
+    const category = selectedEvent.type || "";
+    const userPrompt = promptText.trim();
+
+    const systemPrompt = `
+You are an expert competition coordinator and professional rubric designer.
+The user wants to customize the rubric specifications with this specific instruction: "${userPrompt}"
+
+Consider the competition details:
+Event Title: "${title}"
+Event Category: "${category}"
+Event Description: "${desc}"
+
+Generate a balanced list of rubric criteria tailored to the user's instruction.
+Return exactly a JSON object under the key "rubrics". 
+The weights of all criteria MUST sum up to exactly 100.
+Return ONLY a raw JSON object with this shape:
+{
+  "rubrics": [
+    { "label": "Criteria Name 1", "weight": 30 },
+    { "label": "Criteria Name 2", "weight": 30 },
+    ...
+  ],
+  "reason": "Explain briefly in one friendly sentence how this matches their prompt."
+}
+
+No markdown wrappers, no backticks, no comments.
+`;
+
+    try {
+      if (!GEMINI_API_KEY) {
+        throw new Error("No API Key configured.");
+      }
+
+      const response = await fetch(GEMINI_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: systemPrompt }] }],
+          generationConfig: { responseMimeType: "application/json" }
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Gemini API responded with status ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || !data.candidates[0].content.parts || !data.candidates[0].content.parts[0]) {
+        throw new Error("Invalid response shape from Gemini API");
+      }
+
+      const text = data.candidates[0].content.parts[0].text;
+      const parsed = JSON.parse(text);
+
+      if (parsed && parsed.rubrics) {
+        // Format rubrics with IDs
+        const formatted = parsed.rubrics.map((r, idx) => ({
+          id: `crit-${Date.now()}-${idx}`,
+          label: r.label || "Criterion",
+          weight: Math.max(1, Number(r.weight) || 1)
+        }));
+
+        // Balance weights to 100% just in case
+        const balanced = balanceCriteriaWeights(formatted);
+        
+        setConfig(prev => ({ ...prev, rubrics: balanced }));
+        setCustomVal(prev => ({ ...prev, rubrics: balanced }));
+        setSuggestion(prev => ({
+          ...prev,
+          rubrics: balanced,
+          reason: parsed.reason || "Weights dynamically adjusted based on your custom prompt."
+        }));
+        
+        // Transition to step 5 so they can customize/review this criteria!
+        setSetupStep(5);
+        // Turn off the active saved rubric screen so they are in editing mode
+        setHasActiveRubricScreen(false);
+        setPromptText("");
+        showToast("✨ AI generated your customized rubric!", "success");
+      } else {
+        throw new Error("Invalid response format");
+      }
+    } catch (err) {
+      console.warn("AI Prompt fallback or failed:", err);
+      let errorMsg = "Could not process AI prompt. Using a standard offline template instead.";
+      if (err.message && err.message.includes("429")) {
+        errorMsg = "✨ Gemini API rate limit hit (429). Using standard offline template as a fallback.";
+      }
+      showToast(errorMsg, "warning");
+      
+      // Fallback: get standard step 5 rubrics
+      const offline = getOfflineSuggestion(5, title, category);
+      if (offline && offline.rubrics) {
+        const formatted = offline.rubrics.map((r, idx) => ({
+          id: `crit-${Date.now()}-${idx}`,
+          label: r.label,
+          weight: r.weight
+        }));
+        setConfig(prev => ({ ...prev, rubrics: formatted }));
+        setCustomVal(prev => ({ ...prev, rubrics: formatted }));
+        setSetupStep(5);
+        setHasActiveRubricScreen(false);
+      }
+    } finally {
+      setIsPromptLoading(false);
     }
   };
 
@@ -1153,9 +1282,104 @@ Return ONLY the raw JSON object. No markdown, no wrappers.
                                   </div>
                                 ))}
                               </div>
-                              <p style={{ fontSize: '13px', color: colors.inkSoft, margin: 0, lineHeight: 1.4, borderTop: `1px solid ${colors.borderSoft}`, paddingTop: '10px' }}>
+                              <p style={{ fontSize: '13px', color: colors.inkSoft, margin: '0 0 16px', lineHeight: 1.4, borderTop: `1px solid ${colors.borderSoft}`, paddingTop: '10px' }}>
                                 Reason: {suggestion.reason || "Structured weight ratios provide cohesive performance scoring."}
                               </p>
+
+                              {/* ✨ AI Prompt Chatbar in the main configure part */}
+                              <div style={{ 
+                                marginTop: '12px', 
+                                borderTop: `1.5px dashed ${colors.borderSoft}`, 
+                                paddingTop: '16px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '8px'
+                              }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
+                                  <span className="material-symbols-rounded" style={{ fontSize: '14px', color: colors.accent }}>auto_awesome</span>
+                                  <span style={{ fontSize: '10.5px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: colors.navy }}>
+                                    Customize this Rubric via AI Prompt
+                                  </span>
+                                </div>
+
+                                <form onSubmit={handlePromptSubmit} style={{ display: 'flex', gap: '8px', position: 'relative' }}>
+                                  <input
+                                    type="text"
+                                    disabled={isLocked || isPromptLoading}
+                                    value={promptText}
+                                    onChange={e => setPromptText(e.target.value)}
+                                    placeholder={isLocked ? "Rubric editing is locked" : "Describe weights (e.g., 'Make it 4 criteria prioritizing code quality...')" }
+                                    style={{
+                                      flex: 1,
+                                      padding: '10px 14px',
+                                      paddingRight: '42px', // leave room for submit icon
+                                      borderRadius: '12px',
+                                      border: `1.5px solid ${colors.border}`,
+                                      background: '#fff',
+                                      fontSize: '12px',
+                                      outline: 'none',
+                                      transition: 'all 0.2s',
+                                      fontFamily: 'inherit',
+                                    }}
+                                  />
+                                  
+                                  <button
+                                    type="submit"
+                                    disabled={isLocked || isPromptLoading || !promptText.trim()}
+                                    style={{
+                                      position: 'absolute',
+                                      right: '6px',
+                                      top: '50%',
+                                      transform: 'translateY(-50%)',
+                                      width: '30px',
+                                      height: '30px',
+                                      borderRadius: '8px',
+                                      background: promptText.trim() ? colors.navy : colors.borderSoft,
+                                      color: promptText.trim() ? '#fff' : colors.inkMuted,
+                                      border: 'none',
+                                      cursor: promptText.trim() ? 'pointer' : 'not-allowed',
+                                      display: 'grid',
+                                      placeItems: 'center',
+                                      transition: 'all 0.2s',
+                                    }}
+                                  >
+                                    {isPromptLoading ? (
+                                      <div style={{
+                                        width: '14px',
+                                        height: '14px',
+                                        border: '2px solid transparent',
+                                        borderTopColor: '#fff',
+                                        borderRadius: '50%',
+                                        animation: 'spin 0.6s linear infinite'
+                                      }} />
+                                    ) : (
+                                      <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>auto_awesome</span>
+                                    )}
+                                  </button>
+                                </form>
+
+                                {isPromptLoading && (
+                                  <div style={{
+                                    fontSize: '11px',
+                                    fontWeight: 700,
+                                    color: colors.accent,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    animation: 'pulse 1.5s infinite ease-in-out',
+                                    paddingLeft: '4px'
+                                  }}>
+                                    <span className="material-symbols-rounded" style={{ fontSize: '14px', animation: 'spin 1s linear infinite' }}>progress_activity</span>
+                                    Designing your customized rubric weights...
+                                  </div>
+                                )}
+
+                                {!isLocked && !isPromptLoading && (
+                                  <span style={{ fontSize: '9.5px', color: colors.inkMuted, paddingLeft: '4px', lineHeight: 1.3 }}>
+                                    Describe the criteria and weights you want, and AI will automatically build the rubric suggestions.
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           )}
                         </>

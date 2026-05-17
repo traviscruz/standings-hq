@@ -15,6 +15,16 @@ export default function RubricReviewPage() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Sleek loading guard if segments are still loading or empty
+  if (!segments || segments.length === 0) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '50vh', gap: '16px' }}>
+        <div style={{ width: '48px', height: '48px', borderRadius: '50%', border: `3px solid ${colors.borderSoft}`, borderTopColor: colors.accent, animation: 'spin 1s linear infinite' }} />
+        <span style={{ fontSize: '14px', color: colors.inkMuted, fontWeight: '600' }}>Loading criteria specifications...</span>
+      </div>
+    );
+  }
+
   const grandTotal = segments.reduce((a, seg) =>
     a + seg.criteria.reduce((b, c) => b + c.maxScore, 0), 0
   );
@@ -190,8 +200,14 @@ export default function RubricReviewPage() {
                   <div style={{ fontWeight: 700, color: colors.ink, fontSize: '16px' }}>
                     {String(idx + 1).padStart(2, '0')}. {seg.label}
                   </div>
-                  <div style={{ fontSize: '13px', color: colors.inkMuted }}>
-                    {seg.criteria.length} judging criteria
+                  <div style={{ fontSize: '13px', color: colors.inkMuted, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span>{seg.criteria.length} judging criteria</span>
+                    {seg.weight !== undefined && (
+                      <>
+                        <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: colors.border }}></span>
+                        <span style={{ fontWeight: 600, color: colors.accent }}>Weight: {seg.weight}%</span>
+                      </>
+                    )}
                   </div>
                 </div>
                 <div style={{ textAlign: isMobile ? 'left' : 'right', minWidth: isMobile ? '100%' : 'auto' }}>
@@ -251,33 +267,6 @@ export default function RubricReviewPage() {
         })}
       </div>
 
-      {/* Scoring Rules Footer */}
-      <div style={cardStyle}>
-        <h2 style={{ fontSize: '18px', fontWeight: '800', color: colors.navy, marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
-          <span className="material-symbols-rounded" style={{ color: colors.error, fontSize: '22px' }}>info</span>
-          General Scoring Rules
-        </h2>
-        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '16px' }}>
-          {[
-            { icon: 'calculate', title: 'Scoring Mode', desc: 'Standard Average — all judges\' scores are averaged per criterion.' },
-            { icon: 'exposure', title: 'Decimal Precision', desc: 'Half-point increments (0.5) are allowed. Whole numbers are preferred.' },
-            { icon: 'lock', title: 'Final Submission', desc: 'Once a segment is submitted, it is locked and cannot be edited.' },
-            { icon: 'policy', title: 'Impartiality', desc: 'Judges must not confer with each other before submitting scores.' },
-          ].map((rule, i) => (
-            <div key={i} style={{
-              display: 'flex', gap: '12px', padding: '14px 16px',
-              borderRadius: '8px', border: `1px solid ${colors.border}`,
-              backgroundColor: colors.offWhite,
-            }}>
-              <span className="material-symbols-rounded" style={{ color: colors.navy, fontSize: '20px', marginTop: '2px' }}>{rule.icon}</span>
-              <div>
-                <div style={{ fontWeight: 600, fontSize: '14px', color: colors.ink, marginBottom: '4px' }}>{rule.title}</div>
-                <div style={{ fontSize: '13px', color: colors.inkMuted, lineHeight: 1.5 }}>{rule.desc}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }

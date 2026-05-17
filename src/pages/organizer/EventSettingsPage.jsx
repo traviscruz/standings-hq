@@ -133,16 +133,18 @@ export default function EventSettingsPage() {
     setSaving(true);
     try {
       await updateEvent(selectedEvent.id, {
-        name:       form.name.trim(),
-        type:       form.type,
-        start_date: form.startDate,
-        start_time: form.startTime,
-        end_date:   form.endDate,
-        end_time:   form.endTime,
+        name:        form.name.trim(),
+        type:        form.type,
+        start_date:  form.startDate,
+        start_time:  form.startTime,
+        end_date:    form.endDate,
+        end_time:    form.endTime,
         description: form.description,
         visibility:  form.visibility,
-        status:      form.status.toLowerCase(),
+        status:      form.status,
         location:    form.location,
+        latitude:    markerPos ? markerPos.lat : null,
+        longitude:   markerPos ? markerPos.lng : null,
       });
       setSaved(true);
       showToast('Event settings saved successfully.', 'success');

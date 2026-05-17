@@ -10,16 +10,27 @@ export const useEventContext = () => useContext(EventContext);
 
 
 // Normalize DB snake_case → camelCase & capitalize status
-const normalizeEvent = (e) => ({
-  ...e,
-  startDate:  e.start_date  || e.startDate  || '',
-  startTime:  e.start_time  || e.startTime  || '',
-  endDate:    e.end_date    || e.endDate    || '',
-  endTime:    e.end_time    || e.endTime    || '',
-  createdAt:  e.created_at  || e.createdAt  || '',
-  status:     e.status ? (e.status.charAt(0).toUpperCase() + e.status.slice(1)) : 'Upcoming',
-  visibility: e.visibility  || 'Public',
-});
+const normalizeEvent = (e) => {
+  let status = 'Upcoming';
+  if (e.status) {
+    const dbStatus = e.status.toLowerCase();
+    if (dbStatus === 'ongoing' || dbStatus === 'active') {
+      status = 'Active';
+    } else {
+      status = dbStatus.charAt(0).toUpperCase() + dbStatus.slice(1);
+    }
+  }
+  return {
+    ...e,
+    startDate:  e.start_date  || e.startDate  || '',
+    startTime:  e.start_time  || e.startTime  || '',
+    endDate:    e.end_date    || e.endDate    || '',
+    endTime:    e.end_time    || e.endTime    || '',
+    createdAt:  e.created_at  || e.createdAt  || '',
+    status,
+    visibility: e.visibility  || 'Public',
+  };
+};
 
 const SEED_PARTICIPANTS = {};
 const SEED_JUDGES      = {};
@@ -48,6 +59,11 @@ export default function OrganizerLayout() {
   const [rubricsData, setRubricsData] = useState(SEED_RUBRICS);
   const [toast, setToast] = useState(null);
   const [selectedEventId, setSelectedEventId] = useState(null);
+
+  // Persist selected event whenever it changes
+  useEffect(() => {
+    if (selectedEventId) localStorage.setItem('selected_event_id', selectedEventId);
+  }, [selectedEventId]);
   const [rubricConfig, setRubricConfig] = useState(null);
 
   const selectedEvent = eventsList.find(e => e.id === selectedEventId) || eventsList[0];
@@ -77,14 +93,27 @@ export default function OrganizerLayout() {
   };
 
   const addParticipant = (eventId, p) => {
-    const id = (typeof p.id === 'string' && p.id.length > 20) ? p.id : generateId();
-    const newP = { ...p, id };
+    // Generate a temporary local id for optimistic UI
+    const tempId = generateId();
+    const newP = { ...p, id: tempId };
     setParticipantsData(prev => ({ ...prev, [eventId]: [newP, ...(prev[eventId] || [])] }));
     fetch(`${API_BASE}/participants`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ event_id: eventId, ...newP })
-    }).catch(console.error);
+      // Don't pass the user's profile id as the row PK — let the DB generate one
+      body: JSON.stringify({ event_id: eventId, name: p.name, email: p.email, team: p.team, score: p.score, status: p.status })
+    })
+      .then(r => r.json())
+      .then(json => {
+        if (json.success && json.data?.id && json.data.id !== tempId) {
+          // Swap temp id with real DB id so future PATCH/DELETE work correctly
+          setParticipantsData(prev => ({
+            ...prev,
+            [eventId]: (prev[eventId] || []).map(x => x.id === tempId ? { ...x, id: json.data.id } : x)
+          }));
+        }
+      })
+      .catch(console.error);
   };
 
   const removeParticipant = (eventId, pid) => {
@@ -104,14 +133,27 @@ export default function OrganizerLayout() {
   };
 
   const addJudge = (eventId, j) => {
-    const id = (typeof j.id === 'string' && j.id.length > 20) ? j.id : generateId();
-    const newJ = { ...j, id };
+    // Generate a temporary local id for optimistic UI
+    const tempId = generateId();
+    const newJ = { ...j, id: tempId };
     setJudgesData(prev => ({ ...prev, [eventId]: [newJ, ...(prev[eventId] || [])] }));
     fetch(`${API_BASE}/judges`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ event_id: eventId, ...newJ })
-    }).catch(console.error);
+      // Don't pass the user's profile id as the row PK — let the DB generate one
+      body: JSON.stringify({ event_id: eventId, name: j.name, email: j.email, expertise: j.expertise, role: j.role, status: j.status || j.rsvp || 'Pending' })
+    })
+      .then(r => r.json())
+      .then(json => {
+        if (json.success && json.data?.id && json.data.id !== tempId) {
+          // Swap temp id with real DB id so future PATCH/DELETE work correctly
+          setJudgesData(prev => ({
+            ...prev,
+            [eventId]: (prev[eventId] || []).map(x => x.id === tempId ? { ...x, id: json.data.id } : x)
+          }));
+        }
+      })
+      .catch(console.error);
   };
   const removeJudge = (eventId, jid) => {
     setJudgesData(prev => ({ ...prev, [eventId]: (prev[eventId] || []).filter(x => x.id !== jid) }));
@@ -145,7 +187,12 @@ export default function OrganizerLayout() {
         if (json.success) {
           const normalized = json.data.map(normalizeEvent);
           setEventsList(normalized);
-          if (normalized.length > 0) setSelectedEventId(normalized[0].id);
+          if (normalized.length > 0) {
+            // Restore the previously selected event, fall back to first
+            const saved = localStorage.getItem('selected_event_id');
+            const match = saved && normalized.find(e => e.id === saved);
+            setSelectedEventId(match ? match.id : normalized[0].id);
+          }
         } else {
           setEventsError(json.error || 'Failed to load events.');
         }
@@ -208,16 +255,49 @@ export default function OrganizerLayout() {
   };
 
   const updateEvent = async (eventId, changes) => {
-    // Optimistic local update
-    setEventsList(prev => prev.map(e => e.id === eventId ? { ...e, ...changes } : e));
+    // Format db changes to use DB conventions (snake_case and database status values)
+    const dbChanges = {};
+    for (const key of Object.keys(changes)) {
+      // Map frontend camelCase to backend snake_case
+      let dbKey = key;
+      if (key === 'startDate') dbKey = 'start_date';
+      else if (key === 'startTime') dbKey = 'start_time';
+      else if (key === 'endDate') dbKey = 'end_date';
+      else if (key === 'endTime') dbKey = 'end_time';
+      else if (key === 'createdAt') dbKey = 'created_at';
+
+      let val = changes[key];
+      if (key === 'status' && val) {
+        const s = String(val).toLowerCase();
+        if (s === 'active' || s === 'ongoing') val = 'ongoing';
+        else if (s === 'upcoming') val = 'upcoming';
+        else if (s === 'completed') val = 'completed';
+        else if (s === 'cancelled') val = 'cancelled';
+      }
+      dbChanges[dbKey] = val;
+    }
+
+    // Optimistic local update using normalized event
+    setEventsList(prev => prev.map(e => {
+      if (e.id === eventId) {
+        return normalizeEvent({ ...e, ...changes });
+      }
+      return e;
+    }));
+
     try {
-      await fetch(`${API_BASE}/events/${eventId}`, {
+      const res = await fetch(`${API_BASE}/events/${eventId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(changes),
+        body: JSON.stringify(dbChanges),
       });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to update event.');
+      }
     } catch (err) {
       console.error('[updateEvent]', err.message);
+      throw err;
     }
   };
 
