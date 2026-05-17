@@ -108,3 +108,184 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER set_events_updated_at
 BEFORE UPDATE ON public.events
 FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 8. Subscriptions Table
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.subscriptions (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id       UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+  
+  -- Plan Info
+  plan_name     TEXT NOT NULL,                    -- 'Monthly', 'Yearly'
+  amount        NUMERIC(10, 2) NOT NULL,
+  currency      TEXT NOT NULL DEFAULT 'PHP',
+  
+  -- Lifecycle
+  status        TEXT NOT NULL DEFAULT 'active'    CHECK (status IN ('active', 'expired', 'cancelled', 'past_due')),
+  start_date    TIMESTAMPTZ DEFAULT NOW(),
+  end_date      TIMESTAMPTZ NOT NULL,
+  
+  -- Paymongo Integration
+  paymongo_id   TEXT,                             -- e.g. Payment Link ID or Subscription ID
+  
+  -- Timestamps
+  created_at    TIMESTAMPTZ DEFAULT NOW(),
+  updated_at    TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Setup RLS for Subscriptions
+ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
+
+-- Users can view their own subscription
+CREATE POLICY "Users can view own subscription"
+ON public.subscriptions FOR SELECT
+USING (auth.uid() = user_id);
+
+-- Trigger for updated_at
+CREATE TRIGGER set_subscriptions_updated_at
+BEFORE UPDATE ON public.subscriptions
+FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 9. Event Rubrics Table (AI Generated)
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.event_rubrics (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id      UUID REFERENCES public.events(id) ON DELETE CASCADE UNIQUE,
+  
+  -- The full JSON configuration from AI
+  config        JSONB NOT NULL,
+  
+  -- Status: draft | published
+  status        TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published')),
+  
+  -- Identity
+  created_by    UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  created_at    TIMESTAMPTZ DEFAULT NOW(),
+  updated_at    TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Setup RLS for Event Rubrics
+ALTER TABLE public.event_rubrics ENABLE ROW LEVEL SECURITY;
+
+-- Organizers can manage their own event's rubric
+CREATE POLICY "Organizers can manage own rubrics"
+ON public.event_rubrics FOR ALL
+USING (
+  EXISTS (
+    SELECT 1 FROM public.events 
+    WHERE public.events.id = public.event_rubrics.event_id 
+    AND public.events.organizer_id = auth.uid()
+  )
+);
+
+-- Judges can view published rubrics
+CREATE POLICY "Judges can view published rubrics"
+ON public.event_rubrics FOR SELECT
+USING (
+  status = 'published' AND
+  EXISTS (
+    SELECT 1 FROM public.events 
+    WHERE public.events.id = public.event_rubrics.event_id
+  )
+);
+
+-- Trigger for updated_at
+CREATE TRIGGER set_event_rubrics_updated_at
+BEFORE UPDATE ON public.event_rubrics
+FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 10. Event Participants Table
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.event_participants (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id      UUID REFERENCES public.events(id) ON DELETE CASCADE,
+  
+  name          TEXT NOT NULL,
+  email         TEXT,
+  team          TEXT,
+  score         NUMERIC,
+  status        TEXT NOT NULL DEFAULT 'Pending' CHECK (status IN ('Pending', 'Registered')),
+  
+  created_at    TIMESTAMPTZ DEFAULT NOW(),
+  updated_at    TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Setup RLS for Event Participants
+ALTER TABLE public.event_participants ENABLE ROW LEVEL SECURITY;
+
+-- Organizers can manage their own event's participants
+CREATE POLICY "Organizers can manage own participants"
+ON public.event_participants FOR ALL
+USING (
+  EXISTS (
+    SELECT 1 FROM public.events 
+    WHERE public.events.id = public.event_participants.event_id 
+    AND public.events.organizer_id = auth.uid()
+  )
+);
+
+-- Public can view participants of public events
+CREATE POLICY "Public can view participants of public events"
+ON public.event_participants FOR SELECT
+USING (
+  EXISTS (
+    SELECT 1 FROM public.events 
+    WHERE public.events.id = public.event_participants.event_id
+    AND public.events.visibility = 'Public'
+  )
+);
+
+-- Trigger for updated_at
+CREATE TRIGGER set_event_participants_updated_at
+BEFORE UPDATE ON public.event_participants
+FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 11. Event Judges Table
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.event_judges (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id      UUID REFERENCES public.events(id) ON DELETE CASCADE,
+  
+  name          TEXT NOT NULL,
+  email         TEXT,
+  expertise     TEXT,
+  role          TEXT,
+  status        TEXT NOT NULL DEFAULT 'Pending' CHECK (status IN ('Pending', 'Accepted', 'Declined')),
+  
+  created_at    TIMESTAMPTZ DEFAULT NOW(),
+  updated_at    TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Setup RLS for Event Judges
+ALTER TABLE public.event_judges ENABLE ROW LEVEL SECURITY;
+
+-- Organizers can manage their own event's judges
+CREATE POLICY "Organizers can manage own judges"
+ON public.event_judges FOR ALL
+USING (
+  EXISTS (
+    SELECT 1 FROM public.events 
+    WHERE public.events.id = public.event_judges.event_id 
+    AND public.events.organizer_id = auth.uid()
+  )
+);
+
+-- Public can view judges of public events
+CREATE POLICY "Public can view judges of public events"
+ON public.event_judges FOR SELECT
+USING (
+  EXISTS (
+    SELECT 1 FROM public.events 
+    WHERE public.events.id = public.event_judges.event_id
+    AND public.events.visibility = 'Public'
+  )
+);
+
+-- Trigger for updated_at
+CREATE TRIGGER set_event_judges_updated_at
+BEFORE UPDATE ON public.event_judges
+FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();

@@ -1,6 +1,7 @@
 import React, { useState, createContext, useContext, useRef, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate, Link } from 'react-router-dom';
 import { colors } from '../../styles/colors';
+import { API_URL as API_BASE } from '../../config';
 
 const JudgeContext = createContext();
 export const useJudgeContext = () => useContext(JudgeContext);
@@ -90,24 +91,20 @@ export default function JudgeLayout() {
   const timeoutRef = useRef(null);
   const [scores, setScores] = useState(buildInitialScores);
   const [submittedSegments, setSubmittedSegments] = useState({});
-  const [invitations, setInvitations] = useState([
-    {
-      id: 1,
-      eventName: "Mutya ng Barangay 2026",
-      organizer: "Juan Dela Cruz",
-      role: "Guest Judge",
-      date: "April 12, 2026",
-      status: "pending"
-    },
-    {
-      id: 2,
-      eventName: "QC Tech Pitch Deck 2026",
-      organizer: "Maria Lim",
-      role: "Technical Judge",
-      date: "May 05, 2026",
-      status: "pending"
-    }
-  ]);
+  const [invitations, setInvitations] = useState([]);
+  const userEmail = localStorage.getItem('email');
+
+  // Fetch Invitations
+  useEffect(() => {
+    if (!userEmail) return;
+
+    fetch(`${API_BASE}/judges/my-invitations?email=${userEmail}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) setInvitations(data.data.map(inv => ({ ...inv, status: 'pending' })));
+      })
+      .catch(err => console.error('Error fetching judge invitations:', err));
+  }, [userEmail]);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const userName = localStorage.getItem('username') || 'Official Judge';
   const userInitials = userName.split(' ').map(n => n[0]).join('').toUpperCase();
@@ -126,6 +123,11 @@ export default function JudgeLayout() {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     setToast({ message, type, onUndo });
     timeoutRef.current = setTimeout(() => setToast(null), 5000);
+  };
+
+  const handleLogout = () => {
+    localStorage.clear();
+    navigate('/');
   };
 
   const updateScore = (participantId, segmentId, criterionId, value) => {
@@ -147,15 +149,38 @@ export default function JudgeLayout() {
     });
   };
 
-  const handleInvitation = (id, action) => {
+  const handleInvitation = async (id, action) => {
     const prevInvs = [...invitations];
+    const invite = invitations.find(inv => inv.id === id);
+    if (!invite) return;
+
+    // Optimistic UI
     setInvitations(prev => prev.map(inv => inv.id === id ? { ...inv, status: action } : inv));
 
-    const msg = action === 'accepted' ? 'Attendance confirmed. Event added to dashboard.' : 'Invitation declined.';
-    showToast(msg, action === 'accepted' ? 'success' : 'info', () => {
+    try {
+      const res = await fetch(`${API_BASE}/judges/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: action === 'accepted' ? 'Accepted' : 'Declined' })
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+
+      const msg = action === 'accepted' ? 'Attendance confirmed. Event added to dashboard.' : 'Invitation declined.';
+      showToast(msg, action === 'accepted' ? 'success' : 'info', async () => {
+        // Undo
+        await fetch(`${API_BASE}/judges/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'Pending' })
+        });
+        setInvitations(prevInvs);
+      });
+    } catch (err) {
+      console.error('Failed to update invitation status:', err);
       setInvitations(prevInvs);
-      showToast('Action reverted.', 'info');
-    });
+      showToast('Failed to update status.', 'error');
+    }
   };
 
   const isMobile = windowWidth <= 768;
@@ -502,7 +527,7 @@ export default function JudgeLayout() {
               </Link>
               <button
                 style={{ background: isLogoutHovered ? colors.borderSoft : 'none', border: 'none', color: colors.inkMuted, cursor: 'pointer', padding: '6px', borderRadius: '50%', display: 'grid', placeItems: 'center', transition: 'all 0.22s' }}
-                onClick={() => navigate('/')}
+                onClick={handleLogout}
                 onMouseEnter={() => setIsLogoutHovered(true)}
                 onMouseLeave={() => setIsLogoutHovered(false)}
               >

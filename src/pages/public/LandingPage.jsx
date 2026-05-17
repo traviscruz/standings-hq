@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { colors } from '../../styles/colors';
 
 /**
@@ -18,7 +18,18 @@ export default function LandingPage() {
   const [billingCycle, setBillingCycle] = useState('monthly');
   const [visibleSections, setVisibleSections] = useState({ hero: true });
 
+  const navigate = useNavigate();
   const sectionRefs = useRef({});
+
+  const handleSubscribe = () => {
+    const userId = localStorage.getItem('user_id');
+    const role = localStorage.getItem('role');
+    if (userId && role) {
+      navigate(`/${role.toLowerCase()}/profile`, { state: { activeTab: 'plan' } });
+    } else {
+      navigate('/login', { state: { from: 'profile', activeTab: 'plan' } });
+    }
+  };
 
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
@@ -220,7 +231,7 @@ export default function LandingPage() {
     })
   };
 
-  const proPrice = billingCycle === 'monthly' ? '499' : '399';
+  const proPrice = billingCycle === 'monthly' ? '1,499' : '1,199';
 
   return (
     <div style={lpStyle.wrapper}>
@@ -413,27 +424,9 @@ export default function LandingPage() {
           </div>
         </div>
         
-        <div style={{ maxWidth: '1000px', margin: '0 auto', display: 'grid', gridTemplateColumns: isDesktop ? '1fr 1fr' : '1fr', gap: '32px' }}>
+        <div style={{ maxWidth: '600px', margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <div 
-            style={lpStyle.pricingCard(activeHover === 'price-free', 'light')} 
-            onMouseEnter={() => setActiveHover('price-free')} 
-            onMouseLeave={() => setActiveHover(null)}
-          >
-            <div style={{ marginBottom: '40px' }}>
-              <div style={{ fontSize: '13px', fontWeight: 800, color: colors.inkMuted, marginBottom: '16px', textTransform: 'uppercase' }}>Foundation</div>
-              <div style={{ fontSize: '56px', fontWeight: 900, color: colors.navy }}>₱0</div>
-              <div style={{ color: colors.inkSoft, fontWeight: 600, fontSize: '15px' }}>Free for small events</div>
-            </div>
-            <ul style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '56px', flex: 1 }}>
-              {['Unlimited basic events', 'Live public leaderboards', 'Up to 50 participants', '2 Judges per event'].map(f => (
-                <li key={f} style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '15.5px', color: colors.inkMid }}><span className="material-symbols-rounded" style={{ color: colors.success, fontSize: '22px' }}>check_circle</span>{f}</li>
-              ))}
-            </ul>
-            <Link to="/register" style={{ padding: '18px', background: colors.navy, color: '#fff', borderRadius: '16px', fontWeight: 800, textAlign: 'center', display: 'block', textDecoration: 'none' }}>Launch Free</Link>
-          </div>
-          
-          <div 
-            style={lpStyle.pricingCard(activeHover === 'price-pro', 'dark')}
+            style={{ ...lpStyle.pricingCard(activeHover === 'price-pro', 'dark'), width: '100%' }}
             onMouseEnter={() => setActiveHover('price-pro')} 
             onMouseLeave={() => setActiveHover(null)}
           >
@@ -448,7 +441,15 @@ export default function LandingPage() {
                 <li key={f} style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '15.5px' }}><span className="material-symbols-rounded" style={{ color: colors.accent, fontSize: '22px' }}>verified</span>{f}</li>
               ))}
             </ul>
-            <Link to="/register" style={{ padding: '18px', background: colors.accent, color: '#fff', borderRadius: '16px', fontWeight: 900, textAlign: 'center', display: 'block', textDecoration: 'none' }}>Subscribe Now</Link>
+            <button 
+              onClick={handleSubscribe}
+              style={{ padding: '18px', background: colors.accent, color: '#fff', border: 'none', borderRadius: '16px', fontWeight: 900, textAlign: 'center', display: 'block', width: '100%', cursor: 'pointer', transition: '0.3s' }}
+            >
+              Subscribe Now
+            </button>
+            <p style={{ marginTop: '24px', fontSize: '13px', opacity: 0.5, textAlign: 'center', fontWeight: '600' }}>
+              * Paid plans are exclusive for Organizers. Participants and Judges can join events for free.
+            </p>
           </div>
         </div>
       </section>

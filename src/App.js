@@ -46,6 +46,8 @@ import AcceptInvitePage from './pages/participant/AcceptInvitePage';
 
 // Shared Pages
 import ProfilePage from './pages/auth/ProfilePage';
+import ProtectedRoute from './components/auth/ProtectedRoute';
+import PaymentSuccessPage from './pages/payment/PaymentSuccessPage';
 
 function App() {
   return (
@@ -62,9 +64,14 @@ function App() {
         {/* New Public Pages */}
         <Route path="/archive" element={<ArchivePage />} />
         <Route path="/leaderboard" element={<LeaderboardPagePublic />} />
+        <Route path="/payment/success" element={<PaymentSuccessPage />} />
 
         {/* Organizer Routes */}
-        <Route path="/organizer" element={<OrganizerLayout />}>
+        <Route path="/organizer" element={
+          <ProtectedRoute allowedRole="Organizer">
+            <OrganizerLayout />
+          </ProtectedRoute>
+        }>
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="events/create" element={<CreateEventPage />} />
           <Route path="events/manage" element={<ManageEventPage />} />
@@ -80,7 +87,11 @@ function App() {
         </Route>
 
         {/* Judge Routes */}
-        <Route path="/judge" element={<JudgeLayout />}>
+        <Route path="/judge" element={
+          <ProtectedRoute allowedRole="Judge">
+            <JudgeLayout />
+          </ProtectedRoute>
+        }>
           <Route path="dashboard" element={<JudgeDashboard />} />
           <Route path="scoring" element={<ScoringPage />} />
           <Route path="rubric" element={<RubricReviewPage />} />
@@ -89,7 +100,11 @@ function App() {
         </Route>
 
         {/* Participant Routes */}
-        <Route path="/participant" element={<ParticipantLayout />}>
+        <Route path="/participant" element={
+          <ProtectedRoute allowedRole="Participant">
+            <ParticipantLayout />
+          </ProtectedRoute>
+        }>
           <Route path="dashboard" element={<ParticipantDashboard />} />
           <Route path="events" element={<MyEventsPage />} />
           <Route path="leaderboard" element={<LeaderboardPage />} />

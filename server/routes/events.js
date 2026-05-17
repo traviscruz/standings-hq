@@ -32,13 +32,12 @@ router.get('/:id', async (req, res) => {
     const { data, error } = await supabase
       .from('events')
       .select('*')
-      .eq('id', id)
-      .single();
+      .eq('id', id);
 
     if (error) throw error;
-    if (!data) return res.status(404).json({ success: false, error: 'Event not found.' });
+    if (!data || data.length === 0) return res.status(404).json({ success: false, error: 'Event not found.' });
 
-    res.json({ success: true, data });
+    res.json({ success: true, data: data[0] });
   } catch (err) {
     console.error('[GET /events/:id]', err.message);
     res.status(500).json({ success: false, error: err.message });
@@ -112,13 +111,12 @@ router.patch('/:id', async (req, res) => {
       .from('events')
       .update(updates)
       .eq('id', id)
-      .select()
-      .single();
+      .select();
 
     if (error) throw error;
-    if (!data) return res.status(404).json({ success: false, error: 'Event not found.' });
+    if (!data || data.length === 0) return res.status(404).json({ success: false, error: 'Event not found.' });
 
-    res.json({ success: true, data });
+    res.json({ success: true, data: data[0] });
   } catch (err) {
     console.error('[PATCH /events/:id]', err.message);
     res.status(500).json({ success: false, error: err.message });

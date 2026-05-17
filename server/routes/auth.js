@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const supabase = require('../config/supabase');
 const transporter = require('../config/mail');
+const { getOTPTemplate } = require('../utils/emailTemplates');
 
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
 
@@ -31,32 +32,7 @@ router.post('/register', async (req, res) => {
       from: `"${process.env.SMTP_FROM_NAME}" <${process.env.SMTP_FROM_EMAIL}>`,
       to: email,
       subject: `Verify your account - StandingsHQ`,
-      html: `
-        <body style="margin: 0; padding: 0; background-color: #f4f7fa; font-family: sans-serif;">
-          <table width="100%" border="0" cellspacing="0" cellpadding="0" style="padding: 40px 0;">
-            <tr>
-              <td align="center">
-                <table width="600" border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e1e8f0;">
-                  <tr>
-                    <td style="padding: 40px 40px 20px; text-align: left;">
-                      <div style="font-size: 24px; font-weight: 800; color: #0f172a;">Standings<span style="color: #3b82f6;">HQ</span></div>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style="padding: 0 40px 40px;">
-                      <h2 style="font-size: 20px; font-weight: 700;">Confirm your registration</h2>
-                      <p style="font-size: 15px; color: #475569;">To activate your account, please use the code below:</p>
-                      <div style="background-color: #f8fafc; border-radius: 12px; padding: 32px; text-align: center; border: 1px solid #edf2f7;">
-                        <div style="font-size: 36px; font-weight: 800; letter-spacing: 0.3em;">${otp}</div>
-                      </div>
-                    </td>
-                  </tr>
-                </table>
-              </td>
-            </tr>
-          </table>
-        </body>
-      `
+      html: getOTPTemplate(otp, 'register')
     };
     await transporter.sendMail(mailOptions);
     res.status(200).json({ message: 'OTP sent.' });
@@ -69,14 +45,15 @@ router.post('/register', async (req, res) => {
 router.post('/verify-otp', async (req, res) => {
   const { email, code, password, username, fname, lname, role } = req.body;
   try {
-    const { data: otpData } = await supabase
+    const { data: otpCodes, error: otpError } = await supabase
       .from('otp_codes')
       .select('*')
       .eq('email', email)
       .eq('code', code)
-      .gt('expires_at', new Date().toISOString())
-      .single();
+      .gt('expires_at', new Date().toISOString());
 
+    if (otpError) throw otpError;
+    const otpData = otpCodes && otpCodes[0];
     if (!otpData) return res.status(400).json({ error: 'Invalid or expired code.' });
 
     let authUser;
@@ -115,8 +92,27 @@ router.post('/login', async (req, res) => {
     }
     const { data, error } = await supabase.auth.signInWithPassword({ email: targetEmail, password });
     if (error) return res.status(401).json({ error: error.message });
-    const { data: profile } = await supabase.from('profiles').select('*').eq('id', data.user.id).single();
-    res.status(200).json({ session: data.session, user: data.user, profile });
+    const { data: profilesData, error: profileError } = await supabase.from('profiles').select('*').eq('id', data.user.id);
+    if (profileError) throw profileError;
+    const profile = profilesData && profilesData[0];
+    if (!profile) return res.status(401).json({ error: 'Profile not found.' });
+    
+    // FETCH SUBSCRIPTION
+    const { data: subData } = await supabase
+      .from('subscriptions')
+      .select('end_date')
+      .eq('user_id', data.user.id)
+      .in('status', ['active', 'cancelled'])
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    let isSubscribed = false;
+    if (subData && new Date(subData.end_date) > new Date()) {
+      isSubscribed = true;
+    }
+
+    res.status(200).json({ session: data.session, user: data.user, profile, isSubscribed });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -137,7 +133,7 @@ router.post('/forgot-password', async (req, res) => {
       from: `"${process.env.SMTP_FROM_NAME}" <${process.env.SMTP_FROM_EMAIL}>`,
       to: email,
       subject: `Reset your password - StandingsHQ`,
-      html: `<div style="text-align:center;"><h2>Reset Code: ${otp}</h2></div>`
+      html: getOTPTemplate(otp, 'reset')
     });
     res.status(200).json({ message: 'Code sent.' });
   } catch (error) {
@@ -149,7 +145,9 @@ router.post('/forgot-password', async (req, res) => {
 router.post('/reset-password', async (req, res) => {
   const { email, code, newPassword } = req.body;
   try {
-    const { data: otpData } = await supabase.from('otp_codes').select('*').eq('email', email).eq('code', code).gt('expires_at', new Date().toISOString()).single();
+    const { data: otpCodes, error: otpError } = await supabase.from('otp_codes').select('*').eq('email', email).eq('code', code).gt('expires_at', new Date().toISOString());
+    if (otpError) throw otpError;
+    const otpData = otpCodes && otpCodes[0];
     if (!otpData) return res.status(400).json({ error: 'Invalid code.' });
 
     const { data: { users } } = await supabase.auth.admin.listUsers();

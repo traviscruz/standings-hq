@@ -38,7 +38,7 @@ const StatusBadge = ({ status }) => {
 };
 
 export default function DashboardPage() {
-  const { selectedEvent, participants, judges, rubrics, showToast, updateEvent, eventsLoading } = useEventContext();
+  const { selectedEvent, participants, judges, rubrics, showToast, updateEvent, eventsLoading, rubricConfig } = useEventContext();
   const userName = localStorage.getItem('full_name') || 'Organizer';
   const userRole = localStorage.getItem('role') || 'Organizer';
   const userHandle = localStorage.getItem('username') || '';
@@ -47,7 +47,6 @@ export default function DashboardPage() {
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const [activeBtnHover, setActiveBtnHover] = useState(null);
   const [hoveredCard, setHoveredCard] = useState(null);
-
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
     window.addEventListener('resize', handleResize);
@@ -84,6 +83,9 @@ export default function DashboardPage() {
   const pending = participants.filter(p => p.status === 'Pending').length;
   const scoredCount = participants.filter(p => p.score != null).length;
   const totalWeight = rubrics.reduce((s, r) => s + r.weight, 0);
+
+  const maxP = rubricConfig?.maxParticipants;
+  const maxJ = rubricConfig?.judges;
 
 
   const goLive = () => {
@@ -208,8 +210,13 @@ export default function DashboardPage() {
           <div style={styles.iconWrapper(colors.accentBg, colors.accent)}>
             <span className="material-symbols-rounded">groups</span>
           </div>
-          <div style={{ fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', color: colors.inkMuted }}>Participants</div>
-          <div style={{ fontSize: '32px', fontWeight: 900, color: colors.navy }}>{participants.length}</div>
+          <div style={{ fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', color: colors.inkMuted }}>
+            {rubricConfig?.format === 'group' ? 'Teams' : 'Participants'}
+          </div>
+          <div style={{ fontSize: '32px', fontWeight: 900, color: colors.navy }}>
+            {participants.length}
+            {maxP ? <span style={{ fontSize: '18px', opacity: 0.4 }}>/{maxP}</span> : ''}
+          </div>
           <div style={{ fontSize: '13px', color: colors.success, fontWeight: 700 }}>+{pending} pending</div>
         </div>
 
@@ -218,7 +225,10 @@ export default function DashboardPage() {
             <span className="material-symbols-rounded">gavel</span>
           </div>
           <div style={{ fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', color: colors.inkMuted }}>Judges</div>
-          <div style={{ fontSize: '32px', fontWeight: 900, color: colors.navy }}>{judges.length}</div>
+          <div style={{ fontSize: '32px', fontWeight: 900, color: colors.navy }}>
+            {judges.length}
+            {maxJ ? <span style={{ fontSize: '18px', opacity: 0.4 }}>/{maxJ}</span> : ''}
+          </div>
           <div style={{ fontSize: '13px', color: colors.inkMuted, fontWeight: 600 }}>{accepted} accepted</div>
         </div>
 
@@ -286,8 +296,9 @@ export default function DashboardPage() {
               ))}
             </div>
           </div>
+
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
 }

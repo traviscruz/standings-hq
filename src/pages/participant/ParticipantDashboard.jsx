@@ -57,7 +57,8 @@ export default function ParticipantDashboard() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const activeEvents = myEvents.filter(e => e.status === 'Active');
+  const registeredEvents = myEvents.filter(e => e.registrationStatus === 'Registered');
+  const activeEvents = registeredEvents.filter(e => e.status === 'Active');
   const isMobile = windowWidth <= 768;
 
   const getColSpanStyle = (span) => {
@@ -186,8 +187,8 @@ export default function ParticipantDashboard() {
             Joined Events
             <span className="material-symbols-rounded" style={{ fontSize: '18px', opacity: 0.5 }}>event_note</span>
           </div>
-          <div style={statValueStyle}>{myEvents.length}</div>
-          <div style={statMetaStyle}>Across {new Set(myEvents.map(e => e.type)).size} categories</div>
+          <div style={statValueStyle}>{registeredEvents.length}</div>
+          <div style={statMetaStyle}>Across {new Set(registeredEvents.map(e => e.type)).size} categories</div>
         </div>
         <div 
           style={{ ...cardStyle('stat-2', `linear-gradient(135deg, #fff 40%, ${colors.accentBg} 100%)`), ...getColSpanStyle(3) }}

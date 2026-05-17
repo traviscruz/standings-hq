@@ -1,17 +1,9 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useEventContext } from './OrganizerLayout';
 import { colors } from '../../styles/colors';
+import { API_URL as API_BASE } from '../../config';
 
 /* ─── data ──────────────────────────────────────────────────────────────── */
-const USER_POOL = [
-  { id: 9001, name: 'Lapu-Lapu', email: 'lapulapu@mactan.ph', team: 'Kadato-an Warriors' },
-  { id: 9002, name: 'Diego Cera', email: 'diego@manila.ph', team: 'Tondo FC' },
-  { id: 9003, name: 'Rajah Soliman', email: 'soliman@maynila.ph', team: 'Pasig Royals' },
-  { id: 9004, name: 'Tupas', email: 'tupas@cebu.ph', team: 'Visayas United' },
-  { id: 9005, name: 'Humabon', email: 'humabon@cebu.ph', team: 'Visayas United' },
-  { id: 9006, name: 'Si Awi', email: 'siawi@visayas.ph', team: 'Leyte Eagles' },
-  { id: 9007, name: 'Datu Mangal', email: 'mangal@mindanao.ph', team: 'Southern Stars' },
-];
 
 function initials(name = '') {
   return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
@@ -154,11 +146,15 @@ function useUndo() {
 
 /* ═══════════════════════════════════════════════════════════════════════ */
 export default function ParticipantsPage() {
-  const { selectedEvent, participants, addParticipant, removeParticipant, updateParticipant, showToast, eventsLoading } = useEventContext();
+  const { selectedEvent, participants, addParticipant, removeParticipant, updateParticipant, showToast, eventsLoading, rubricConfig } = useEventContext();
+
+  const isGroupOrTeam = rubricConfig?.format === 'group' || rubricConfig?.format === 'team';
+  const maxP = rubricConfig?.maxParticipants;
 
   const undo = useUndo();
 
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
   const [selected, setSelected] = useState(new Set());
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [userSearch, setUserSearch] = useState('');
@@ -184,10 +180,15 @@ export default function ParticipantsPage() {
 
   const knownTeams = [...new Set(participants.map(p => p.team).filter(Boolean))];
 
-  const filtered = participants.filter(p =>
-    p.name.toLowerCase().includes(search.toLowerCase()) ||
-    (p.team || '').toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = participants.filter(p => {
+    const matchesSearch =
+      p.name.toLowerCase().includes(search.toLowerCase()) ||
+      (p.email || '').toLowerCase().includes(search.toLowerCase()) ||
+      (p.team || '').toLowerCase().includes(search.toLowerCase()) ||
+      (p.status || '').toLowerCase().includes(search.toLowerCase());
+    const matchesStatus = statusFilter === 'All' || p.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
   const allChecked = filtered.length > 0 && filtered.every(p => selected.has(p.id));
   const someChecked = filtered.some(p => selected.has(p.id));
@@ -195,15 +196,37 @@ export default function ParticipantsPage() {
   const toggleAll = () => allChecked ? setSelected(new Set()) : setSelected(new Set(filtered.map(p => p.id)));
   const toggleOne = id => setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
-  const poolResults = USER_POOL.filter(u =>
-    userSearch.length > 0 &&
-    (u.name.toLowerCase().includes(userSearch.toLowerCase()) || u.email.toLowerCase().includes(userSearch.toLowerCase())) &&
-    !participants.find(p => p.id === u.id) && !pending.find(p => p.id === u.id)
-  );
+  const [poolResults, setPoolResults] = useState([]);
+
+  useEffect(() => {
+    if (userSearch.trim().length < 2) {
+      setPoolResults([]);
+      return;
+    }
+    const timeoutId = setTimeout(() => {
+      fetch(`${API_BASE}/users/search?q=${encodeURIComponent(userSearch.trim())}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setPoolResults(data.data.filter(u =>
+              (u.role || '').toLowerCase() === 'participant' &&
+              !participants.find(p => p.id === u.id) && 
+              !pending.find(p => p.id === u.id)
+            ));
+          }
+        })
+        .catch(console.error);
+    }, 300);
+    return () => clearTimeout(timeoutId);
+  }, [userSearch, participants, pending]);
   const addToPending = u => setPending(prev => [...prev, u]);
   const removeFromPending = id => setPending(prev => prev.filter(u => u.id !== id));
 
   const handleBulkAdd = () => {
+    if (maxP && participants.length + pending.length > maxP) {
+      showToast(`Cannot invite: adding ${pending.length} participant(s) will exceed the limit of ${maxP}. (Current: ${participants.length})`, 'error');
+      return;
+    }
     const ids = pending.map(u => u.id);
     pending.forEach(u => addParticipant(selectedEvent.id, { ...u, status: 'Pending', score: null }));
     showToast(`Invited ${pending.length} participant(s).`, 'success', () => {
@@ -232,12 +255,17 @@ export default function ParticipantsPage() {
 
   const handleFileImport = e => {
     const file = e.target.files?.[0]; if (!file) return;
+    const newItems = [
+      { id: Date.now() + 1, name: 'CSV User One', email: 'one@csv.ph', team: 'CSV Team A', status: 'Pending', score: null },
+      { id: Date.now() + 2, name: 'CSV User Two', email: 'two@csv.ph', team: 'CSV Team B', status: 'Pending', score: null },
+    ];
+    if (maxP && participants.length + newItems.length > maxP) {
+      showToast(`Cannot import CSV: importing ${newItems.length} participant(s) will exceed the event limit of ${maxP}. (Current: ${participants.length})`, 'error');
+      e.target.value = '';
+      return;
+    }
     showToast(`Importing from "${file.name}"...`, 'info');
     setTimeout(() => {
-      const newItems = [
-        { id: Date.now() + 1, name: 'CSV User One', email: 'one@csv.ph', team: 'CSV Team A', status: 'Pending', score: null },
-        { id: Date.now() + 2, name: 'CSV User Two', email: 'two@csv.ph', team: 'CSV Team B', status: 'Pending', score: null },
-      ];
       const ids = newItems.map(p => p.id);
       newItems.forEach(p => addParticipant(selectedEvent.id, p));
       showToast(`Imported ${newItems.length} participants.`, 'success', () => {
@@ -540,8 +568,10 @@ export default function ParticipantsPage() {
       <div style={styles.dashboardGrid}>
         <div style={{ ...styles.widgetCard(4, `linear-gradient(135deg, #fff 40%, ${colors.accentBg} 100%)`), transform: activeBtnHover === 'kpi-t' ? 'translateY(-4px)' : 'none', boxShadow: activeBtnHover === 'kpi-t' ? '0 12px 30px rgba(0,0,0,0.06)' : styles.widgetCard(4).boxShadow }} onMouseEnter={() => setActiveBtnHover('kpi-t')} onMouseLeave={() => setActiveBtnHover(null)}>
           <div style={styles.iconWrapper(colors.accentBg, colors.accent)}><span className="material-symbols-rounded" style={{ fontSize: '20px' }}>groups</span></div>
-          <span style={styles.statLabel}>Total</span>
-          <div style={styles.statValue}>{participants.length}</div>
+          <span style={styles.statLabel}>{isGroupOrTeam ? 'Teams' : 'Participants'}</span>
+          <div style={styles.statValue}>
+            {maxP ? `${participants.length} / ${maxP}` : `${participants.length} / —`}
+          </div>
         </div>
         <div style={{ ...styles.widgetCard(4, 'linear-gradient(135deg, #fff 40%, #F0FDF4 100%)'), transform: activeBtnHover === 'kpi-r' ? 'translateY(-4px)' : 'none', boxShadow: activeBtnHover === 'kpi-r' ? '0 12px 30px rgba(0,0,0,0.06)' : styles.widgetCard(4).boxShadow }} onMouseEnter={() => setActiveBtnHover('kpi-r')} onMouseLeave={() => setActiveBtnHover(null)}>
           <div style={styles.iconWrapper('#F0FDF4', colors.success)}><span className="material-symbols-rounded" style={{ fontSize: '20px' }}>how_to_reg</span></div>
@@ -558,15 +588,53 @@ export default function ParticipantsPage() {
       {/* ── Table ── */}
       <div style={styles.tableContainer}>
         <div style={styles.tableHeader}>
-          <h3 style={styles.tableTitle}>Participant List ({participants.length})</h3>
-          <div style={styles.searchInputWrapper}>
-            <span className="material-symbols-rounded" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '20px', color: colors.inkMuted, pointerEvents: 'none' }}>search</span>
-            <input type="text" placeholder="Filter..." value={search}
-              onChange={e => setSearch(e.target.value)}
-              style={styles.searchInput}
-              onFocus={e => { e.target.style.borderColor = colors.accent; e.target.style.background = '#fff'; e.target.style.boxShadow = `0 0 0 3px ${colors.accentGlow}`; }}
-              onBlur={e => { e.target.style.borderColor = colors.border; e.target.style.background = colors.pageBg; e.target.style.boxShadow = 'none'; }}
-            />
+          <h3 style={styles.tableTitle}>Participant List ({participants.length} / {maxP || '—'})</h3>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', width: isMobile ? '100%' : 'auto', flexWrap: 'wrap' }}>
+            <select
+              value={statusFilter}
+              onChange={e => setStatusFilter(e.target.value)}
+              style={{
+                height: '40px',
+                padding: '0 36px 0 16px',
+                borderRadius: '100px',
+                border: `1px solid ${colors.border}`,
+                background: `${colors.pageBg} url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%230f1f3d' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>") no-repeat right 14px center / 16px`,
+                fontSize: '13.5px',
+                fontWeight: '600',
+                color: colors.navy,
+                outline: 'none',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                fontFamily: "'Inter', sans-serif",
+                minWidth: '135px',
+                appearance: 'none',
+                WebkitAppearance: 'none',
+                MozAppearance: 'none'
+              }}
+              onFocus={e => { 
+                e.target.style.borderColor = colors.accent; 
+                e.target.style.background = `#fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%233b82f6' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>") no-repeat right 14px center / 16px`; 
+                e.target.style.boxShadow = `0 0 0 3px ${colors.accentGlow}`; 
+              }}
+              onBlur={e => { 
+                e.target.style.borderColor = colors.border; 
+                e.target.style.background = `${colors.pageBg} url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%230f1f3d' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>") no-repeat right 14px center / 16px`; 
+                e.target.style.boxShadow = 'none'; 
+              }}
+            >
+              <option value="All">All Statuses</option>
+              <option value="Registered">Registered</option>
+              <option value="Pending">Pending</option>
+            </select>
+            <div style={styles.searchInputWrapper}>
+              <span className="material-symbols-rounded" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '20px', color: colors.inkMuted, pointerEvents: 'none' }}>search</span>
+              <input type="text" placeholder="Filter..." value={search}
+                onChange={e => setSearch(e.target.value)}
+                style={styles.searchInput}
+                onFocus={e => { e.target.style.borderColor = colors.accent; e.target.style.background = '#fff'; e.target.style.boxShadow = `0 0 0 3px ${colors.accentGlow}`; }}
+                onBlur={e => { e.target.style.borderColor = colors.border; e.target.style.background = colors.pageBg; e.target.style.boxShadow = 'none'; }}
+              />
+            </div>
           </div>
         </div>
 
@@ -580,12 +648,14 @@ export default function ParticipantsPage() {
                 </th>
                 <th style={styles.th}>Participant</th>
                 <th style={styles.th}>Email</th>
-                <th style={{ ...styles.th, cursor: 'help' }} title="Click any cell below to edit">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                    Team / Affiliation
-                    <span className="material-symbols-rounded" style={{ fontSize: '14px', color: colors.accent, opacity: 0.7 }}>edit</span>
-                  </div>
-                </th>
+                {isGroupOrTeam && (
+                  <th style={{ ...styles.th, cursor: 'help' }} title="Click any cell below to edit">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      Team / Affiliation
+                      <span className="material-symbols-rounded" style={{ fontSize: '14px', color: colors.accent, opacity: 0.7 }}>edit</span>
+                    </div>
+                  </th>
+                )}
                 <th style={styles.th}>Score</th>
                 <th style={{ ...styles.th, cursor: 'help' }} title="Click any cell below to edit">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
@@ -597,7 +667,7 @@ export default function ParticipantsPage() {
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={7} style={{ padding: '72px', textAlign: 'center' }}>
+                <tr><td colSpan={isGroupOrTeam ? 7 : 6} style={{ padding: '72px', textAlign: 'center' }}>
                   <span className="material-symbols-rounded" style={{ fontSize: '48px', color: colors.border, display: 'block', marginBottom: '16px' }}>groups_2</span>
                   <span style={{ color: colors.inkMuted, fontSize: '15px' }}>
                     {participants.length === 0 ? 'No participants yet. Invite some!' : 'No results match your search.'}
@@ -625,14 +695,16 @@ export default function ParticipantsPage() {
                       </div>
                     </td>
                     <td style={{ ...styles.td, fontSize: '13px' }}>{p.email}</td>
-                    <td style={styles.td}>
-                      <EditableCell
-                        value={p.team}
-                        options={knownTeams.length > 0 ? knownTeams : undefined}
-                        onSave={val => { updateParticipant(selectedEvent.id, p.id, { team: val }); showToast('Team updated.', 'success'); }}
-                        placeholder="— assign team —"
-                      />
-                    </td>
+                    {isGroupOrTeam && (
+                      <td style={styles.td}>
+                        <EditableCell
+                          value={p.team}
+                          options={knownTeams.length > 0 ? knownTeams : undefined}
+                          onSave={val => { updateParticipant(selectedEvent.id, p.id, { team: val }); showToast('Team updated.', 'success'); }}
+                          placeholder="— assign team —"
+                        />
+                      </td>
+                    )}
                     <td style={styles.td}>
                       <span style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 800, fontSize: '17px', color: p.score != null ? colors.navy : colors.inkMuted }}>
                         {p.score ?? '—'}
@@ -672,7 +744,7 @@ export default function ParticipantsPage() {
             <span style={{ fontSize: '13.5px', fontWeight: 600, color: 'rgba(255,255,255,0.8)' }}>selected</span>
           </div>
           {[
-            { icon: 'group_work', label: 'Set Team', action: () => { setShowBulkTeam(true); setBulkTeamVal(''); }, id: 'bulk-team' },
+            ...(isGroupOrTeam ? [{ icon: 'group_work', label: 'Set Team', action: () => { setShowBulkTeam(true); setBulkTeamVal(''); }, id: 'bulk-team' }] : []),
             { icon: 'check_circle', label: 'Mark Registered', action: () => { [...selected].forEach(id => updateParticipant(selectedEvent.id, id, { status: 'Registered' })); showToast(`Marked ${sel} as Registered.`, 'success'); setSelected(new Set()); }, id: 'bulk-reg' },
           ].map(a => (
             <button key={a.id} onClick={a.action} style={{
@@ -822,7 +894,7 @@ export default function ParticipantsPage() {
               <div style={{ background: colors.pageBg, borderRadius: '16px', padding: '20px', border: `1px solid ${colors.borderSoft}`, marginBottom: '24px' }}>
                 <div style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: colors.inkMuted, marginBottom: '12px' }}>Required Columns</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  {['name', 'email', 'team'].map(col => (
+                  {(isGroupOrTeam ? ['name', 'email', 'team'] : ['name', 'email']).map(col => (
                     <code key={col} style={{ background: '#fff', border: `1px solid ${colors.border}`, padding: '4px 10px', borderRadius: '8px', fontSize: '13px', fontWeight: 600, color: colors.navy }}>{col}</code>
                   ))}
                 </div>
@@ -835,19 +907,19 @@ export default function ParticipantsPage() {
                     <tr style={{ background: colors.pageBg }}>
                       <th style={{ padding: '10px 14px', textAlign: 'left', borderBottom: `1px solid ${colors.borderSoft}`, color: colors.inkMuted }}>name</th>
                       <th style={{ padding: '10px 14px', textAlign: 'left', borderBottom: `1px solid ${colors.borderSoft}`, color: colors.inkMuted }}>email</th>
-                      <th style={{ padding: '10px 14px', textAlign: 'left', borderBottom: `1px solid ${colors.borderSoft}`, color: colors.inkMuted }}>team</th>
+                      {isGroupOrTeam && <th style={{ padding: '10px 14px', textAlign: 'left', borderBottom: `1px solid ${colors.borderSoft}`, color: colors.inkMuted }}>team</th>}
                     </tr>
                   </thead>
                   <tbody>
                     <tr>
                       <td style={{ padding: '10px 14px', borderBottom: `1px solid ${colors.borderSoft}`, color: colors.navy, fontWeight: 500 }}>Lapu-Lapu</td>
                       <td style={{ padding: '10px 14px', borderBottom: `1px solid ${colors.borderSoft}` }}>lapu@mactan.ph</td>
-                      <td style={{ padding: '10px 14px', borderBottom: `1px solid ${colors.borderSoft}` }}>Kadato-an Warriors</td>
+                      {isGroupOrTeam && <td style={{ padding: '10px 14px', borderBottom: `1px solid ${colors.borderSoft}` }}>Kadato-an Warriors</td>}
                     </tr>
                     <tr>
                       <td style={{ padding: '10px 14px', color: colors.navy, fontWeight: 500 }}>Diego Cera</td>
                       <td style={{ padding: '10px 14px' }}>diego@manila.ph</td>
-                      <td style={{ padding: '10px 14px' }}>Tondo FC</td>
+                      {isGroupOrTeam && <td style={{ padding: '10px 14px' }}>Tondo FC</td>}
                     </tr>
                   </tbody>
                 </table>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { colors } from '../../styles/colors';
 import { API_URL } from '../../config';
 
@@ -11,6 +11,8 @@ export default function LoginPage() {
   const [activeHover, setActiveHover] = useState(null);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const [loading, setLoading] = useState(false);
+  const location = useLocation();
+  const navigate = useNavigate();
 
   React.useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
@@ -48,12 +50,19 @@ export default function LoginPage() {
       localStorage.setItem('role', data.profile.role);
       localStorage.setItem('full_name', `${data.profile.first_name} ${data.profile.last_name}`);
       localStorage.setItem('session', JSON.stringify(data.session));
+      localStorage.setItem('is_subscribed', data.isSubscribed ? 'true' : 'false');
 
-      // Redirect based on role
+      // Redirect based on role or state
       const role = data.profile.role;
-      if (role === 'Organizer') window.location.href = '/organizer/dashboard';
-      else if (role === 'Judge') window.location.href = '/judge/dashboard';
-      else window.location.href = '/participant/dashboard';
+      let target = '/participant/dashboard';
+      if (role === 'Organizer') target = '/organizer/dashboard';
+      else if (role === 'Judge') target = '/judge/dashboard';
+
+      if (location.state?.from === 'profile') {
+        target = `/${role.toLowerCase()}/profile`;
+      }
+
+      navigate(target, { state: { activeTab: location.state?.activeTab } });
     } catch (err) {
       setError(err.message);
     } finally {

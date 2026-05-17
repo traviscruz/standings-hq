@@ -2,6 +2,36 @@ import React, { useState, useEffect } from 'react';
 import { useParticipantContext } from './ParticipantLayout';
 import { colors } from '../../styles/colors';
 
+function formatDateToWords(dateStr) {
+  if (!dateStr) return '—';
+  try {
+    let date = new Date(dateStr);
+    if (isNaN(date.getTime())) {
+      const parts = dateStr.split(/[-/]/);
+      if (parts.length === 3) {
+        if (parts[0].length === 4) {
+          date = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        } else if (parts[2].length === 4) {
+          const m = parseInt(parts[0], 10);
+          const d = parseInt(parts[1], 10);
+          const y = parseInt(parts[2], 10);
+          if (m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+            date = new Date(y, m - 1, d);
+          }
+        }
+      }
+    }
+    if (isNaN(date.getTime())) return dateStr;
+    return date.toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  } catch (e) {
+    return dateStr;
+  }
+}
+
 export default function AcceptInvitePage() {
   const { invitations, acceptInvitation, declineInvitation } = useParticipantContext();
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
@@ -169,7 +199,7 @@ export default function AcceptInvitePage() {
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12.5px', color: colors.inkMuted }}>
                     <span className="material-symbols-rounded" style={{ fontSize: '15px' }}>calendar_today</span>
-                    <span style={{ color: colors.navy, fontWeight: 600 }}>{invite.date}</span>
+                    <span style={{ color: colors.navy, fontWeight: 600 }}>{formatDateToWords(invite.date)}</span>
                   </div>
                 </div>
 

@@ -1,327 +1,772 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { createPortal } from 'react-dom';
+import React, { useState, useEffect } from 'react';
 import { useEventContext } from './OrganizerLayout';
 import { colors } from '../../styles/colors';
+import { createClient } from '../../utils/supabase/client';
 
-/* ─── data ─────────────────────────────────────────────────────────────── */
-const TEMPLATES = {
-  Sports: [
-    { name: 'Athleticism & Technique', weight: 40, maxScore: 10, description: 'Evaluation of master skill and form.' },
-    { name: 'Teamwork & Coordination', weight: 30, maxScore: 10, description: 'Efficiency of group communication.' },
-    { name: 'Showmanship', weight: 20, maxScore: 10, description: 'Audience engagement and energy.' },
-    { name: 'Costume & Props', weight: 10, maxScore: 10, description: 'Aesthetic relevance to theme.' },
-  ],
-  Academic: [
-    { name: 'Content & Logic', weight: 40, maxScore: 10, description: 'Strength of factual logic.' },
-    { name: 'Delivery & Presentation', weight: 30, maxScore: 10, description: 'Clarity and confidence.' },
-    { name: 'Research Quality', weight: 30, maxScore: 10, description: 'Depth and quality of sources.' },
-  ],
-  Debate: [
-    { name: 'Argumentation', weight: 40, maxScore: 10, description: 'Persuasive logic and clarity.' },
-    { name: 'Rebuttal', weight: 35, maxScore: 10, description: 'Ability to counter-argue.' },
-    { name: 'Evidence', weight: 25, maxScore: 10, description: 'Factual support and citations.' },
-  ],
-  Default: [
-    { name: 'Innovation', weight: 30, maxScore: 10, description: 'Originality of the approach.' },
-    { name: 'Execution', weight: 40, maxScore: 10, description: 'Mastery of the technique.' },
-    { name: 'Presence', weight: 20, maxScore: 10, description: 'Impact on the judges/audience.' },
-    { name: 'Sustainability', weight: 10, maxScore: 10, description: 'Long-term viability of the concept.' },
-  ],
+const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.REACT_APP_GEMINI_API_KEY;
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+
+// Helper to validate UUID formats before Postgres database updates
+const isValidUUID = (str) => {
+  if (!str) return false;
+  const regex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return regex.test(str);
 };
 
-function makeId() { return Date.now() + Math.random(); }
-function seed(list) { return list.map(c => ({ ...c, id: makeId() })); }
-function aiGenerate(prompt) {
-  const drafts = [
-    [
-      { name: 'Innovation', weight: 30, maxScore: 10, description: `Creative depth based on: ${prompt}` },
-      { name: 'Execution Quality', weight: 35, maxScore: 10, description: 'How well the task was performed.' },
-      { name: 'Clarity', weight: 20, maxScore: 10, description: 'Communication of the core idea.' },
-      { name: 'Relevance', weight: 15, maxScore: 10, description: 'Alignment with event objectives.' },
-    ],
-    [
-      { name: 'Skill Mastery', weight: 40, maxScore: 10, description: 'Proficiency in core discipline.' },
-      { name: 'Strategic Depth', weight: 25, maxScore: 10, description: 'Decision making and tactical approach.' },
-      { name: 'Synergy', weight: 20, maxScore: 10, description: 'Coordination between elements.' },
-      { name: 'Professionalism', weight: 15, maxScore: 10, description: 'Conduct and etiquette.' },
-    ],
-  ];
-  return drafts[prompt.length % 2];
-}
+// Automatic proportional weight balancing helper to ensure weights total exactly 100
+const balanceCriteriaWeights = (criteriaList) => {
+  if (criteriaList.length === 0) return [];
+  const sanitized = criteriaList.map(c => ({
+    ...c,
+    weight: Math.max(1, Number(c.weight) || 1)
+  }));
+  
+  const sum = sanitized.reduce((acc, c) => acc + c.weight, 0);
+  
+  if (sum === 100) return sanitized;
+  if (sum === 0) {
+    const equalWeight = Math.floor(100 / sanitized.length);
+    return sanitized.map((c, idx) => ({
+      ...c,
+      weight: idx === sanitized.length - 1 ? 100 - (equalWeight * (sanitized.length - 1)) : equalWeight
+    }));
+  }
 
-/* ─── 5-second undo bar ─────────────────────────────────────────────────── */
-function UndoBar({ message, onUndo, onDismiss }) {
-  const [progress, setProgress] = useState(100);
+  // Normalize proportionally
+  let updated = sanitized.map(c => ({
+    ...c,
+    weight: Math.round((c.weight / sum) * 100)
+  }));
 
-  useEffect(() => {
-    const start = Date.now();
-    const iv = setInterval(() => {
-      const el = Date.now() - start;
-      const pct = Math.max(0, 100 - (el / 5000) * 100);
-      setProgress(pct);
-      if (pct === 0) { clearInterval(iv); onDismiss(); }
-    }, 50);
-    return () => clearInterval(iv);
-  }, [onDismiss]);
+  // Re-adjust exact sum to 100 by adjusting the last criteria
+  const currentSum = updated.reduce((acc, c) => acc + c.weight, 0);
+  if (currentSum !== 100) {
+    updated[updated.length - 1].weight = Math.max(1, updated[updated.length - 1].weight + (100 - currentSum));
+  }
+  return updated;
+};
 
-  return (
-    <div style={{ position: 'fixed', bottom: '32px', left: '50%', transform: 'translateX(-50%)', zIndex: 2000, pointerEvents: 'none' }}>
-      <div style={{ background: 'rgba(15, 23, 42, 0.95)', backdropFilter: 'blur(12px)', color: '#fff', borderRadius: '16px', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '14px', boxShadow: '0 10px 40px rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.1)', pointerEvents: 'auto', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'rgba(59,130,246,0.15)', display: 'grid', placeItems: 'center', color: colors.accent }}>
-          <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>info</span>
-        </div>
-        <span style={{ fontSize: '13.5px', fontWeight: 500, flex: 1 }}>{message}</span>
-        <button onClick={onUndo} style={{ background: 'none', border: 'none', color: colors.accent, fontWeight: 700, fontSize: '13px', cursor: 'pointer', padding: '6px 10px', borderRadius: '8px', transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(59,130,246,0.1)'} onMouseLeave={e => e.currentTarget.style.background = 'none'}>Undo</button>
-        <button onClick={onDismiss} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', display: 'grid', placeItems: 'center' }} onMouseEnter={e => e.currentTarget.style.color = '#fff'} onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.4)'}>
-          <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>close</span>
-        </button>
-        <div style={{ position: 'absolute', bottom: 0, left: 0, height: '3px', width: `${progress}%`, background: colors.accent, transition: 'width 0.05s linear' }} />
-      </div>
-    </div>
-  );
-}
+// Smart Offline Fallback Generator when Gemini API is not active
+const getOfflineSuggestion = (step, title = "", category = "") => {
+  const query = `${title} ${category}`.toLowerCase();
+  
+  if (step === 0) {
+    let competitionType = "Creative Showcase";
+    let desc = "This event evaluates participant skills and technique across multiple rounds.";
+    if (query.includes("pageant") || query.includes("mutya") || query.includes("beauty")) {
+      competitionType = "Beauty Pageant";
+      desc = "The setup will focus on stage poise, elegant gowns, and verbal articulation rounds.";
+    } else if (query.includes("sing") || query.includes("vocal") || query.includes("music") || query.includes("song")) {
+      competitionType = "Vocal Performance";
+      desc = "The setup will focus on vocal control, tone quality, and stage performance.";
+    } else if (query.includes("dance") || query.includes("battle") || query.includes("groove")) {
+      competitionType = "Dance Competition";
+      desc = "The setup will focus on group synchronization, choreographic dynamics, and energy.";
+    } else if (query.includes("hack") || query.includes("code") || query.includes("tech")) {
+      competitionType = "Hackathon";
+      desc = "The setup will focus on code quality, design innovation, and presentation quality.";
+    }
+    return { competitionType, description: desc };
+  }
 
-function useUndo() {
-  const [state, setState] = useState(null);
-  const timerRef = useRef(null);
-  const show = useCallback((msg, fn) => {
-    clearTimeout(timerRef.current);
-    setState({ msg, fn });
-    timerRef.current = setTimeout(() => setState(null), 5000);
-  }, []);
-  const dismiss = useCallback(() => { clearTimeout(timerRef.current); setState(null); }, []);
-  const doUndo = useCallback(() => { state?.fn?.(); dismiss(); }, [state, dismiss]);
-  const bar = state ? <UndoBar message={state.msg} onUndo={doUndo} onDismiss={dismiss} /> : null;
-  return { show, bar };
-}
+  if (step === 1) { // Participation
+    if (query.includes("dance") || query.includes("hack") || query.includes("code") || query.includes("battle")) {
+      return { format: "group", maxMembers: 5, maxParticipants: 30, reason: "Group collaborations foster high team performance and synergy for this event." };
+    }
+    return { format: "solo", maxMembers: null, maxParticipants: 50, reason: "Individual presentations showcase raw personal talent and poise best." };
+  }
 
-/* ═══════════════════════════════════════════════════════════════════════ */
+  if (step === 2) { // Judges
+    if (query.includes("pageant") || query.includes("hack") || query.includes("dance")) {
+      return { judges: 5, reason: "A larger odd-numbered jury (5 judges) prevents ties and provides balanced consensus." };
+    }
+    return { judges: 3, reason: "A standard panel of 3 evaluators ensures reliable assessments without heavy coordination." };
+  }
+
+  if (step === 3) { // Comb Method
+    if (query.includes("pageant") || query.includes("sports")) {
+      return { scoringMethod: "drop", reason: "Dropping the highest and lowest scores, then averaging, prevents judge bias and outliers." };
+    }
+    return { scoringMethod: "average", reason: "Standard Average combining provides equal representation for all active judges' scores." };
+  }
+
+  if (step === 4) { // Scale
+    if (query.includes("hack") || query.includes("code") || query.includes("exam")) {
+      return { min: 1, max: 100, reason: "A 100-point scale accommodates detailed technical rubrics and fine-grained scoring." };
+    }
+    return { min: 1, max: 10, reason: "A concise 10-point scale makes real-time scoring simple and keeps judge assessments cohesive." };
+  }
+
+  if (step === 5) { // Rubrics
+    if (query.includes("pageant") || query.includes("mutya") || query.includes("beauty")) {
+      return {
+        rubrics: [
+          { id: "crit-1", label: "Poise & Stage Presence", weight: 35 },
+          { id: "crit-2", label: "Evening Gown / Fit", weight: 35 },
+          { id: "crit-3", label: "Intelligence & Articulation", weight: 30 }
+        ]
+      };
+    }
+    if (query.includes("sing") || query.includes("vocal") || query.includes("music") || query.includes("song")) {
+      return {
+        rubrics: [
+          { id: "crit-1", label: "Tone & Vocal Accuracy", weight: 40 },
+          { id: "crit-2", label: "Stage Poise & Performance", weight: 30 },
+          { id: "crit-3", label: "Musicality & Dynamics", weight: 30 }
+        ]
+      };
+    }
+    if (query.includes("dance") || query.includes("battle")) {
+      return {
+        rubrics: [
+          { id: "crit-1", label: "Choreography & Style", weight: 35 },
+          { id: "crit-2", label: "Synchronization & Form", weight: 35 },
+          { id: "crit-3", label: "Energy & Stage Presence", weight: 30 }
+        ]
+      };
+    }
+    return {
+      rubrics: [
+        { id: "crit-1", label: "Technical Precision & Skills", weight: 40 },
+        { id: "crit-2", label: "Presentation & Poise", weight: 30 },
+        { id: "crit-3", label: "Overall Impression", weight: 30 }
+      ]
+    };
+  }
+};
+
 export default function RubricBuilderPage() {
-  const { selectedEvent, rubrics, setRubrics, showToast, eventsLoading } = useEventContext();
-  const undo = useUndo();
+  const { selectedEvent, showToast, eventsLoading, setRubricConfig } = useEventContext();
+  const supabase = createClient();
 
-  const [criteria, setCriteria] = useState(rubrics.length > 0 ? rubrics : []);
-  const [mode, setMode] = useState(rubrics.length > 0 ? 'edit' : 'choose');
-  const [scoringMode, setScoringMode] = useState('Standard Average');
-  const [decimals, setDecimals] = useState('1 Decimal');
-  const [aiLoading, setAiLoading] = useState(false);
-  const [showAiModal, setShowAiModal] = useState(false);
-  const [aiPrompt, setAiPrompt] = useState('');
-  const [activeBtnHover, setActiveBtnHover] = useState(null);
-  const aiRef = useRef(null);
+  // Wizard States
+  // 0: Greeting confirm, 1: Participation Type, 2: Judge Count, 3: Combining Method, 4: Scoring Scale, 5: Rubric Criteria, 6: Summary Confirm, 7: Final JSON Live
+  const [setupStep, setSetupStep] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  
+  // Initial loading state to prevent flash of AI panel before Supabase fetch resolves
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [existingRubric, setExistingRubric] = useState(null);
+  
+  // Dashboard view toggle when an existing rubric is detected in the database
+  const [hasActiveRubricScreen, setHasActiveRubricScreen] = useState(true);
 
-  const totalWeight = criteria.reduce((s, c) => s + Number(c.weight), 0);
-  const isComplete = totalWeight === 100 && criteria.length > 0;
+  // Active configurations in process
+  const [config, setConfig] = useState({
+    competition: "",
+    format: "solo",
+    maxMembers: null,
+    maxParticipants: 50,
+    judges: 3,
+    scoringMethod: "average",
+    scale: { min: 1, max: 10 },
+    rubrics: []
+  });
 
-  const handleApplyTemplate = () => {
-    const snap = [...criteria];
-    setCriteria(seed(TEMPLATES[selectedEvent.type] || TEMPLATES.Default));
-    setMode('edit');
-    showToast('Template applied successfully.', 'success', () => { setCriteria(snap); showToast('Reverted to previous state.', 'info'); });
+  // Dynamic Suggestion values and custom workspace temp values
+  const [suggestion, setSuggestion] = useState(null);
+  const [isCustomizing, setIsCustomizing] = useState(false);
+  const [customVal, setCustomVal] = useState({});
+  const [finalJSONText, setFinalJSONText] = useState("");
+
+  // Validation warning state
+  const [valWarning, setValWarning] = useState("");
+
+  // Safety Lock Check: Evaluates all states (even pending/upcoming status is locked if start_date is past or today)
+  const isRubricLocked = () => {
+    if (!selectedEvent) return false;
+    
+    // Normalize status to lowercase for comparison (supports 'ongoing', 'completed', 'cancelled', 'active', etc.)
+    const status = (selectedEvent.status || "").toLowerCase();
+    
+    // 1. Lock immediately if marked as anything other than 'upcoming' (e.g. ongoing, completed, active, cancelled)
+    const isNotUpcoming = status !== 'upcoming';
+    
+    // 2. Date check: is the event scheduled to have started (start date is past or today)?
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const eventStartDate = selectedEvent.startDate ? new Date(selectedEvent.startDate + 'T00:00:00') : null;
+    const isStartDatePastOrToday = eventStartDate ? today >= eventStartDate : false;
+
+    // Lock if the event has been initiated in database status OR if the calendar date has already arrived/passed
+    return isNotUpcoming || isStartDatePastOrToday;
   };
 
-  const handleCreateBlank = () => {
-    setCriteria([{ id: makeId(), name: 'New Criterion', weight: 0, maxScore: 10, description: '' }]);
-    setMode('edit');
+  const isLocked = isRubricLocked();
+
+  // Fetch existing event rubric on mount
+  useEffect(() => {
+    if (!selectedEvent) {
+      setIsInitialLoading(false);
+      return;
+    }
+
+    const fetchRubric = async () => {
+      setIsInitialLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('event_rubrics')
+          .select('*')
+          .eq('event_id', selectedEvent.id)
+          .maybeSingle();
+
+        if (error) throw error;
+        if (data) {
+          setExistingRubric(data);
+          setHasActiveRubricScreen(true);
+          const cfg = data.config || {};
+          setConfig({
+            competition: cfg.competition || selectedEvent.name,
+            format: cfg.format || "solo",
+            maxMembers: cfg.maxMembers || null,
+            maxParticipants: cfg.maxParticipants || 50,
+            judges: cfg.judges || 3,
+            scoringMethod: cfg.scoringMethod || "average",
+            scale: cfg.scale || { min: 1, max: 10 },
+            rubrics: cfg.rubrics || []
+          });
+        } else {
+          setExistingRubric(null);
+          setHasActiveRubricScreen(false);
+          setSetupStep(0);
+        }
+      } catch (err) {
+        console.error("Error loading rubric:", err);
+      } finally {
+        setIsInitialLoading(false);
+      }
+    };
+
+    fetchRubric();
+  }, [selectedEvent, supabase]);
+
+  // Set default competition title
+  useEffect(() => {
+    if (!selectedEvent) return;
+    setConfig(prev => ({ ...prev, competition: selectedEvent.name }));
+  }, [selectedEvent]);
+
+  // Run dynamic suggestion via Gemini API
+  const getAISuggestion = async (stepNumber, isRegenerating = false) => {
+    if (!selectedEvent) return null;
+    setLoading(true);
+    const title = selectedEvent.name;
+    const desc = selectedEvent.description || "";
+    const category = selectedEvent.type || "";
+
+    const systemPrompt = `
+You are a professional competition setup assistant. 
+Suggest values for competition setup based on:
+Title: "${title}"
+Category: "${category}"
+Description: "${desc}"
+
+For Setup Step ${stepNumber}:
+${stepNumber === 1 ? 'Suggest: solo or group, and a max number of participants (default 50). Return JSON format: { "format": "solo|group", "maxMembers": null_or_number, "maxParticipants": number, "reason": "Explain in one brief friendly sentence." }' : ''}
+${stepNumber === 2 ? 'Suggest judge count. Return JSON format: { "judges": number, "reason": "Explain in one brief friendly sentence." }' : ''}
+${stepNumber === 3 ? 'Suggest combining method (average, sum, or drop). Return JSON format: { "scoringMethod": "average|sum|drop", "reason": "Explain in one brief friendly sentence." }' : ''}
+${stepNumber === 4 ? 'Suggest scoring scale. Return JSON format: { "scale": { "min": 1, "max": 10_or_100 }, "reason": "Explain in one brief friendly sentence." }' : ''}
+${stepNumber === 5 ? 'Suggest 3-5 criteria weights summing to 100. Return JSON format: { "rubrics": [ { "label": "Criteria Label", "weight": weight_number } ], "reason": "Explain briefly." }' : ''}
+
+Generate completely different suggestions if regenerating is true (isRegenerating: ${isRegenerating}).
+Return ONLY the raw JSON object. No markdown, no wrappers.
+`;
+
+    try {
+      if (!GEMINI_API_KEY) {
+        throw new Error("No API Key");
+      }
+
+      const response = await fetch(GEMINI_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: systemPrompt }] }],
+          generationConfig: { responseMimeType: "application/json" }
+        })
+      });
+
+      const data = await response.json();
+      const text = data.candidates[0].content.parts[0].text;
+      const parsed = JSON.parse(text);
+      setLoading(false);
+      return parsed;
+    } catch (err) {
+      console.warn("Offline suggestion fallback.");
+      setLoading(false);
+      return getOfflineSuggestion(stepNumber, title, category);
+    }
   };
 
-  const handleAiGenerate = () => {
-    if (!aiPrompt.trim()) return;
-    setShowAiModal(false);
-    setAiLoading(true);
-    const snap = [...criteria];
-    setTimeout(() => {
-      setCriteria(seed(aiGenerate(aiPrompt.trim())));
-      setMode('edit');
-      setAiLoading(false);
-      showToast('AI rubric generated.', 'success', () => { setCriteria(snap); showToast('AI generation undone.', 'info'); });
-    }, 1500);
+  // Triggers new dynamic steps & initializes from existing config if available
+  const triggerStepSuggestion = async (step, isRegen = false) => {
+    setValWarning("");
+    setIsCustomizing(false); // Reset customizing state immediately to prevent validation warning flash of next step
+    const sug = await getAISuggestion(step, isRegen);
+    setSuggestion(sug);
+
+    let sugFormat = sug?.format || "solo";
+    if (sugFormat === "team") sugFormat = "group";
+
+    if (step === 1) {
+      const fmt = config.format || sugFormat;
+      const maxM = config.maxMembers || (fmt === 'group' ? Math.max(2, sug?.maxMembers || 5) : 1);
+      const maxP = config.maxParticipants || sug?.maxParticipants || 50;
+      setCustomVal({ format: fmt, maxMembers: maxM, maxParticipants: maxP });
+    } else if (step === 2) {
+      const jd = config.judges || Math.max(1, sug?.judges || 3);
+      setCustomVal({ judges: jd });
+    } else if (step === 3) {
+      const sm = config.scoringMethod || sug?.scoringMethod || "average";
+      setCustomVal({ scoringMethod: sm });
+    } else if (step === 4) {
+      const minS = config.scale?.min ?? Math.max(0, sug?.scale?.min ?? 1);
+      const maxS = config.scale?.max ?? Math.max(minS + 1, sug?.scale?.max ?? 10);
+      setCustomVal({ scaleMin: minS, scaleMax: maxS });
+    } else if (step === 5) {
+      const rb = config.rubrics?.length > 0 ? config.rubrics : sug?.rubrics?.map((r, idx) => ({ id: `crit-${idx}`, label: r.label, weight: Math.max(1, r.weight) })) || [];
+      setCustomVal({ rubrics: rb.map(r => ({ ...r, weight: Math.max(1, Number(r.weight) || 1) })) });
+    }
   };
 
-  const updateC = (id, key, val) =>
-    setCriteria(prev => prev.map(c => c.id === id ? { ...c, [key]: key === 'weight' || key === 'maxScore' ? Number(val) || 0 : val } : c));
+  // Real-time custom form input validations
+  const getValidationWarning = () => {
+    if (!isCustomizing) return "";
 
-  const removeC = (id) => {
-    const item = criteria.find(c => c.id === id);
-    const idx = criteria.indexOf(item);
-    setCriteria(prev => prev.filter(c => c.id !== id));
-    undo.show('Criterion removed', () => {
-      setCriteria(prev => { const next = [...prev]; next.splice(idx, 0, item); return next; });
-    });
+    if (setupStep === 1) {
+      if (customVal.format === 'group') {
+        const val = Number(customVal.maxMembers);
+        if (isNaN(val) || val < 2) return "Group members count must be at least 2";
+      }
+      const maxP = Number(customVal.maxParticipants);
+      if (isNaN(maxP) || maxP < 1) return "Maximum participants count must be at least 1";
+    }
+    else if (setupStep === 2) {
+      const val = Number(customVal.judges);
+      if (isNaN(val) || val < 1) return "Judges count must be at least 1";
+    }
+    else if (setupStep === 4) {
+      const minS = Number(customVal.scaleMin);
+      const maxS = Number(customVal.scaleMax);
+      if (isNaN(minS) || minS < 0) return "Min scale cannot be negative";
+      if (isNaN(maxS) || maxS <= minS) return "Max scale must be greater than Min scale";
+    }
+    else if (setupStep === 5) {
+      const list = customVal.rubrics || [];
+      if (list.length === 0) return "Please add at least one criterion";
+      for (let r of list) {
+        if (!r.label || !r.label.trim()) return "All criteria must have a label name";
+        const w = Number(r.weight);
+        if (isNaN(w) || w < 1) return "All criteria weights must be at least 1%";
+      }
+    }
+    return "";
   };
 
-  const addC = () => setCriteria(prev => [...prev, { id: makeId(), name: 'New Criterion', weight: 0, maxScore: 10, description: '' }]);
+  const validationError = getValidationWarning();
+  const isConfirmDisabled = isCustomizing && !!validationError;
 
-  const handleSave = () => {
-    setRubrics(selectedEvent.id, criteria);
-    showToast('Rubric configuration saved successfully.', 'success');
+  // Action: Accept Recommendation
+  const handleAccept = () => {
+    setValWarning("");
+    if (!suggestion) return;
+
+    let formatVal = suggestion.format;
+    if (formatVal === "team") formatVal = "group";
+
+    if (setupStep === 1) {
+      const maxM = formatVal === 'group' ? Math.max(2, suggestion.maxMembers || 5) : 1;
+      const maxP = suggestion.maxParticipants || 50;
+      setConfig(prev => ({ ...prev, format: formatVal, maxMembers: maxM, maxParticipants: maxP }));
+      setSetupStep(2);
+      triggerStepSuggestion(2);
+    } 
+    else if (setupStep === 2) {
+      const jCount = Math.max(1, suggestion.judges || 3);
+      setConfig(prev => ({ ...prev, judges: jCount }));
+      setSetupStep(3);
+      triggerStepSuggestion(3);
+    }
+    else if (setupStep === 3) {
+      setConfig(prev => ({ ...prev, scoringMethod: suggestion.scoringMethod || "average" }));
+      setSetupStep(4);
+      triggerStepSuggestion(4);
+    }
+    else if (setupStep === 4) {
+      const minS = Math.max(0, suggestion.scale?.min ?? 1);
+      const maxS = Math.max(minS + 1, suggestion.scale?.max ?? 10);
+      setConfig(prev => ({ ...prev, scale: { min: minS, max: maxS } }));
+      setSetupStep(5);
+      triggerStepSuggestion(5);
+    }
+    else if (setupStep === 5) {
+      const finalRubrics = suggestion.rubrics.map((r, idx) => ({ id: `crit-${idx}`, label: r.label, weight: Math.max(1, r.weight) }));
+      setConfig(prev => ({ ...prev, rubrics: finalRubrics }));
+      setSetupStep(6);
+    }
   };
 
+  // Action: Apply Inline Customizations with input validation
+  const handleApplyCustomValue = () => {
+    setValWarning("");
+    const errorMsg = getValidationWarning();
+    if (errorMsg) {
+      setValWarning(errorMsg);
+      return;
+    }
+
+    if (setupStep === 1) {
+      const fmt = customVal.format || "solo";
+      let maxM = 1;
+      if (fmt === 'group') {
+        maxM = Number(customVal.maxMembers);
+      }
+      const maxP = Number(customVal.maxParticipants);
+      setConfig(prev => ({ ...prev, format: fmt, maxMembers: fmt === 'solo' ? null : maxM, maxParticipants: maxP }));
+      setSetupStep(2);
+      triggerStepSuggestion(2);
+    }
+    else if (setupStep === 2) {
+      let jCount = Number(customVal.judges);
+      setConfig(prev => ({ ...prev, judges: jCount }));
+      setSetupStep(3);
+      triggerStepSuggestion(3);
+    }
+    else if (setupStep === 3) {
+      setConfig(prev => ({ ...prev, scoringMethod: customVal.scoringMethod || "average" }));
+      setSetupStep(4);
+      triggerStepSuggestion(4);
+    }
+    else if (setupStep === 4) {
+      let minS = Number(customVal.scaleMin);
+      let maxS = Number(customVal.scaleMax);
+      setConfig(prev => ({ ...prev, scale: { min: minS, max: maxS } }));
+      setSetupStep(5);
+      triggerStepSuggestion(5);
+    }
+    else if (setupStep === 5) {
+      const list = customVal.rubrics || [];
+      const cleanRubrics = list.map(r => ({
+        ...r,
+        label: (r.label || "").trim() || "Criterion",
+        weight: Math.max(1, Number(r.weight) || 1)
+      }));
+      const balanced = balanceCriteriaWeights(cleanRubrics);
+      setConfig(prev => ({ ...prev, rubrics: balanced }));
+      setSetupStep(6);
+    }
+  };
+
+  // Action: Navigate Backwards in the Setup Wizard
+  const handleBack = () => {
+    setValWarning("");
+    const prevStep = setupStep - 1;
+    setSetupStep(prevStep);
+    if (prevStep >= 1) {
+      triggerStepSuggestion(prevStep);
+    }
+  };
+
+  // Action: Regenerate
+  const handleRegenerate = () => {
+    triggerStepSuggestion(setupStep, true);
+  };
+
+  // Action: Save Entire Setup to Database
+  const handleFinalConfirm = async () => {
+    if (isLocked) {
+      showToast("Editing locked! Ongoing or concluded events cannot be modified.", "warning");
+      return;
+    }
+    setIsSaving(true);
+
+    const formatValue = config.format || "solo";
+    const maxMembersValue = formatValue === 'solo' ? null : Math.max(2, config.maxMembers || 2);
+    const maxParticipantsValue = Math.max(1, config.maxParticipants || 50);
+    const judgesValue = Math.max(1, config.judges || 3);
+    const scoringMethodValue = config.scoringMethod || "average";
+    const scaleMin = Math.max(0, config.scale?.min ?? 1);
+    const scaleMax = Math.max(scaleMin + 1, config.scale?.max ?? 10);
+
+    const finalJSON = {
+      competition: selectedEvent.name,
+      format: formatValue,
+      maxMembers: maxMembersValue,
+      maxParticipants: Number(maxParticipantsValue),
+      judges: Number(judgesValue),
+      scoringMethod: scoringMethodValue,
+      scale: { min: Number(scaleMin), max: Number(scaleMax) },
+      rubrics: config.rubrics.map(r => ({ id: r.id, label: r.label, weight: Math.max(1, r.weight) }))
+    };
+
+    setFinalJSONText(JSON.stringify(finalJSON, null, 2));
+
+    // Save to Database
+    const userId = localStorage.getItem('user_id');
+    const createdBy = isValidUUID(userId) ? userId : null;
+
+    try {
+      let error;
+      if (existingRubric) {
+        const { error: err } = await supabase
+          .from('event_rubrics')
+          .update({ config: finalJSON, status: 'published', updated_at: new Date().toISOString() })
+          .eq('event_id', selectedEvent.id);
+        error = err;
+      } else {
+        const { error: err } = await supabase
+          .from('event_rubrics')
+          .insert({
+            event_id: selectedEvent.id,
+            config: finalJSON,
+            status: 'published',
+            created_by: createdBy
+          });
+        error = err;
+      }
+
+      if (error) throw error;
+      showToast("Rubric configured and saved successfully!", "success");
+      
+      // Update global context
+      if (setRubricConfig) {
+        setRubricConfig(finalJSON);
+      }
+
+      // Update local state to reflect that there is an existing rubric now
+      setExistingRubric({
+        event_id: selectedEvent.id,
+        config: finalJSON,
+        status: 'published'
+      });
+      
+      setSetupStep(7);
+    } catch (err) {
+      console.error(err);
+      showToast("Failed to save to database. Outputting details locally.", "warning");
+      setSetupStep(7);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Custom weight list modifiers
+  const addCriterionInput = () => {
+    setCustomVal(prev => ({
+      ...prev,
+      rubrics: [...(prev.rubrics || []), { id: `crit-${Date.now()}`, label: "New Criterion", weight: 10 }]
+    }));
+  };
+
+  const removeCriterionInput = (id) => {
+    setCustomVal(prev => ({
+      ...prev,
+      rubrics: (prev.rubrics || []).filter(r => r.id !== id)
+    }));
+  };
+
+  // Styles & Track Elements
   const styles = {
-    pageHeader: {
-      marginBottom: '40px',
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'flex-start',
-      gap: '24px',
-      flexWrap: 'wrap',
-    },
-    pageTitle: {
-      fontFamily: "'DM Sans', sans-serif",
-      fontSize: '32px',
-      fontWeight: '800',
-      color: colors.navy,
-      letterSpacing: '-0.03em',
-      lineHeight: '1.1',
-      margin: 0,
-      marginBottom: '8px',
-    },
-    pageDescription: {
-      color: colors.inkMid,
-      fontSize: '15px',
-      maxWidth: '600px',
-      lineHeight: '1.55',
-      margin: 0,
-    },
-    btn: (hovered, primary = false) => ({
-      display: 'inline-flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: '8px',
-      padding: '9px 18px',
-      borderRadius: '12px',
-      fontSize: '13.5px',
-      fontWeight: '600',
-      cursor: 'pointer',
-      transition: 'all 0.22s cubic-bezier(0.4, 0, 0.2, 1)',
-      fontFamily: "'Inter', sans-serif",
-      whiteSpace: 'nowrap',
-      height: '42px',
-      background: primary ? (hovered ? colors.navySoft : colors.navy) : (hovered ? colors.pageBg : '#fff'),
-      color: primary ? '#fff' : (hovered ? colors.navy : colors.inkSoft),
-      border: primary ? 'none' : `1px solid ${hovered ? colors.navy : colors.border}`,
-      boxShadow: hovered ? '0 4px 12px rgba(15, 31, 61, 0.15)' : '0 1px 3px rgba(26,24,20,0.06)',
-      transform: hovered ? 'translateY(-1px)' : 'none',
-    }),
-    formSection: {
-      background: '#fff',
-      border: `1px solid ${colors.borderSoft}`,
-      borderRadius: '18px',
-      overflow: 'hidden',
-      boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
-    },
-    formSectionHead: {
-      padding: '16px 24px',
-      borderBottom: `1px solid ${colors.borderSoft}`,
-      display: 'flex',
-      alignItems: 'center',
-      gap: '10px',
-      fontWeight: 700,
-      fontSize: '14px',
-      color: colors.navy,
-      background: '#FAFBFC',
-    },
-    formSectionBody: {
-      padding: '24px',
-    },
-    label: {
-      fontSize: '10.5px',
-      fontWeight: 700,
-      textTransform: 'uppercase',
-      letterSpacing: '0.06em',
-      color: colors.inkMuted,
-      marginBottom: '6px',
-      display: 'block',
-    },
-    input: {
-      width: '100%',
-      height: '40px',
-      padding: '0 12px',
-      border: `1.5px solid ${colors.border}`,
-      borderRadius: '10px',
-      fontSize: '13.5px',
-      fontFamily: "'Inter', sans-serif",
-      outline: 'none',
-      color: colors.navy,
-      background: '#fff',
-      transition: 'all 0.2s',
-      boxSizing: 'border-box',
-    },
-    modalOverlay: {
-      position: 'fixed',
-      top: 0, left: 0, right: 0, bottom: 0,
-      background: 'rgba(15, 31, 61, 0.5)',
-      backdropFilter: 'blur(12px)',
-      display: 'grid',
-      placeItems: 'center',
-      zIndex: 1000,
-      padding: '20px',
-      animation: 'fadeIn 0.2s ease-out forwards',
-    },
-    modalContainer: (maxWidth = '540px') => ({
-      background: '#fff',
-      borderRadius: '24px',
-      width: '100%',
-      maxWidth: maxWidth,
-      boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-      position: 'relative',
-      overflow: 'hidden',
-      animation: 'modalUp 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
-      maxHeight: '90vh',
-      display: 'flex',
-      flexDirection: 'column',
-    }),
-    modalHeader: {
-      padding: '40px 48px 24px',
-      textAlign: 'center',
-    },
-    modalBody: {
-      padding: '0 48px 32px',
-      overflowY: 'auto',
-      flex: 1,
-    },
-    modalFooter: {
-      padding: '0 48px 48px',
-      display: 'grid',
-      gridTemplateColumns: '1fr 1fr',
-      gap: '12px',
-    },
-    closeBtn: {
-      position: 'absolute',
-      top: '24px',
-      right: '24px',
-      background: colors.pageBg,
-      border: 'none',
-      cursor: 'pointer',
-      color: colors.inkMuted,
-      width: '32px',
-      height: '32px',
-      borderRadius: '50%',
-      display: 'grid',
-      placeItems: 'center',
-      transition: 'all 0.2s',
-      zIndex: 10
-    },
-    modalTitle: {
-      fontFamily: "'DM Sans', sans-serif",
-      fontSize: '24px',
-      fontWeight: '800',
-      color: colors.navy,
-      letterSpacing: '-0.02em',
-      margin: 0,
-      marginBottom: '10px',
-    },
+    layoutStyles: (
+      <style>{`
+        .track-step {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 11px;
+          font-weight: 800;
+          text-transform: uppercase;
+          color: ${colors.inkMuted};
+          padding: 8px 12px;
+          border-radius: 8px;
+        }
+        .track-active {
+          color: ${colors.accentDeep};
+          background: ${colors.accentBg};
+        }
+        .track-completed {
+          color: ${colors.success};
+          background: ${colors.successBg};
+        }
+        .setup-card {
+          background: #fff;
+          border: 1.5px solid ${colors.borderSoft};
+          border-radius: 24px;
+          padding: 32px;
+          box-shadow: 0 10px 30px rgba(15,23,42,0.02);
+          transition: all 0.3s ease;
+        }
+        .suggest-box {
+          background: ${colors.pageBg};
+          border: 1px solid ${colors.borderSoft};
+          border-radius: 18px;
+          padding: 24px;
+          margin-bottom: 24px;
+        }
+        .action-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          padding: 12px 24px;
+          border-radius: 12px;
+          font-size: 13.5px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.2s;
+          font-family: inherit;
+        }
+        .action-btn:disabled {
+          opacity: 0.45;
+          cursor: not-allowed;
+          transform: none !important;
+        }
+        .btn-primary {
+          background: ${colors.navy};
+          color: #fff;
+          border: none;
+        }
+        .btn-primary:hover:not(:disabled) {
+          background: ${colors.navySoft};
+          transform: translateY(-1px);
+        }
+        .btn-secondary {
+          background: #fff;
+          color: ${colors.inkSoft};
+          border: 1.5px solid ${colors.border};
+        }
+        .btn-secondary:hover:not(:disabled) {
+          background: ${colors.pageBg};
+          border-color: ${colors.navy};
+          color: ${colors.navy};
+        }
+        .btn-outline {
+          background: rgba(59, 130, 246, 0.05);
+          color: ${colors.accent};
+          border: 1.5px solid rgba(59, 130, 246, 0.15);
+        }
+        .btn-outline:hover:not(:disabled) {
+          background: rgba(59, 130, 246, 0.1);
+        }
+        .inline-custom-panel {
+          border-top: 1.5px dashed ${colors.borderSoft};
+          padding-top: 24px;
+          margin-top: 24px;
+          animation: slideDown 0.25s ease-out;
+        }
+        @keyframes slideDown {
+          from { opacity: 0; transform: translateY(-8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .apex-loader {
+          width: 24px;
+          height: 24px;
+          border: 3px solid ${colors.accentBg};
+          border-top-color: ${colors.accent};
+          border-radius: 50%;
+          animation: spin 0.8s infinite linear;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes pulse {
+          0%, 100% { opacity: 0.6; }
+          50% { opacity: 1; }
+        }
+        .pulse-bar {
+          height: 14px;
+          background: ${colors.borderSoft};
+          border-radius: 4px;
+          animation: pulse 1.5s infinite ease-in-out;
+        }
+      `}</style>
+    )
   };
 
-  const inputFocus = (e) => { e.target.style.borderColor = colors.accent; e.target.style.boxShadow = `0 0 0 3px ${colors.accentGlow}`; };
-  const inputBlur = (e) => { e.target.style.borderColor = colors.border; e.target.style.boxShadow = 'none'; };
-
+  // Guards for safety rendering
   if (eventsLoading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '40vh', flexDirection: 'column', gap: '12px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '50vh', flexDirection: 'column', gap: '12px' }}>
         <span className="material-symbols-rounded" style={{ fontSize: '40px', color: colors.accent, animation: 'spin 1s linear infinite' }}>progress_activity</span>
-        <p style={{ color: colors.inkMuted, fontSize: '14px' }}>Loading rubric settings…</p>
+        <p style={{ color: colors.inkMuted, fontSize: '14px' }}>Loading workspace...</p>
         <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  // 1. Gorgeous, layout-stable Skeleton Loader while initial DB check completes
+  if (isInitialLoading) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '32px', maxWidth: '1200px', margin: '0 auto', fontFamily: "'Inter', sans-serif" }}>
+        {styles.layoutStyles}
+        
+        {/* Skeletal Spanning Header */}
+        <div style={{
+          background: colors.navy, borderRadius: '24px', padding: '28px 36px', height: '110px',
+          boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: '12px', justifyContent: 'center'
+        }}>
+          <div className="pulse-bar" style={{ width: '160px', background: 'rgba(255,255,255,0.15)', height: '12px' }} />
+          <div className="pulse-bar" style={{ width: '320px', background: 'rgba(255,255,255,0.25)', height: '22px' }} />
+        </div>
+
+        {/* Two Column Workspace Grid Layout Skeleton */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1.40fr 1fr', gap: '32px', alignItems: 'start' }}>
+          
+          {/* Left Column: Glowing setup-card skeleton */}
+          <div className="setup-card" style={{ display: 'flex', flexDirection: 'column', gap: '20px', minHeight: '380px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="pulse-bar" style={{ width: '120px', height: '14px' }} />
+              <div className="pulse-bar" style={{ width: '60px', height: '12px' }} />
+            </div>
+            <div className="pulse-bar" style={{ width: '280px', height: '24px', marginTop: '10px' }} />
+            <div className="pulse-bar" style={{ width: '90%', height: '14px' }} />
+            
+            <div style={{ background: colors.pageBg, borderRadius: '18px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', border: `1px solid ${colors.borderSoft}`, marginTop: '10px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div>
+                  <div className="pulse-bar" style={{ width: '80px', height: '10px', marginBottom: '8px' }} />
+                  <div className="pulse-bar" style={{ width: '120px', height: '16px' }} />
+                </div>
+                <div>
+                  <div className="pulse-bar" style={{ width: '80px', height: '10px', marginBottom: '8px' }} />
+                  <div className="pulse-bar" style={{ width: '120px', height: '16px' }} />
+                </div>
+              </div>
+              <div style={{ borderTop: `1.5px solid ${colors.borderSoft}`, paddingTop: '16px' }}>
+                <div className="pulse-bar" style={{ width: '100px', height: '10px', marginBottom: '12px' }} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div className="pulse-bar" style={{ width: '60%', height: '12px' }} />
+                  <div className="pulse-bar" style={{ width: '75%', height: '12px' }} />
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
+              <div className="pulse-bar" style={{ flex: 1.5, height: '44px', borderRadius: '12px' }} />
+              <div className="pulse-bar" style={{ flex: 1, height: '44px', borderRadius: '12px' }} />
+            </div>
+          </div>
+
+          {/* Right Column: Visualizer Sidebar Skeleton */}
+          <div style={{
+            background: '#fff', border: `1.5px solid ${colors.borderSoft}`, borderRadius: '24px',
+            padding: '28px', display: 'flex', flexDirection: 'column', gap: '20px', minHeight: '380px'
+          }}>
+            <div className="pulse-bar" style={{ width: '160px', height: '16px' }} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '10px' }}>
+              {[1, 2, 3, 4].map(idx => (
+                <div key={idx} style={{ padding: '16px', borderRadius: '16px', background: colors.pageBg, display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div className="pulse-bar" style={{ width: '32px', height: '32px', borderRadius: '8px', flexShrink: 0 }} />
+                  <div style={{ flex: 1 }}>
+                    <div className="pulse-bar" style={{ width: '80px', height: '8px', marginBottom: '6px' }} />
+                    <div className="pulse-bar" style={{ width: '120px', height: '12px' }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+        </div>
       </div>
     );
   }
@@ -330,373 +775,902 @@ export default function RubricBuilderPage() {
     return (
       <div style={{ textAlign: 'center', padding: '80px 32px' }}>
         <span className="material-symbols-rounded" style={{ fontSize: '48px', color: colors.border, display: 'block', marginBottom: '12px' }}>event_busy</span>
-        <p style={{ color: colors.inkMuted, fontSize: '15px' }}>No event selected.</p>
+        <p style={{ color: colors.inkMuted, fontSize: '15px' }}>No events yet. Create one to get started.</p>
       </div>
     );
   }
 
-  /* ── CHOOSE VIEW ── */
-  if (mode === 'choose') {
-    return (
-      <>
-        <div style={styles.pageHeader}>
-          <div>
-            <h1 style={styles.pageTitle}>Rubrics &amp; Scoring</h1>
-            <p style={styles.pageDescription}>
-              Start by selecting a rubric creation method for <strong style={{ color: colors.navy }}>{selectedEvent.name}</strong>.
-            </p>
-          </div>
-        </div>
-
-        {aiLoading ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '120px 0', gap: '20px' }}>
-            <div style={{ width: '48px', height: '48px', border: `3px solid ${colors.borderSoft}`, borderTopColor: colors.accent, borderRadius: '50%', animation: 'spin 1.2s linear infinite' }} />
-            <p style={{ color: colors.inkMuted, fontSize: '15px', fontWeight: 500 }}>Architecting your AI rubric configuration...</p>
-          </div>
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px', maxWidth: '1000px' }}>
-            <ChoiceCard title="Standard Template" desc={`Load a pre-configured rubric optimized for ${selectedEvent.type || 'your event'}.`} icon="auto_awesome" label="Recommended" primary onClick={handleApplyTemplate} />
-            <ChoiceCard title="AI Generation" desc="Explain your goals and let StandingsHQ AI balance your criteria and weights." icon="smart_toy" label="AI-Powered" onClick={() => { setAiPrompt(''); setShowAiModal(true); setTimeout(() => aiRef.current?.focus(), 100); }} />
-            <ChoiceCard title="Manual Build" desc="Start from scratch and define every scoring attribute yourself." icon="edit_square" onClick={handleCreateBlank} />
-          </div>
-        )}
-
-        {showAiModal && (
-          <AiModal
-            show={showAiModal}
-            onClose={() => setShowAiModal(false)}
-            onGenerate={handleAiGenerate}
-            prompt={aiPrompt}
-            setPrompt={setAiPrompt}
-            inputRef={aiRef}
-            styles={styles}
-            inputFocus={inputFocus}
-            inputBlur={inputBlur}
-          />
-        )}
-      </>
-    );
-  }
-
-  /* ── EDIT VIEW ── */
   return (
-    <>
-      <div style={styles.pageHeader}>
-        <div>
-          <h1 style={styles.pageTitle}>Rubrics &amp; Scoring</h1>
-          <p style={styles.pageDescription}>
-            Customize scoring criteria for <strong style={{ color: colors.navy }}>{selectedEvent.name}</strong>.
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '32px', maxWidth: '1200px', margin: '0 auto', fontFamily: "'Inter', sans-serif" }}>
+      {styles.layoutStyles}
+
+      {/* ── Event Context Banner (Top Spanning Header) ── */}
+      <div style={{
+        background: colors.navy, borderRadius: '24px', padding: '28px 36px', color: '#fff',
+        boxShadow: '0 10px 30px rgba(15, 23, 42, 0.04)', position: 'relative', overflow: 'hidden',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '24px', flexWrap: 'wrap'
+      }}>
+        {/* Ambient Gradient Background Blur */}
+        <div style={{ position: 'absolute', right: '-40px', top: '-40px', width: '200px', height: '200px', borderRadius: '50%', background: 'rgba(59, 130, 246, 0.15)', filter: 'blur(40px)', pointerEvents: 'none' }} />
+        
+        <div style={{ flex: '1 1 500px', minWidth: '280px', position: 'relative', zIndex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+            <span style={{ fontSize: '9px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', background: 'rgba(255,255,255,0.08)', padding: '4px 10px', borderRadius: '100px' }}>
+              Active Event setup
+            </span>
+            <span style={{ fontSize: '9px', fontWeight: 800, textTransform: 'uppercase', color: colors.accent, background: 'rgba(59, 130, 246, 0.16)', padding: '4px 10px', borderRadius: '100px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+              <span className="material-symbols-rounded" style={{ fontSize: '10px' }}>auto_awesome</span>
+              AI Guided Console
+            </span>
+          </div>
+          
+          <h2 style={{ fontSize: '24px', fontWeight: 900, margin: '0 0 6px', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
+            {selectedEvent.name}
+          </h2>
+          <p style={{ fontSize: '13.5px', opacity: 0.7, lineHeight: 1.4, margin: 0 }}>
+            {selectedEvent.description || "Set up active competition rubrics, scoring combining calculations, and custom jury permissions."}
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          <button
-            style={styles.btn(activeBtnHover === 'air')}
-            onClick={() => setShowAiModal(true)}
-            onMouseEnter={() => setActiveBtnHover('air')}
-            onMouseLeave={() => setActiveBtnHover(null)}
-          >
-            <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>smart_toy</span> AI Regenerate
-          </button>
-          <button
-            style={styles.btn(activeBtnHover === 'rst')}
-            onClick={() => setMode('choose')}
-            onMouseEnter={() => setActiveBtnHover('rst')}
-            onMouseLeave={() => setActiveBtnHover(null)}
-          >
-            <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>refresh</span> Reset
-          </button>
-          <button
-            style={styles.btn(activeBtnHover === 'sav', true)}
-            onClick={handleSave}
-            disabled={!isComplete}
-            onMouseEnter={() => setActiveBtnHover('sav')}
-            onMouseLeave={() => setActiveBtnHover(null)}
-          >
-            <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>save</span>
-            {totalWeight === 100 ? 'Save Rubric' : `Allocation: ${totalWeight}%`}
-          </button>
+
+        <div style={{ 
+          background: 'rgba(255,255,255,0.03)', padding: '14px 24px', borderRadius: '16px', 
+          border: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: '28px', 
+          position: 'relative', zIndex: 1 
+        }}>
+          <div>
+            <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: '2px' }}>Event Category</span>
+            <span style={{ fontSize: '13px', fontWeight: 700 }}>{selectedEvent.type || "Arts & Culture"}</span>
+          </div>
+          <div style={{ borderLeft: '1.5px solid rgba(255,255,255,0.1)', paddingLeft: '28px' }}>
+            <span style={{ fontSize: '9px', fontWeight: 700, textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: '2px' }}>Strategy Mode</span>
+            <span style={{ fontSize: '13px', fontWeight: 700, color: colors.accent }}>{selectedEvent.status || "Upcoming"}</span>
+          </div>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '28px', alignItems: 'flex-start' }}>
-        {/* ── Left: Criteria ── */}
-        <div style={styles.formSection}>
-          <div style={{ ...styles.formSectionHead, justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span className="material-symbols-rounded">checklist</span>
-              Configured Criteria
-            </div>
+      {/* ── Two Column Workspace (Below Spanning Header) ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1.40fr 1fr', gap: '32px', alignItems: 'start' }}>
+        
+        {/* Left Column: Wizard Setup & Active Rubric Configuration (Visual Focus Focal Point!) */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          
+          {/* Step Progression Track (Visible only if NOT viewing active saved rubric dashboard and steps 1 to 5) */}
+          {!hasActiveRubricScreen && setupStep >= 1 && setupStep <= 5 && (
             <div style={{
-              fontSize: '11px', fontWeight: 800, padding: '4px 12px', borderRadius: '100px',
-              background: totalWeight === 100 ? '#ecfdf5' : colors.pageBg,
-              color: totalWeight === 100 ? '#059669' : colors.inkMuted,
-              border: '1px solid currentColor', textTransform: 'uppercase', letterSpacing: '0.04em',
+              background: 'rgba(255, 255, 255, 0.7)',
+              backdropFilter: 'blur(10px)',
+              border: `1px solid ${colors.borderSoft}`,
+              borderRadius: '16px',
+              padding: '12px 16px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: '8px',
+              flexWrap: 'wrap'
             }}>
-              {totalWeight}% Weight Total
+              {[
+                { id: 1, label: 'Format' },
+                { id: 2, label: 'Judges' },
+                { id: 3, label: 'Method' },
+                { id: 4, label: 'Scale' },
+                { id: 5, label: 'Criteria' }
+              ].map(st => {
+                const isActive = setupStep === st.id;
+                const isCompleted = setupStep > st.id;
+                return (
+                  <div key={st.id} className={`track-step ${isActive ? 'track-active' : ''} ${isCompleted ? 'track-completed' : ''}`}>
+                    <span className="material-symbols-rounded" style={{ fontSize: '14px' }}>
+                      {isCompleted ? 'check_circle' : 'radio_button_checked'}
+                    </span>
+                    {st.label}
+                  </div>
+                );
+              })}
             </div>
-          </div>
-          <div>
-            {criteria.map((item, idx) => (
-              <div key={item.id} style={{ padding: '24px', borderBottom: idx < criteria.length - 1 ? `1px solid ${colors.borderSoft}` : 'none', display: 'flex', gap: '20px' }}>
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px 100px', gap: '14px' }}>
-                    <div>
-                      <label style={styles.label}>Criterion Name</label>
-                      <input type="text" style={styles.input} value={item.name} onChange={e => updateC(item.id, 'name', e.target.value)} placeholder="e.g. Creativity" onFocus={inputFocus} onBlur={inputBlur} />
-                    </div>
-                    <div>
-                      <label style={styles.label}>Weight</label>
-                      <div style={{ position: 'relative' }}>
-                        <input type="number" style={{ ...styles.input, fontWeight: 800, paddingRight: '28px', color: colors.accent }} value={item.weight} onChange={e => updateC(item.id, 'weight', e.target.value)} onFocus={inputFocus} onBlur={inputBlur} />
-                        <span style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', fontWeight: 800, fontSize: '14px', color: colors.accent, pointerEvents: 'none' }}>%</span>
-                      </div>
-                    </div>
-                    <div>
-                      <label style={styles.label}>Max Pts</label>
-                      <input type="number" style={{ ...styles.input, fontWeight: 700 }} value={item.maxScore} onChange={e => updateC(item.id, 'maxScore', e.target.value)} onFocus={inputFocus} onBlur={inputBlur} />
-                    </div>
+          )}
+
+          {/* Wizard Main Action Card */}
+          <div className="setup-card" style={{ position: 'relative', overflow: 'hidden' }}>
+            
+            {/* 🔒 Locked Frosted Glass Overlay Screen with Elegant Opacity */}
+            {isLocked && (
+              <div style={{
+                position: 'absolute',
+                inset: 0,
+                background: 'rgba(255, 255, 255, 0.82)',
+                backdropFilter: 'blur(6px)',
+                zIndex: 100,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '32px',
+                textAlign: 'center',
+                animation: 'slideDown 0.3s ease-out'
+              }}>
+                <div style={{
+                  background: '#fff',
+                  border: `1.5px solid ${colors.borderSoft}`,
+                  borderRadius: '24px',
+                  padding: '36px 28px',
+                  maxWidth: '400px',
+                  boxShadow: '0 20px 48px rgba(15, 23, 42, 0.08)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '18px'
+                }}>
+                  <div style={{
+                    width: '60px',
+                    height: '60px',
+                    borderRadius: '50%',
+                    background: '#FFF9E6',
+                    color: '#D97706',
+                    display: 'grid',
+                    placeItems: 'center',
+                    boxShadow: '0 4px 14px rgba(217, 119, 6, 0.15)'
+                  }}>
+                    <span className="material-symbols-rounded" style={{ fontSize: '28px' }}>lock</span>
                   </div>
                   <div>
-                    <label style={styles.label}>Guideline Description</label>
-                    <input type="text" style={{ ...styles.input, fontSize: '13px', color: colors.inkMuted }} value={item.description} onChange={e => updateC(item.id, 'description', e.target.value)} placeholder="Guidelines for judges evaluating this criterion..." onFocus={inputFocus} onBlur={inputBlur} />
+                    <h3 style={{ fontSize: '19px', fontWeight: 800, color: colors.navy, margin: '0 0 8px', letterSpacing: '-0.02em' }}>
+                      Rubric Configuration Locked
+                    </h3>
+                    <p style={{ fontSize: '13.5px', color: colors.inkSoft, lineHeight: 1.5, margin: 0 }}>
+                      This event has officially commenced or is active. Rubric parameters are locked to maintain evaluation validity and tournament scoring integrity.
+                    </p>
+                  </div>
+                  <div style={{ 
+                    fontSize: '11px', fontWeight: 800, color: colors.inkMuted, 
+                    textTransform: 'uppercase', letterSpacing: '0.05em', 
+                    background: colors.pageBg, padding: '6px 14px', borderRadius: '100px',
+                    border: `1px solid ${colors.borderSoft}`
+                  }}>
+                    Start Date: {selectedEvent.startDate ? new Date(selectedEvent.startDate + 'T00:00:00').toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Today'}
                   </div>
                 </div>
-                <button
-                  onClick={() => removeC(item.id)}
-                  onMouseEnter={() => setActiveBtnHover(`rm-${item.id}`)}
-                  onMouseLeave={() => setActiveBtnHover(null)}
-                  style={{
-                    alignSelf: 'flex-start', marginTop: '26px',
-                    background: activeBtnHover === `rm-${item.id}` ? 'rgba(239,68,68,0.15)' : 'rgba(239,68,68,0.08)',
-                    border: 'none', color: '#DC2626', width: '40px', height: '40px',
-                    borderRadius: '10px', display: 'grid', placeItems: 'center',
-                    cursor: 'pointer', transition: 'all 0.2s',
-                  }}
-                >
-                  <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>delete</span>
-                </button>
               </div>
-            ))}
-            <div style={{ padding: '20px 24px' }}>
-              <button
-                style={{ ...styles.btn(activeBtnHover === 'add-c'), width: '100%', height: '52px', borderStyle: 'dashed', fontWeight: 700 }}
-                onClick={addC}
-                onMouseEnter={() => setActiveBtnHover('add-c')}
-                onMouseLeave={() => setActiveBtnHover(null)}
-              >
-                <span className="material-symbols-rounded">add</span> Add Manual Criterion
-              </button>
-            </div>
+            )}
+
+            {/* Validation Warnings */}
+            {(valWarning || (isCustomizing && validationError)) && (
+              <div style={{
+                background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#B91C1C',
+                padding: '12px 16px', borderRadius: '12px', fontSize: '13px', fontWeight: 600,
+                display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px',
+                animation: 'slideDown 0.2s ease-out'
+              }}>
+                <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>error</span>
+                {valWarning || validationError}
+              </div>
+            )}
+            
+            {/* ── Active Saved Rubric Screen (Shows if config exists and was not edited yet) ── */}
+            {existingRubric && hasActiveRubricScreen ? (
+              <div style={{ animation: 'slideDown 0.3s ease' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span className="material-symbols-rounded" style={{ color: colors.success }}>verified</span>
+                    <span style={{ fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.08em', color: colors.success }}>Active Rubric Configuration</span>
+                  </div>
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: colors.inkMuted }}>Live</span>
+                </div>
+
+                <h2 style={{ fontSize: '20px', fontWeight: 800, color: colors.navy, margin: '0 0 8px' }}>
+                  This event is already configured
+                </h2>
+                <p style={{ fontSize: '14px', color: colors.inkSoft, marginBottom: '24px' }}>
+                  The active rubric configuration below is live and currently governing judges' scoresheets.
+                </p>
+
+                <div style={{ background: colors.pageBg, borderRadius: '18px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '12px', border: `1px solid ${colors.borderSoft}`, marginBottom: '28px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', borderBottom: `1.5px solid ${colors.borderSoft}`, paddingBottom: '16px' }}>
+                    <div>
+                      <span style={{ fontSize: '10px', fontWeight: 700, color: colors.inkMuted, textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>Participation</span>
+                      <span style={{ fontSize: '14px', fontWeight: 800, color: colors.navy }}>
+                        {(config.format || "").toUpperCase()} {config.format !== 'solo' ? `(Team Size Max: ${config.maxMembers})` : ''}
+                      </span>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '10px', fontWeight: 700, color: colors.inkMuted, textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>Participant Limit</span>
+                      <span style={{ fontSize: '14px', fontWeight: 800, color: colors.navy }}>
+                        {config.maxParticipants ? `${config.maxParticipants} ${config.format === 'group' ? 'Teams' : 'Participants'}` : 'Unlimited'}
+                      </span>
+                    </div>
+                    <div style={{ marginTop: '10px' }}>
+                      <span style={{ fontSize: '10px', fontWeight: 700, color: colors.inkMuted, textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>Judge Panel</span>
+                      <span style={{ fontSize: '14px', fontWeight: 800, color: colors.navy }}>{config.judges} Evaluators</span>
+                    </div>
+                    <div style={{ marginTop: '10px' }}>
+                      <span style={{ fontSize: '10px', fontWeight: 700, color: colors.inkMuted, textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>combining method</span>
+                      <span style={{ fontSize: '14px', fontWeight: 800, color: colors.navy }}>
+                        {config.scoringMethod === 'drop' ? 'Drop extreme outliers' : (config.scoringMethod || "").toUpperCase()}
+                      </span>
+                    </div>
+                    <div style={{ marginTop: '10px' }}>
+                      <span style={{ fontSize: '10px', fontWeight: 700, color: colors.inkMuted, textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>scoring scale</span>
+                      <span style={{ fontSize: '14px', fontWeight: 800, color: colors.navy }}>Scale {config.scale?.min ?? 1}-{config.scale?.max ?? 10}</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <span style={{ fontSize: '10px', fontWeight: 700, color: colors.inkMuted, textTransform: 'uppercase', display: 'block', marginBottom: '8px' }}>Criteria breakdown</span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {config.rubrics && config.rubrics.map((r, idx) => (
+                        <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13.5px', fontWeight: 700, color: colors.navy }}>
+                          <span>{idx + 1}. {r.label}</span>
+                          <span style={{ color: colors.accent }}>{r.weight}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <button
+                    onClick={() => {
+                      setHasActiveRubricScreen(false);
+                      setSetupStep(6); // Jump straight to full visual summary step so they can edit easily
+                    }}
+                    className="action-btn btn-primary"
+                    style={{ flex: 1.5 }}
+                  >
+                    <span className="material-symbols-rounded">edit</span>
+                    Edit Specifications
+                  </button>
+                  <button
+                    onClick={() => {
+                      setHasActiveRubricScreen(false);
+                      setSetupStep(1);
+                      triggerStepSuggestion(1); // Re-run assistant sequence
+                    }}
+                    className="action-btn btn-secondary"
+                    style={{ flex: 1 }}
+                  >
+                    <span className="material-symbols-rounded">sync</span>
+                    Re-Configure
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* ── Step 0: Event Identity Confirmation ── */}
+                {setupStep === 0 && (
+                  <div style={{ animation: 'slideDown 0.3s ease' }}>
+                    <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: colors.accentBg, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px' }}>
+                      <span className="material-symbols-rounded" style={{ fontSize: '24px', color: colors.accent }}>auto_awesome</span>
+                    </div>
+                    
+                    <h2 style={{ fontSize: '20px', fontWeight: 800, color: colors.navy, margin: '0 0 16px', lineHeight: 1.3 }}>
+                      Is this setup rubric configuration for the selected event ready to be defined?
+                    </h2>
+
+                    <div style={{ background: colors.pageBg, borderRadius: '16px', padding: '20px', marginBottom: '28px', border: `1px solid ${colors.borderSoft}` }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                        <span className="material-symbols-rounded" style={{ color: colors.accent, fontSize: '18px' }}>analytics</span>
+                        <span style={{ fontSize: '12px', fontWeight: 800, color: colors.inkMuted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Setup Classify Assessment</span>
+                      </div>
+                      <p style={{ fontSize: '14px', color: colors.navy, fontWeight: 700, margin: '0 0 4px' }}>
+                        Target: {selectedEvent.name}
+                      </p>
+                      <p style={{ fontSize: '13.5px', color: colors.inkSoft, margin: 0, lineHeight: 1.5 }}>
+                        The Setup Assistant will suggest optimized judges counts, score combining methods, ranges, and weight-balanced rubrics directly.
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() => { setSetupStep(1); triggerStepSuggestion(1); }}
+                      className="action-btn btn-primary"
+                      style={{ width: '100%' }}
+                    >
+                      <span className="material-symbols-rounded">rocket_launch</span>
+                      Yes, Start Setup Assistant
+                    </button>
+                  </div>
+                )}
+
+                {/* ── Step 1 to 5: Setup Options Workspace ── */}
+                {setupStep >= 1 && setupStep <= 5 && (
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                      <h3 style={{ fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.08em', color: colors.accent }}>
+                        Configuring Setting {setupStep} of 5
+                      </h3>
+                    </div>
+
+                    {/* Suggestions Panel */}
+                    <div className="suggest-box" style={{ minHeight: '120px', display: 'flex', flexDirection: 'column', justifyItems: 'center', justifyContent: 'center' }}>
+                      {loading ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div className="apex-loader" />
+                            <span style={{ fontSize: '13px', fontWeight: 700, color: colors.navy }}>
+                              AI Assistant is analyzing context and formulating proposal...
+                            </span>
+                          </div>
+                          <div className="pulse-bar" style={{ width: '90%' }} />
+                          <div className="pulse-bar" style={{ width: '65%' }} />
+                        </div>
+                      ) : (
+                        <>
+                          {setupStep === 1 && suggestion && (
+                            <div>
+                              <div style={{ fontSize: '12px', fontWeight: 800, color: colors.inkMuted, marginBottom: '6px', textTransform: 'uppercase' }}>Suggested Participation Type</div>
+                              <div style={{ fontSize: '24px', fontWeight: 900, color: colors.navy, marginBottom: '10px' }}>
+                                {(suggestion.format || "").toUpperCase() === "TEAM" ? "GROUP" : (suggestion.format || "").toUpperCase()} 
+                                {(suggestion.format || "").toLowerCase() !== 'solo' ? ` (Max members: ${Math.max(2, suggestion.maxMembers || 5)})` : ''}
+                              </div>
+                              <p style={{ fontSize: '13.5px', color: colors.inkSoft, margin: 0, lineHeight: 1.4 }}>
+                                {suggestion.reason}
+                              </p>
+                            </div>
+                          )}
+
+                          {setupStep === 2 && suggestion && (
+                            <div>
+                              <div style={{ fontSize: '12px', fontWeight: 800, color: colors.inkMuted, marginBottom: '6px', textTransform: 'uppercase' }}>Suggested Panel Credentials</div>
+                              <div style={{ fontSize: '24px', fontWeight: 900, color: colors.navy, marginBottom: '10px' }}>
+                                {Math.max(1, suggestion.judges || 3)} Evaluators
+                              </div>
+                              <p style={{ fontSize: '13.5px', color: colors.inkSoft, margin: 0, lineHeight: 1.4 }}>
+                                {suggestion.reason}
+                              </p>
+                            </div>
+                          )}
+
+                          {setupStep === 3 && suggestion && (
+                            <div>
+                              <div style={{ fontSize: '12px', fontWeight: 800, color: colors.inkMuted, marginBottom: '6px', textTransform: 'uppercase' }}>Suggested Score Combining Method</div>
+                              <div style={{ fontSize: '22px', fontWeight: 900, color: colors.navy, marginBottom: '10px' }}>
+                                {suggestion.scoringMethod === 'drop' ? 'Drop extreme outliers then average' : (suggestion.scoringMethod || "").toUpperCase()}
+                              </div>
+                              <p style={{ fontSize: '13.5px', color: colors.inkSoft, margin: 0, lineHeight: 1.4 }}>
+                                {suggestion.reason}
+                              </p>
+                            </div>
+                          )}
+
+                          {setupStep === 4 && suggestion && (
+                            <div>
+                              <div style={{ fontSize: '12px', fontWeight: 800, color: colors.inkMuted, marginBottom: '6px', textTransform: 'uppercase' }}>Suggested Scoring Scale</div>
+                              <div style={{ fontSize: '24px', fontWeight: 900, color: colors.navy, marginBottom: '10px' }}>
+                                Scale: {Math.max(0, suggestion.scale?.min ?? 1)} to {Math.max(1, suggestion.scale?.max ?? 10)}
+                              </div>
+                              <p style={{ fontSize: '13.5px', color: colors.inkSoft, margin: 0, lineHeight: 1.4 }}>
+                                {suggestion.reason}
+                              </p>
+                            </div>
+                          )}
+
+                          {setupStep === 5 && suggestion && (
+                            <div>
+                              <div style={{ fontSize: '12px', fontWeight: 800, color: colors.inkMuted, marginBottom: '12px', textTransform: 'uppercase' }}>Suggested Rubric Weight Breakdown</div>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+                                {suggestion.rubrics && suggestion.rubrics.map((r, idx) => (
+                                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', fontWeight: 700, color: colors.navy }}>
+                                    <span>{idx + 1}. {r.label}</span>
+                                    <span style={{ color: colors.accent }}>{Math.max(1, r.weight)}%</span>
+                                  </div>
+                                ))}
+                              </div>
+                              <p style={{ fontSize: '13px', color: colors.inkSoft, margin: 0, lineHeight: 1.4, borderTop: `1px solid ${colors.borderSoft}`, paddingTop: '10px' }}>
+                                Reason: {suggestion.reason || "Structured weight ratios provide cohesive performance scoring."}
+                              </p>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+
+                    {/* Main Setup Controls */}
+                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+                      {setupStep > 1 && (
+                        <button onClick={handleBack} disabled={loading} className="action-btn btn-secondary" style={{ padding: '12px 18px' }}>
+                          <span className="material-symbols-rounded">arrow_back</span>
+                          Back
+                        </button>
+                      )}
+                      <button onClick={handleAccept} disabled={loading} className="action-btn btn-primary" style={{ flex: 1.5 }}>
+                        <span className="material-symbols-rounded">check</span>
+                        Accept Recommendation
+                      </button>
+                      <button onClick={() => setIsCustomizing(!isCustomizing)} disabled={loading} className="action-btn btn-secondary" style={{ flex: 1 }}>
+                        <span className="material-symbols-rounded">edit</span>
+                        Customize
+                      </button>
+                      <button onClick={handleRegenerate} disabled={loading} className="action-btn btn-outline" style={{ width: '48px', height: '48px', padding: 0 }}>
+                        <span className="material-symbols-rounded">sync</span>
+                      </button>
+                    </div>
+
+                    {/* Inline Customization Section */}
+                    {isCustomizing && (
+                      <div className="inline-custom-panel">
+                        <h4 style={{ fontSize: '13px', fontWeight: 800, color: colors.navy, margin: '0 0 16px' }}>Customize values directly:</h4>
+                        
+                        {/* Step 1 custom form */}
+                        {setupStep === 1 && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                            <div style={{ display: 'flex', gap: '10px' }}>
+                              {['solo', 'group'].map(f => (
+                                <button
+                                  key={f}
+                                  onClick={() => {
+                                    setCustomVal(prev => ({
+                                      ...prev,
+                                      format: f,
+                                      maxMembers: f === 'solo' ? 1 : Math.max(2, prev.maxMembers || 2)
+                                    }));
+                                  }}
+                                  style={{
+                                    flex: 1, padding: '10px', borderRadius: '10px', fontSize: '12px', fontWeight: 700, cursor: 'pointer',
+                                    border: `1.5px solid ${customVal.format === f ? colors.navy : colors.border}`,
+                                    background: customVal.format === f ? colors.navy : '#fff',
+                                    color: customVal.format === f ? '#fff' : colors.inkSoft
+                                  }}
+                                >
+                                  {f.toUpperCase()}
+                                </button>
+                              ))}
+                            </div>
+                            {customVal.format === 'group' && (
+                              <div>
+                                <label style={{ fontSize: '11px', fontWeight: 700, color: colors.inkMuted, display: 'block', marginBottom: '6px' }}>MAX TEAM MEMBERS (MINIMUM 2)</label>
+                                <input
+                                  type="number"
+                                  min="2"
+                                  value={customVal.maxMembers || 2}
+                                  onChange={e => {
+                                    const v = Number(e.target.value);
+                                    setCustomVal(prev => ({ ...prev, maxMembers: v }));
+                                  }}
+                                  style={{ width: '100%', padding: '10px', borderRadius: '10px', border: `1.5px solid ${colors.border}`, boxSizing: 'border-box' }}
+                                />
+                              </div>
+                            )}
+                            <div>
+                              <label style={{ fontSize: '11px', fontWeight: 700, color: colors.inkMuted, display: 'block', marginBottom: '6px' }}>
+                                MAXIMUM {customVal.format === 'group' ? 'TEAMS' : 'PARTICIPANTS'} (MINIMUM 1)
+                              </label>
+                              <input
+                                type="number"
+                                min="1"
+                                value={customVal.maxParticipants || 50}
+                                onChange={e => {
+                                  const v = Number(e.target.value);
+                                  setCustomVal(prev => ({ ...prev, maxParticipants: v }));
+                                }}
+                                style={{ width: '100%', padding: '10px', borderRadius: '10px', border: `1.5px solid ${colors.border}`, boxSizing: 'border-box' }}
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Step 2 custom form */}
+                        {setupStep === 2 && (
+                          <div>
+                            <label style={{ fontSize: '11px', fontWeight: 700, color: colors.inkMuted, display: 'block', marginBottom: '6px' }}>JUDGE COUNT (MINIMUM 1)</label>
+                            <input
+                              type="number"
+                              min="1"
+                              value={customVal.judges || 3}
+                              onChange={e => {
+                                const v = Number(e.target.value);
+                                setCustomVal(prev => ({ ...prev, judges: v }));
+                              }}
+                              style={{ width: '100%', padding: '10px', borderRadius: '10px', border: `1.5px solid ${colors.border}`, boxSizing: 'border-box' }}
+                            />
+                          </div>
+                        )}
+
+                        {/* Step 3 custom form */}
+                        {setupStep === 3 && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {[
+                              { id: 'average', label: "Average Scoring" },
+                              { id: 'sum', label: "Sum Total" },
+                              { id: 'drop', label: "Drop extreme outliers then average" }
+                            ].map(opt => (
+                              <button
+                                key={opt.id}
+                                onClick={() => setCustomVal(prev => ({ ...prev, scoringMethod: opt.id }))}
+                                style={{
+                                  padding: '12px', borderRadius: '10px', fontSize: '12.5px', fontWeight: 700, cursor: 'pointer', textAlign: 'left',
+                                  border: `1.5px solid ${customVal.scoringMethod === opt.id ? colors.navy : colors.borderSoft}`,
+                                  background: customVal.scoringMethod === opt.id ? colors.navy : '#fff',
+                                  color: customVal.scoringMethod === opt.id ? '#fff' : colors.inkSoft
+                                }}
+                              >
+                                {opt.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Step 4 custom form */}
+                        {setupStep === 4 && (
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                            <div>
+                              <label style={{ fontSize: '11px', fontWeight: 700, color: colors.inkMuted, display: 'block', marginBottom: '6px' }}>MIN RANGE (MINIMUM 0)</label>
+                              <input
+                                type="number"
+                                min="0"
+                                value={customVal.scaleMin ?? 1}
+                                onChange={e => {
+                                  const v = Number(e.target.value);
+                                  setCustomVal(prev => ({ ...prev, scaleMin: v }));
+                                }}
+                                style={{ width: '100%', padding: '10px', borderRadius: '10px', border: `1.5px solid ${colors.border}`, boxSizing: 'border-box' }}
+                              />
+                            </div>
+                            <div>
+                              <label style={{ fontSize: '11px', fontWeight: 700, color: colors.inkMuted, display: 'block', marginBottom: '6px' }}>MAX RANGE</label>
+                              <input
+                                type="number"
+                                value={customVal.scaleMax ?? 10}
+                                onChange={e => {
+                                  const v = Number(e.target.value);
+                                  setCustomVal(prev => ({ ...prev, scaleMax: v }));
+                                }}
+                                style={{ width: '100%', padding: '10px', borderRadius: '10px', border: `1.5px solid ${colors.border}`, boxSizing: 'border-box' }}
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Step 5 custom form */}
+                        {setupStep === 5 && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            {customVal.rubrics && customVal.rubrics.map((r, idx) => (
+                              <div key={r.id} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                <input
+                                  type="text"
+                                  value={r.label}
+                                  onChange={e => {
+                                    const list = [...customVal.rubrics];
+                                    list[idx].label = e.target.value;
+                                    setCustomVal(prev => ({ ...prev, rubrics: list }));
+                                  }}
+                                  style={{ flex: 3, padding: '8px 12px', borderRadius: '8px', border: `1.5px solid ${colors.border}`, fontSize: '13px' }}
+                                  placeholder="Criteria label"
+                                />
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={r.weight}
+                                  onChange={e => {
+                                    const list = [...customVal.rubrics];
+                                    list[idx].weight = e.target.value; // Store as raw input so user can edit freely
+                                    setCustomVal(prev => ({ ...prev, rubrics: list }));
+                                  }}
+                                  onBlur={e => {
+                                    const list = [...customVal.rubrics];
+                                    // Clamp to at least 1% on blur to prevent 0 or empty inputs
+                                    list[idx].weight = Math.max(1, Number(e.target.value) || 1);
+                                    setCustomVal(prev => ({ ...prev, rubrics: list }));
+                                  }}
+                                  style={{ flex: 1.2, padding: '8px 10px', borderRadius: '8px', border: `1.5px solid ${colors.border}`, textAlign: 'right', fontSize: '13px' }}
+                                  placeholder="Weight %"
+                                />
+                                <button
+                                  onClick={() => removeCriterionInput(r.id)}
+                                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.error }}
+                                >
+                                  <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>delete</span>
+                                </button>
+                              </div>
+                            ))}
+                            
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px' }}>
+                              <button
+                                onClick={addCriterionInput}
+                                style={{
+                                  background: 'none', border: 'none', cursor: 'pointer', color: colors.accent,
+                                  fontSize: '12px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '4px'
+                                }}
+                              >
+                                <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>add</span> Add Criteria
+                              </button>
+                              
+                              <span style={{ fontSize: '11px', fontWeight: 700, color: colors.inkMuted }}>
+                                Total Weight: {customVal.rubrics ? customVal.rubrics.reduce((s, r) => s + (Number(r.weight) || 0), 0) : 0}%
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
+                        <button
+                          onClick={handleApplyCustomValue}
+                          disabled={isConfirmDisabled}
+                          className="action-btn btn-primary"
+                          style={{ width: '100%', marginTop: '20px' }}
+                        >
+                          Confirm & Apply Custom Settings
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ── Step 6: Full Summary Review ── */}
+                {setupStep === 6 && (
+                  <div style={{ animation: 'slideDown 0.3s ease' }}>
+                    <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: colors.successBg, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px' }}>
+                      <span className="material-symbols-rounded" style={{ fontSize: '24px', color: colors.success }}>check_circle</span>
+                    </div>
+                    
+                    <h2 style={{ fontSize: '22px', fontWeight: 800, color: colors.navy, margin: '0 0 8px' }}>
+                      Does everything look correct? Say confirm or tell me what to change.
+                    </h2>
+                    <p style={{ fontSize: '14px', color: colors.inkSoft, marginBottom: '24px' }}>
+                      Review your event specifications. Once saved, these configurations will govern real-time judge scoring.
+                    </p>
+
+                    <div style={{ background: colors.pageBg, borderRadius: '18px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '12px', border: `1px solid ${colors.borderSoft}`, marginBottom: '28px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', borderBottom: `1.5px solid ${colors.borderSoft}`, paddingBottom: '16px' }}>
+                        <div>
+                          <span style={{ fontSize: '10px', fontWeight: 700, color: colors.inkMuted, textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>Participation</span>
+                          <span style={{ fontSize: '14px', fontWeight: 800, color: colors.navy }}>
+                            {(config.format || "").toUpperCase()} {config.format !== 'solo' ? `(Team Size Max: ${config.maxMembers})` : ''}
+                          </span>
+                        </div>
+                        <div>
+                          <span style={{ fontSize: '10px', fontWeight: 700, color: colors.inkMuted, textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>Participant Limit</span>
+                          <span style={{ fontSize: '14px', fontWeight: 800, color: colors.navy }}>
+                            {config.maxParticipants ? `${config.maxParticipants} ${config.format === 'group' ? 'Teams' : 'Participants'}` : 'Unlimited'}
+                          </span>
+                        </div>
+                        <div style={{ marginTop: '10px' }}>
+                          <span style={{ fontSize: '10px', fontWeight: 700, color: colors.inkMuted, textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>Judge Panel</span>
+                          <span style={{ fontSize: '14px', fontWeight: 800, color: colors.navy }}>{config.judges} Evaluators</span>
+                        </div>
+                        <div style={{ marginTop: '10px' }}>
+                          <span style={{ fontSize: '10px', fontWeight: 700, color: colors.inkMuted, textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>combining method</span>
+                          <span style={{ fontSize: '14px', fontWeight: 800, color: colors.navy }}>
+                            {config.scoringMethod === 'drop' ? 'Drop extreme outliers' : (config.scoringMethod || "").toUpperCase()}
+                          </span>
+                        </div>
+                        <div style={{ marginTop: '10px' }}>
+                          <span style={{ fontSize: '10px', fontWeight: 700, color: colors.inkMuted, textTransform: 'uppercase', display: 'block', marginBottom: '2px' }}>scoring scale</span>
+                          <span style={{ fontSize: '14px', fontWeight: 800, color: colors.navy }}>Scale {config.scale?.min ?? 1}-{config.scale?.max ?? 10}</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <span style={{ fontSize: '10px', fontWeight: 700, color: colors.inkMuted, textTransform: 'uppercase', display: 'block', marginBottom: '8px' }}>Criteria breakdown</span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          {config.rubrics && config.rubrics.map((r, idx) => (
+                            <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13.5px', fontWeight: 700, color: colors.navy }}>
+                              <span>{idx + 1}. {r.label}</span>
+                              <span style={{ color: colors.accent }}>{r.weight}%</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '12px' }}>
+                      <button onClick={handleBack} disabled={isSaving} className="action-btn btn-secondary" style={{ padding: '12px 18px' }}>
+                        <span className="material-symbols-rounded">arrow_back</span>
+                        Back
+                      </button>
+                      
+                      <button
+                        onClick={handleFinalConfirm}
+                        disabled={isSaving}
+                        className="action-btn btn-primary"
+                        style={{ flex: 2, background: colors.success }}
+                      >
+                        <span className="material-symbols-rounded">check</span>
+                        {isSaving ? "Publishing Setup..." : "Confirm & Save"}
+                      </button>
+                      
+                      <button
+                        onClick={() => {
+                          setSetupStep(1);
+                          triggerStepSuggestion(1);
+                        }}
+                        disabled={isSaving}
+                        className="action-btn btn-secondary"
+                        style={{ flex: 1.2 }}
+                      >
+                        Reset Form
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Step 7: Completed Celebration and JSON Block Output ── */}
+                {setupStep === 7 && (
+                  <div style={{ animation: 'slideDown 0.3s ease' }}>
+                    <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: colors.successBg, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px' }}>
+                      <span className="material-symbols-rounded" style={{ fontSize: '24px', color: colors.success }}>verified</span>
+                    </div>
+                    
+                    <h2 style={{ fontSize: '22px', fontWeight: 800, color: colors.navy, margin: '0 0 8px' }}>
+                      Setup Finalized!
+                    </h2>
+                    <p style={{ fontSize: '14px', color: colors.inkSoft, marginBottom: '20px' }}>
+                      Your scoring parameters and guidelines have been stored in the database. 
+                      Below is the dynamic configuration JSON generated for this event:
+                    </p>
+
+                    <pre style={{
+                      background: colors.navySoft, color: '#fff', padding: '20px', borderRadius: '14px',
+                      overflowX: 'auto', fontSize: '13px', fontFamily: "'Fira Code', monospace", marginBottom: '28px'
+                    }}>
+                      <code>{finalJSONText}</code>
+                    </pre>
+
+                    <div style={{ display: 'flex', gap: '12px' }}>
+                      <button
+                        onClick={() => setHasActiveRubricScreen(true)}
+                        className="action-btn btn-primary"
+                        style={{ flex: 1.5 }}
+                      >
+                        View Live Rubric
+                      </button>
+                      <button
+                        onClick={() => {
+                          setHasActiveRubricScreen(false);
+                          setSetupStep(1);
+                          triggerStepSuggestion(1);
+                        }}
+                        className="action-btn btn-secondary"
+                        style={{ flex: 1 }}
+                      >
+                        Re-Configure
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
           </div>
+
         </div>
 
-        {/* ── Right: Sidebar ── */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', position: 'sticky', top: '24px' }}>
-          {/* Scoring Strategy */}
-          <div style={styles.formSection}>
-            <div style={styles.formSectionHead}>
-              <span className="material-symbols-rounded">settings</span> Scoring Strategy
-            </div>
-            <div style={{ ...styles.formSectionBody, display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div>
-                <label style={styles.label}>Calculation Mode</label>
-                <select style={styles.input} value={scoringMode} onChange={e => setScoringMode(e.target.value)} onFocus={inputFocus} onBlur={inputBlur}>
-                  <option>Standard Average</option>
-                  <option>Olympic (Trim Ends)</option>
-                  <option>Cumulative Points</option>
-                </select>
+        {/* Right Column: Live Setup Visualizer Dashboard */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          
+          <div style={{
+            background: '#fff', border: `1.5px solid ${colors.borderSoft}`, borderRadius: '24px',
+            padding: '28px', display: 'flex', flexDirection: 'column', gap: '20px'
+          }}>
+            <h3 style={{ fontSize: '14px', fontWeight: 800, color: colors.navy, margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span className="material-symbols-rounded" style={{ color: colors.accent }}>dashboard</span>
+              Live Setup Visualizer
+            </h3>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              
+              {/* Visualizer Item 1: Format */}
+              <div style={{
+                padding: '16px', borderRadius: '16px', background: colors.pageBg,
+                border: `1.5px solid ${setupStep === 1 ? colors.navy : 'transparent'}`,
+                transition: 'all 0.3s', display: 'flex', justifyItems: 'center', justifyContent: 'space-between', alignItems: 'center'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: (existingRubric && hasActiveRubricScreen) || setupStep > 1 ? colors.successBg : '#fff', color: (existingRubric && hasActiveRubricScreen) || setupStep > 1 ? colors.success : colors.inkMuted, display: 'grid', placeItems: 'center' }}>
+                    <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>widgets</span>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '10.5px', fontWeight: 700, color: colors.inkMuted, display: 'block' }}>Participation</span>
+                    <span style={{ fontSize: '13px', fontWeight: 800, color: colors.navy }}>
+                      {(existingRubric && hasActiveRubricScreen) || setupStep > 1 ? (config.format || "").toUpperCase() : "Pending..."}
+                    </span>
+                  </div>
+                </div>
+                {((existingRubric && hasActiveRubricScreen) || setupStep > 1) && (config.format || "").toLowerCase() !== 'solo' && (
+                  <span style={{ fontSize: '11px', fontWeight: 800, color: colors.accent, background: colors.accentBg, padding: '4px 10px', borderRadius: '6px' }}>
+                    Max: {config.maxMembers}
+                  </span>
+                )}
               </div>
-              <div>
-                <label style={styles.label}>Precision</label>
-                <select style={styles.input} value={decimals} onChange={e => setDecimals(e.target.value)} onFocus={inputFocus} onBlur={inputBlur}>
-                  <option>Whole Numbers (9)</option>
-                  <option>1 Decimal (9.5)</option>
-                  <option>2 Decimals (9.55)</option>
-                </select>
+
+              {/* Visualizer Item 2: Judges */}
+              <div style={{
+                padding: '16px', borderRadius: '16px', background: colors.pageBg,
+                border: `1.5px solid ${setupStep === 2 ? colors.navy : 'transparent'}`,
+                transition: 'all 0.3s', display: 'flex', justifyItems: 'center', justifyContent: 'space-between', alignItems: 'center'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: (existingRubric && hasActiveRubricScreen) || setupStep > 2 ? colors.successBg : '#fff', color: (existingRubric && hasActiveRubricScreen) || setupStep > 2 ? colors.success : colors.inkMuted, display: 'grid', placeItems: 'center' }}>
+                    <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>gavel</span>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '10.5px', fontWeight: 700, color: colors.inkMuted, display: 'block' }}>Judge Panel</span>
+                    <span style={{ fontSize: '13px', fontWeight: 800, color: colors.navy }}>
+                      {(existingRubric && hasActiveRubricScreen) || setupStep > 2 ? `${config.judges} Evaluators` : "Pending..."}
+                    </span>
+                  </div>
+                </div>
               </div>
+
+              {/* Visualizer Item 3: Combine Method */}
+              <div style={{
+                padding: '16px', borderRadius: '16px', background: colors.pageBg,
+                border: `1.5px solid ${setupStep === 3 ? colors.navy : 'transparent'}`,
+                transition: 'all 0.3s', display: 'flex', justifyItems: 'center', justifyContent: 'space-between', alignItems: 'center'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: (existingRubric && hasActiveRubricScreen) || setupStep > 3 ? colors.successBg : '#fff', color: (existingRubric && hasActiveRubricScreen) || setupStep > 3 ? colors.success : colors.inkMuted, display: 'grid', placeItems: 'center' }}>
+                    <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>calculate</span>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '10.5px', fontWeight: 700, color: colors.inkMuted, display: 'block' }}>Combining Method</span>
+                    <span style={{ fontSize: '13px', fontWeight: 800, color: colors.navy }}>
+                      {(existingRubric && hasActiveRubricScreen) || setupStep > 3 ? (config.scoringMethod === 'drop' ? 'Drop extreme averages' : (config.scoringMethod || "").toUpperCase()) : "Pending..."}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Visualizer Item 4: Scale */}
+              <div style={{
+                padding: '16px', borderRadius: '16px', background: colors.pageBg,
+                border: `1.5px solid ${setupStep === 4 ? colors.navy : 'transparent'}`,
+                transition: 'all 0.3s', display: 'flex', justifyItems: 'center', justifyContent: 'space-between', alignItems: 'center'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: (existingRubric && hasActiveRubricScreen) || setupStep > 4 ? colors.successBg : '#fff', color: (existingRubric && hasActiveRubricScreen) || setupStep > 4 ? colors.success : colors.inkMuted, display: 'grid', placeItems: 'center' }}>
+                    <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>linear_scale</span>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '10.5px', fontWeight: 700, color: colors.inkMuted, display: 'block' }}>Scoring Range</span>
+                    <span style={{ fontSize: '13px', fontWeight: 800, color: colors.navy }}>
+                      {(existingRubric && hasActiveRubricScreen) || setupStep > 4 ? `Scale: ${config.scale?.min ?? 1} to ${config.scale?.max ?? 10}` : "Pending..."}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Visualizer Item 5: Criteria weights progress indicator list */}
+              <div style={{
+                padding: '16px', borderRadius: '16px', background: colors.pageBg,
+                border: `1.5px solid ${setupStep === 5 ? colors.navy : 'transparent'}`,
+                transition: 'all 0.3s', display: 'flex', flexDirection: 'column', gap: '12px'
+              }}>
+                <div style={{ display: 'flex', justifyItems: 'center', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: (existingRubric && hasActiveRubricScreen) || setupStep > 5 ? colors.successBg : '#fff', color: (existingRubric && hasActiveRubricScreen) || setupStep > 5 ? colors.success : colors.inkMuted, display: 'grid', placeItems: 'center' }}>
+                      <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>rule</span>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '10.5px', fontWeight: 700, color: colors.inkMuted, display: 'block' }}>Rubric Specifications</span>
+                      <span style={{ fontSize: '13px', fontWeight: 800, color: colors.navy }}>
+                        {(existingRubric && hasActiveRubricScreen) || setupStep > 5 ? `${config.rubrics?.length ?? 0} Criteria Weights Set` : "Pending..."}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {((existingRubric && hasActiveRubricScreen) || setupStep > 5) && config.rubrics && config.rubrics.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '6px', borderTop: `1px solid ${colors.borderSoft}`, paddingTop: '10px' }}>
+                    {config.rubrics.map(rub => (
+                      <div key={rub.id}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 700, color: colors.inkSoft, marginBottom: '4px' }}>
+                          <span>{rub.label}</span>
+                          <span>{rub.weight}%</span>
+                        </div>
+                        <div style={{ height: '4px', background: '#fff', borderRadius: '100px', overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${rub.weight}%`, background: colors.accent, borderRadius: '100px' }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
             </div>
+
           </div>
 
-          {/* Weight Allocation */}
-          <div style={styles.formSection}>
-            <div style={styles.formSectionHead}>
-              <span className="material-symbols-rounded">monitoring</span> Weight Allocation
-            </div>
-            <div style={{ ...styles.formSectionBody, display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ paddingBottom: '14px', borderBottom: `1px solid ${colors.borderSoft}` }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-                  <span style={{ fontSize: '13px', fontWeight: 600, color: colors.inkMuted }}>Status</span>
-                  <span style={{ fontSize: '13px', fontWeight: 800, color: totalWeight > 100 ? '#DC2626' : colors.navy }}>{totalWeight}% / 100%</span>
-                </div>
-                <div style={{ height: '8px', background: colors.pageBg, borderRadius: '100px', overflow: 'hidden', border: `1px solid ${colors.borderSoft}` }}>
-                  <div style={{ height: '100%', width: `${Math.min(totalWeight, 100)}%`, background: totalWeight > 100 ? '#DC2626' : colors.accent, transition: 'width 0.3s cubic-bezier(0.4,0,0.2,1)' }} />
-                </div>
-              </div>
-              {criteria.map((c, i) => (
-                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0' }}>
-                  <span style={{ fontSize: '13px', color: colors.inkSoft, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px' }}>{c.name || 'Undefined'}</span>
-                  <span style={{ fontSize: '13px', fontWeight: 700, color: colors.navy }}>{c.weight}%</span>
-                </div>
-              ))}
-              {totalWeight !== 100 && (
-                <div style={{ marginTop: '8px', padding: '12px', background: totalWeight > 100 ? 'rgba(220,38,38,0.05)' : 'rgba(59,130,246,0.05)', borderRadius: '10px', fontSize: '12.5px', color: totalWeight > 100 ? '#DC2626' : colors.accentDeep, lineHeight: 1.6, display: 'flex', gap: '8px' }}>
-                  <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>{totalWeight > 100 ? 'error' : 'info'}</span>
-                  {totalWeight > 100 ? `Weights must not exceed 100%. Reduce by ${totalWeight - 100}%.` : `Add ${100 - totalWeight}% more to complete your rubric.`}
-                </div>
-              )}
-            </div>
-          </div>
         </div>
+
       </div>
 
-      {undo.bar}
-
-      <AiModal
-        show={showAiModal}
-        onClose={() => setShowAiModal(false)}
-        onGenerate={handleAiGenerate}
-        prompt={aiPrompt}
-        setPrompt={setAiPrompt}
-        inputRef={aiRef}
-        styles={styles}
-        inputFocus={inputFocus}
-        inputBlur={inputBlur}
-      />
-    </>
-  );
-}
-
-/* ── Sub-components ── */
-function ChoiceCard({ title, desc, icon, label, primary, onClick }) {
-  const [hovered, setHovered] = useState(false);
-  return (
-    <div
-      onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        background: '#fff',
-        border: `${primary ? '2px' : '1px'} solid ${primary ? colors.accent : (hovered ? colors.border : colors.borderSoft)}`,
-        borderRadius: '18px',
-        cursor: 'pointer',
-        transform: hovered ? 'translateY(-6px)' : 'translateY(0)',
-        boxShadow: hovered ? '0 16px 48px rgba(0,0,0,0.12)' : '0 1px 3px rgba(0,0,0,0.02)',
-        transition: 'all 0.3s cubic-bezier(0.4,0,0.2,1)',
-        overflow: 'hidden',
-      }}
-    >
-      <div style={{ padding: '40px 28px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '18px' }}>
-        <div style={{ width: '64px', height: '64px', borderRadius: '20px', background: primary ? colors.accent : colors.pageBg, display: 'grid', placeItems: 'center' }}>
-          <span className="material-symbols-rounded" style={{ fontSize: '32px', color: primary ? '#fff' : colors.inkMuted }}>{icon}</span>
-        </div>
-        <div>
-          {label && <div style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', color: primary ? colors.accent : colors.inkMuted, marginBottom: '8px', letterSpacing: '0.05em' }}>{label}</div>}
-          <h3 style={{ margin: '0 0 10px 0', fontSize: '20px', fontWeight: 800, color: colors.navy }}>{title}</h3>
-          <p style={{ margin: 0, fontSize: '14px', color: colors.inkMuted, lineHeight: 1.6 }}>{desc}</p>
-        </div>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '9px 20px', borderRadius: '12px', fontSize: '13.5px', fontWeight: 600, fontFamily: "'Inter', sans-serif", background: primary ? colors.navy : '#fff', color: primary ? '#fff' : colors.inkSoft, border: primary ? 'none' : `1px solid ${colors.border}` }}>
-          Select
-        </div>
-      </div>
     </div>
-  );
-}
-
-function AiModal({ show, onClose, onGenerate, prompt, setPrompt, inputRef, styles }) {
-  const [btnHover, setBtnHover] = useState(null);
-  if (!show) return null;
-
-  return createPortal(
-    <div style={styles.modalOverlay} onClick={onClose}>
-      <div style={styles.modalContainer('540px')} onClick={e => e.stopPropagation()}>
-        <button 
-          onClick={onClose}
-          style={styles.closeBtn}
-          onMouseEnter={(e) => { e.currentTarget.style.background = colors.borderSoft; e.currentTarget.style.color = colors.navy; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = colors.pageBg; e.currentTarget.style.color = colors.inkMuted; }}
-        >
-          <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>close</span>
-        </button>
-
-        <div style={styles.modalHeader}>
-          <div style={{ width: '68px', height: '68px', borderRadius: '22px', background: colors.accentBg, color: colors.accent, display: 'grid', placeItems: 'center', margin: '0 auto 20px' }}>
-            <span className="material-symbols-rounded" style={{ fontSize: '36px' }}>smart_toy</span>
-          </div>
-          <h2 style={{ fontSize: '28px', fontWeight: 800, color: colors.navy, marginBottom: '8px', margin: 0, fontFamily: "'DM Sans', sans-serif", letterSpacing: '-0.02em' }}>
-            AI Rubric Architect
-          </h2>
-          <p style={{ fontSize: '15px', color: colors.inkMuted, lineHeight: 1.6, margin: 0 }}>
-            Explain your event vision and the AI will craft a balanced scoring model for you.
-          </p>
-        </div>
-
-        <div style={styles.modalBody}>
-          <div style={{ marginBottom: '8px' }}>
-            <label style={{ fontSize: '12px', fontWeight: 800, color: colors.inkMuted, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px', display: 'block' }}>
-              Context Prompt
-            </label>
-            <textarea
-              ref={inputRef}
-              style={{ 
-                width: '100%',
-                padding: '16px', 
-                borderRadius: '16px', 
-                fontSize: '14.5px', 
-                lineHeight: 1.6, 
-                resize: 'none',
-                border: `1px solid ${colors.border}`,
-                outline: 'none',
-                fontFamily: "'Inter', sans-serif",
-                minHeight: '140px',
-                background: colors.pageBg,
-                boxSizing: 'border-box',
-                transition: 'all 0.2s'
-              }}
-              rows={5}
-              value={prompt}
-              onChange={e => setPrompt(e.target.value)}
-              placeholder="e.g. A competitive baking event focused on presentation, flavor profile, and technical execution."
-              onFocus={(e) => { 
-                e.target.style.borderColor = colors.accent; 
-                e.target.style.boxShadow = `0 0 0 3px ${colors.accentGlow}`; 
-                e.target.style.background = '#fff';
-              }}
-              onBlur={(e) => { 
-                e.target.style.borderColor = colors.border; 
-                e.target.style.boxShadow = 'none';
-                e.target.style.background = colors.pageBg;
-              }}
-            />
-          </div>
-        </div>
-
-        <div style={styles.modalFooter}>
-          <button
-            onClick={onClose}
-            onMouseEnter={() => setBtnHover('c')}
-            onMouseLeave={() => setBtnHover(null)}
-            style={{ ...styles.btn(btnHover === 'c'), height: '48px', width: '100%', fontSize: '15px' }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onGenerate}
-            disabled={!prompt.trim()}
-            onMouseEnter={() => setBtnHover('g')}
-            onMouseLeave={() => setBtnHover(null)}
-            style={{ 
-              ...styles.btn(btnHover === 'g', true), 
-              height: '48px', 
-              width: '100%', 
-              fontSize: '15px',
-              cursor: !prompt.trim() ? 'not-allowed' : 'pointer'
-            }}
-          >
-            Generate Rubric
-          </button>
-        </div>
-      </div>
-    </div>,
-    document.body
   );
 }

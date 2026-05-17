@@ -1,16 +1,9 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useEventContext } from './OrganizerLayout';
 import { colors } from '../../styles/colors';
+import { API_URL as API_BASE } from '../../config';
 
 /* ─── data ──────────────────────────────────────────────────────────────── */
-const JUDGE_POOL = [
-  { id: 8001, name: 'Dr. Margarita del Pilar', expertise: 'Literature', email: 'mdelpilar@ateneo.ph' },
-  { id: 8002, name: 'Prof. Ben Aguinaldo', expertise: 'Engineering', email: 'ben@up.edu.ph' },
-  { id: 8003, name: 'Atty. Verna Reyes', expertise: 'Governance', email: 'vreyes@ust.edu.ph' },
-  { id: 8004, name: 'Coach Ramon Torres', expertise: 'Athletics', email: 'rtorres@psa.gov.ph' },
-  { id: 8005, name: 'Ms. Felicia Cruz', expertise: 'Performing Arts', email: 'fcruz@feu.edu.ph' },
-  { id: 8006, name: 'Dr. Salvador Luna', expertise: 'Science', email: 'sluna@dlsu.edu.ph' },
-];
 
 const ROLES = ['Line Judge', 'Technical Judge', 'Head Judge', 'Guest / Celebrity Judge'];
 const RSVPS = ['Pending', 'Accepted', 'Declined'];
@@ -140,10 +133,12 @@ function useUndo() {
 
 /* ═══════════════════════════════════════════════════════════════════════ */
 export default function JudgesPage() {
-  const { selectedEvent, judges, addJudge, removeJudge, updateJudge, showToast, eventsLoading } = useEventContext();
+  const { selectedEvent, judges, addJudge, removeJudge, updateJudge, showToast, eventsLoading, rubricConfig } = useEventContext();
+  const maxJ = rubricConfig?.judges;
   const undo = useUndo();
 
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
   const [selected, setSelected] = useState(new Set());
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [judgeSearch, setJudgeSearch] = useState('');
@@ -168,11 +163,16 @@ export default function JudgesPage() {
   const isMobile = windowWidth <= 768;
   const isTablet = windowWidth <= 1024;
 
-  const filtered = judges.filter(j =>
-    j.name.toLowerCase().includes(search.toLowerCase()) ||
-    j.role.toLowerCase().includes(search.toLowerCase()) ||
-    (j.expertise || '').toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = judges.filter(j => {
+    const matchesSearch =
+      j.name.toLowerCase().includes(search.toLowerCase()) ||
+      (j.email || '').toLowerCase().includes(search.toLowerCase()) ||
+      j.role.toLowerCase().includes(search.toLowerCase()) ||
+      (j.expertise || '').toLowerCase().includes(search.toLowerCase()) ||
+      (j.status || j.rsvp || '').toLowerCase().includes(search.toLowerCase());
+    const matchesStatus = statusFilter === 'All' || j.status === statusFilter || j.rsvp === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
   const allChecked = filtered.length > 0 && filtered.every(j => selected.has(j.id));
   const someChecked = filtered.some(j => selected.has(j.id));
@@ -180,18 +180,38 @@ export default function JudgesPage() {
   const toggleAll = () => allChecked ? setSelected(new Set()) : setSelected(new Set(filtered.map(j => j.id)));
   const toggleOne = id => setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
-  const poolResults = JUDGE_POOL.filter(u =>
-    judgeSearch.length > 0 &&
-    (u.name.toLowerCase().includes(judgeSearch.toLowerCase()) ||
-      u.expertise.toLowerCase().includes(judgeSearch.toLowerCase()) ||
-      u.email.toLowerCase().includes(judgeSearch.toLowerCase())) &&
-    !judges.find(j => j.id === u.id) && !pending.find(j => j.id === u.id)
-  );
+  const [poolResults, setPoolResults] = useState([]);
+
+  useEffect(() => {
+    if (judgeSearch.trim().length < 2) {
+      setPoolResults([]);
+      return;
+    }
+    const timeoutId = setTimeout(() => {
+      fetch(`${API_BASE}/users/search?q=${encodeURIComponent(judgeSearch.trim())}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setPoolResults(data.data.filter(u =>
+              (u.role || '').toLowerCase() === 'judge' &&
+              !judges.find(j => j.id === u.id) && 
+              !pending.find(j => j.id === u.id)
+            ));
+          }
+        })
+        .catch(console.error);
+    }, 300);
+    return () => clearTimeout(timeoutId);
+  }, [judgeSearch, judges, pending]);
 
   const addToPending = u => { setPending(p => [...p, u]); setPendingRoles(r => ({ ...r, [u.id]: ROLES[0] })); };
   const removeFromPending = id => { setPending(p => p.filter(u => u.id !== id)); setPendingRoles(r => { const n = { ...r }; delete n[id]; return n; }); };
 
   const handleBulkInvite = () => {
+    if (maxJ && judges.length + pending.length > maxJ) {
+      showToast(`Cannot invite: adding ${pending.length} judge(s) will exceed the panel limit of ${maxJ}. (Current: ${judges.length})`, 'error');
+      return;
+    }
     const ids = pending.map(u => u.id);
     pending.forEach(u => addJudge(selectedEvent.id, { ...u, role: pendingRoles[u.id] || ROLES[0], rsvp: 'Pending' }));
     showToast(`Invited ${pending.length} judge(s).`, 'success', () => {
@@ -217,12 +237,17 @@ export default function JudgesPage() {
 
   const handleFileImport = e => {
     const file = e.target.files?.[0]; if (!file) return;
+    const newItems = [
+      { id: Date.now() + 1, name: 'CSV Judge A', email: 'a@csv.ph', expertise: 'General', role: 'Line Judge', rsvp: 'Pending' },
+      { id: Date.now() + 2, name: 'CSV Judge B', email: 'b@csv.ph', expertise: 'General', role: 'Line Judge', rsvp: 'Pending' },
+    ];
+    if (maxJ && judges.length + newItems.length > maxJ) {
+      showToast(`Cannot import CSV: importing ${newItems.length} judge(s) will exceed the panel limit of ${maxJ}. (Current: ${judges.length})`, 'error');
+      e.target.value = '';
+      return;
+    }
     showToast(`Importing from "${file.name}"...`, 'info');
     setTimeout(() => {
-      const newItems = [
-        { id: Date.now() + 1, name: 'CSV Judge A', email: 'a@csv.ph', expertise: 'General', role: 'Line Judge', rsvp: 'Pending' },
-        { id: Date.now() + 2, name: 'CSV Judge B', email: 'b@csv.ph', expertise: 'General', role: 'Line Judge', rsvp: 'Pending' },
-      ];
       const ids = newItems.map(j => j.id);
       newItems.forEach(j => addJudge(selectedEvent.id, j));
       showToast(`Imported ${newItems.length} judges.`, 'success', () => {
@@ -526,7 +551,9 @@ export default function JudgesPage() {
         <div style={{ ...styles.widgetCard(4, `linear-gradient(135deg, #fff 40%, ${colors.accentBg} 100%)`), transform: activeBtnHover === 'kpi-t' ? 'translateY(-4px)' : 'none', boxShadow: activeBtnHover === 'kpi-t' ? '0 12px 30px rgba(0,0,0,0.06)' : styles.widgetCard(4).boxShadow }} onMouseEnter={() => setActiveBtnHover('kpi-t')} onMouseLeave={() => setActiveBtnHover(null)}>
           <div style={styles.iconWrapper(colors.accentBg, colors.accent)}><span className="material-symbols-rounded" style={{ fontSize: '20px' }}>gavel</span></div>
           <span style={styles.statLabel}>Total Invited</span>
-          <div style={styles.statValue}>{judges.length}</div>
+          <div style={styles.statValue}>
+            {maxJ ? `${judges.length} / ${maxJ}` : `${judges.length} / —`}
+          </div>
         </div>
         <div style={{ ...styles.widgetCard(4, 'linear-gradient(135deg, #fff 40%, #F0FDF4 100%)'), transform: activeBtnHover === 'kpi-a' ? 'translateY(-4px)' : 'none', boxShadow: activeBtnHover === 'kpi-a' ? '0 12px 30px rgba(0,0,0,0.06)' : styles.widgetCard(4).boxShadow }} onMouseEnter={() => setActiveBtnHover('kpi-a')} onMouseLeave={() => setActiveBtnHover(null)}>
           <div style={styles.iconWrapper('#F0FDF4', colors.success)}><span className="material-symbols-rounded" style={{ fontSize: '20px' }}>how_to_reg</span></div>
@@ -543,15 +570,54 @@ export default function JudgesPage() {
       {/* ── Table ── */}
       <div style={styles.tableContainer}>
         <div style={styles.tableHeader}>
-          <h3 style={styles.tableTitle}>Judge Panel ({judges.length})</h3>
-          <div style={styles.searchInputWrapper}>
-            <span className="material-symbols-rounded" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '20px', color: colors.inkMuted, pointerEvents: 'none' }}>search</span>
-            <input type="text" placeholder="Filter..." value={search}
-              onChange={e => setSearch(e.target.value)}
-              style={styles.searchInput}
-              onFocus={e => { e.target.style.borderColor = colors.accent; e.target.style.background = '#fff'; e.target.style.boxShadow = `0 0 0 3px ${colors.accentGlow}`; }}
-              onBlur={e => { e.target.style.borderColor = colors.border; e.target.style.background = colors.pageBg; e.target.style.boxShadow = 'none'; }}
-            />
+          <h3 style={styles.tableTitle}>Judge Panel ({judges.length} / {maxJ || '—'})</h3>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', width: isMobile ? '100%' : 'auto', flexWrap: 'wrap' }}>
+            <select
+              value={statusFilter}
+              onChange={e => setStatusFilter(e.target.value)}
+              style={{
+                height: '40px',
+                padding: '0 36px 0 16px',
+                borderRadius: '100px',
+                border: `1px solid ${colors.border}`,
+                background: `${colors.pageBg} url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%230f1f3d' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>") no-repeat right 14px center / 16px`,
+                fontSize: '13.5px',
+                fontWeight: '600',
+                color: colors.navy,
+                outline: 'none',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                fontFamily: "'Inter', sans-serif",
+                minWidth: '135px',
+                appearance: 'none',
+                WebkitAppearance: 'none',
+                MozAppearance: 'none'
+              }}
+              onFocus={e => { 
+                e.target.style.borderColor = colors.accent; 
+                e.target.style.background = `#fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%233b82f6' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>") no-repeat right 14px center / 16px`; 
+                e.target.style.boxShadow = `0 0 0 3px ${colors.accentGlow}`; 
+              }}
+              onBlur={e => { 
+                e.target.style.borderColor = colors.border; 
+                e.target.style.background = `${colors.pageBg} url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%230f1f3d' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>") no-repeat right 14px center / 16px`; 
+                e.target.style.boxShadow = 'none'; 
+              }}
+            >
+              <option value="All">All Statuses</option>
+              <option value="Accepted">Accepted</option>
+              <option value="Pending">Pending</option>
+              <option value="Declined">Declined</option>
+            </select>
+            <div style={styles.searchInputWrapper}>
+              <span className="material-symbols-rounded" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '20px', color: colors.inkMuted, pointerEvents: 'none' }}>search</span>
+              <input type="text" placeholder="Filter..." value={search}
+                onChange={e => setSearch(e.target.value)}
+                style={styles.searchInput}
+                onFocus={e => { e.target.style.borderColor = colors.accent; e.target.style.background = '#fff'; e.target.style.boxShadow = `0 0 0 3px ${colors.accentGlow}`; }}
+                onBlur={e => { e.target.style.borderColor = colors.border; e.target.style.background = colors.pageBg; e.target.style.boxShadow = 'none'; }}
+              />
+            </div>
           </div>
         </div>
 

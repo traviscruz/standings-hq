@@ -12,10 +12,18 @@ app.use(express.json());
 // Import Routes
 const authRoutes = require('./routes/auth');
 const eventRoutes = require('./routes/events');
+const billingRoutes = require('./routes/billing');
+const participantRoutes = require('./routes/participants');
+const judgeRoutes = require('./routes/judges');
+const userRoutes = require('./routes/users');
 
 // Use Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/events', eventRoutes);
+app.use('/api/billing', billingRoutes);
+app.use('/api/participants', participantRoutes);
+app.use('/api/judges', judgeRoutes);
+app.use('/api/users', userRoutes);
 
 // Health Check
 app.get('/', (req, res) => {

@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { colors } from '../../styles/colors';
 
 export default function MyEventsPage() {
-  const { myEvents } = useParticipantContext();
+  const { myEvents, acceptInvitation, declineInvitation } = useParticipantContext();
   const [activeTab, setActiveTab] = useState('all');
   const [search, setSearch] = useState('');
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
@@ -20,9 +20,9 @@ export default function MyEventsPage() {
     .filter(e => e.name.toLowerCase().includes(search.toLowerCase()))
     .filter(e => {
       if (activeTab === 'all') return true;
-      if (activeTab === 'active') return e.status === 'Active';
+      if (activeTab === 'active') return e.status === 'Active' && e.registrationStatus === 'Registered';
       if (activeTab === 'upcoming') return e.status === 'Upcoming';
-      if (activeTab === 'past') return e.status === 'Completed';
+      if (activeTab === 'past') return e.status === 'Completed' && e.registrationStatus === 'Registered';
       return true;
     });
 
@@ -71,8 +71,58 @@ export default function MyEventsPage() {
     }
   };
 
+  const getRegistrationBadgeStyle = (status) => {
+    switch (status) {
+      case 'Registered': return { background: 'rgba(16, 185, 129, 0.08)', color: colors.success || '#10B981' };
+      case 'Pending': return { background: 'rgba(245, 158, 11, 0.08)', color: colors.warning || '#F59E0B' };
+      default: return { background: 'rgba(16, 185, 129, 0.08)', color: colors.success || '#10B981' };
+    }
+  };
+
   return (
     <div className="slide-up-anim">
+      <style>
+        {`
+          .action-btn-success {
+            background: ${colors.success || '#10B981'};
+            color: #fff;
+            padding: 8px 16px;
+            font-size: 13px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            border-radius: 12px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+          }
+          .action-btn-success:hover {
+            filter: brightness(0.9);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+          }
+          .action-btn-danger {
+            background: transparent;
+            color: ${colors.error || '#EF4444'};
+            padding: 8px 16px;
+            font-size: 13px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            border-radius: 12px;
+            font-weight: 600;
+            border: 1px solid ${colors.error || '#EF4444'};
+            cursor: pointer;
+            transition: all 0.2s;
+          }
+          .action-btn-danger:hover {
+            background: rgba(239, 68, 68, 0.05);
+            transform: translateY(-1px);
+          }
+        `}
+      </style>
+
       <header style={pageHeaderStyle}>
         <div>
           <h1 style={pageTitleStyle}>My Events</h1>
@@ -149,84 +199,176 @@ export default function MyEventsPage() {
 
           <div style={{ padding: 0 }}>
             {filteredEvents.length > 0 ? (
-              filteredEvents.map(event => (
-                <div 
-                  key={event.id} 
-                  style={{ 
-                      padding: isMobile ? '20px' : '24px 32px', 
-                      display: 'flex', 
-                      alignItems: isMobile ? 'flex-start' : 'center', 
-                      gap: '20px', 
-                      borderBottom: `1px solid ${colors.borderSoft}`,
-                      background: hoveredEvent === event.id ? '#F8FAFC' : 'transparent',
-                      transition: 'background 0.2s',
-                      flexDirection: isMobile ? 'column' : 'row'
-                  }}
-                  onMouseEnter={() => setHoveredEvent(event.id)}
-                  onMouseLeave={() => setHoveredEvent(null)}
-                >
-                  <div style={{ 
-                      width: '54px', height: '54px', 
-                      borderRadius: '12px', 
-                      background: event.status === 'Active' ? colors.accent : colors.navy, 
-                      color: '#fff', 
-                      display: 'flex', 
-                      flexDirection: 'column', 
-                      alignItems: 'center', 
-                      justifyContent: 'center', 
-                      flexShrink: 0 
-                  }}>
-                    <div style={{ fontSize: '18px', fontWeight: 800, lineHeight: 1 }}>{event.date.split(' ')[1].replace(',', '')}</div>
-                    <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', opacity: 0.8, marginTop: '2px' }}>{event.date.split(' ')[0]}</div>
-                  </div>
-                  
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
-                      <h3 style={{ fontSize: '16px', fontWeight: 700, color: colors.navy, margin: 0 }}>{event.name}</h3>
-                      <span style={{ 
-                          padding: '4px 10px', 
-                          borderRadius: '100px', 
-                          fontSize: '11px', 
-                          fontWeight: '700', 
-                          textTransform: 'uppercase',
-                          ...getBadgeStyle(event.status)
-                      }}>
-                        {event.status}
-                      </span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '13px', color: colors.inkMuted, flexWrap: 'wrap' }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span className="material-symbols-rounded" style={{ fontSize: '16px' }}>category</span> {event.type}</span>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span className="material-symbols-rounded" style={{ fontSize: '16px' }}>location_on</span> Online</span>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span className="material-symbols-rounded" style={{ fontSize: '16px' }}>schedule</span> Dec 05 - Dec 06</span>
-                    </div>
-                  </div>
-
-                  <div style={{ 
-                      textAlign: isMobile ? 'left' : 'right', 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      gap: '24px',
-                      width: isMobile ? '100%' : 'auto',
-                      justifyContent: isMobile ? 'space-between' : 'flex-end',
-                      marginTop: isMobile ? '12px' : '0'
-                  }}>
-                    <div style={{ textAlign: isMobile ? 'left' : 'right' }}>
-                       <div style={{ fontSize: '11px', fontWeight: 700, color: colors.inkMuted, textTransform: 'uppercase' }}>Rank</div>
-                       <div style={{ fontSize: '18px', fontWeight: 800, color: colors.navy }}>{event.rank}</div>
-                    </div>
-                    <div style={{ textAlign: isMobile ? 'left' : 'right' }}>
-                       <div style={{ fontSize: '11px', fontWeight: 700, color: colors.inkMuted, textTransform: 'uppercase' }}>Score</div>
-                       <div style={{ fontSize: '18px', fontWeight: 800, color: colors.navy }}>{event.score}</div>
+              filteredEvents.map(event => {
+                const regStatus = event.registrationStatus || 'Registered';
+                return (
+                  <div 
+                    key={event.id} 
+                    style={{ 
+                        padding: isMobile ? '20px' : '24px 32px', 
+                        display: 'flex', 
+                        alignItems: isMobile ? 'flex-start' : 'center', 
+                        gap: '20px', 
+                        borderBottom: `1px solid ${colors.borderSoft}`,
+                        background: hoveredEvent === event.id ? '#F8FAFC' : 'transparent',
+                        transition: 'background 0.2s',
+                        flexDirection: isMobile ? 'column' : 'row'
+                    }}
+                    onMouseEnter={() => setHoveredEvent(event.id)}
+                    onMouseLeave={() => setHoveredEvent(null)}
+                  >
+                    <div style={{ 
+                        width: '54px', height: '54px', 
+                        borderRadius: '12px', 
+                        background: event.status === 'Active' ? colors.accent : colors.navy, 
+                        color: '#fff', 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        flexShrink: 0 
+                    }}>
+                      <div style={{ fontSize: '18px', fontWeight: 800, lineHeight: 1 }}>{event.date.split(' ')[1]?.replace(',', '') || 'TBD'}</div>
+                      <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', opacity: 0.8, marginTop: '2px' }}>{event.date.split(' ')[0] || ''}</div>
                     </div>
                     
-                    {!isMobile && (
-                      <div style={{ marginLeft: '12px' }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', flexWrap: 'wrap' }}>
+                        <h3 style={{ fontSize: '16px', fontWeight: 700, color: colors.navy, margin: 0 }}>{event.name}</h3>
+                        
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <span style={{ 
+                              padding: '4px 10px', 
+                              borderRadius: '100px', 
+                              fontSize: '11px', 
+                              fontWeight: '700', 
+                              textTransform: 'uppercase',
+                              ...getBadgeStyle(event.status)
+                          }}>
+                            {event.status}
+                          </span>
+                          
+                          <span style={{ 
+                              padding: '4px 10px', 
+                              borderRadius: '100px', 
+                              fontSize: '11px', 
+                              fontWeight: '700', 
+                              textTransform: 'uppercase',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              ...getRegistrationBadgeStyle(regStatus)
+                          }}>
+                            <span className="material-symbols-rounded" style={{ fontSize: '12px' }}>
+                              {regStatus === 'Registered' ? 'check_circle' : 'pending'}
+                            </span>
+                            {regStatus === 'Registered' ? 'Registered' : 'Pending Invitation'}
+                          </span>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '13px', color: colors.inkMuted, flexWrap: 'wrap' }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span className="material-symbols-rounded" style={{ fontSize: '16px' }}>category</span> {event.type}</span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span className="material-symbols-rounded" style={{ fontSize: '16px' }}>location_on</span> Online</span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span className="material-symbols-rounded" style={{ fontSize: '16px' }}>schedule</span> Dec 05 - Dec 06</span>
+                      </div>
+                    </div>
+
+                    <div style={{ 
+                        textAlign: isMobile ? 'left' : 'right', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '24px',
+                        width: isMobile ? '100%' : 'auto',
+                        justifyContent: isMobile ? 'space-between' : 'flex-end',
+                        marginTop: isMobile ? '12px' : '0'
+                    }}>
+                      <div style={{ textAlign: isMobile ? 'left' : 'right' }}>
+                         <div style={{ fontSize: '11px', fontWeight: 700, color: colors.inkMuted, textTransform: 'uppercase' }}>Rank</div>
+                         <div style={{ fontSize: '18px', fontWeight: 800, color: colors.navy }}>{regStatus === 'Pending' ? '-' : event.rank}</div>
+                      </div>
+                      <div style={{ textAlign: isMobile ? 'left' : 'right' }}>
+                         <div style={{ fontSize: '11px', fontWeight: 700, color: colors.inkMuted, textTransform: 'uppercase' }}>Score</div>
+                         <div style={{ fontSize: '18px', fontWeight: 800, color: colors.navy }}>{regStatus === 'Pending' ? '-' : event.score}</div>
+                      </div>
+                      
+                      {regStatus === 'Pending' ? (
+                        !isMobile && (
+                          <div style={{ display: 'flex', gap: '8px', marginLeft: '12px' }}>
+                            <button
+                              onClick={() => acceptInvitation(event.registrationId)}
+                              className="action-btn-success"
+                            >
+                              <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>check_circle</span>
+                              Accept
+                            </button>
+                            <button
+                              onClick={() => declineInvitation(event.registrationId)}
+                              className="action-btn-danger"
+                            >
+                              <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>cancel</span>
+                              Decline
+                            </button>
+                          </div>
+                        )
+                      ) : (
+                        !isMobile && (
+                          <div style={{ marginLeft: '12px' }}>
+                            <Link 
+                              to="/participant/leaderboard" 
+                              style={{ 
+                                  padding: '8px 16px', 
+                                  fontSize: '13px',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '8px',
+                                  borderRadius: '12px',
+                                  fontWeight: '600',
+                                  color: colors.navy,
+                                  border: `1px solid ${colors.border}`,
+                                  textDecoration: 'none',
+                                  transition: 'all 0.2s',
+                                  background: '#fff'
+                              }}
+                              onMouseEnter={(e) => { e.target.style.background = colors.offWhite; e.target.style.borderColor = colors.navy; }}
+                              onMouseLeave={(e) => { e.target.style.background = '#fff'; e.target.style.borderColor = colors.border; }}
+                            >
+                              View Details
+                            </Link>
+                          </div>
+                        )
+                      )}
+                    </div>
+
+                    {isMobile && regStatus === 'Pending' && (
+                      <div style={{ display: 'flex', gap: '8px', width: '100%', marginTop: '12px' }}>
+                        <button
+                          onClick={() => acceptInvitation(event.registrationId)}
+                          className="action-btn-success"
+                          style={{ flex: 1, justifyContent: 'center', height: '40px' }}
+                        >
+                          <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>check_circle</span>
+                          Accept
+                        </button>
+                        <button
+                          onClick={() => declineInvitation(event.registrationId)}
+                          className="action-btn-danger"
+                          style={{ flex: 1, justifyContent: 'center', height: '40px' }}
+                        >
+                          <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>cancel</span>
+                          Decline
+                        </button>
+                      </div>
+                    )}
+
+                    {isMobile && regStatus !== 'Pending' && (
                         <Link 
                           to="/participant/leaderboard" 
                           style={{ 
-                              padding: '8px 16px', 
+                              padding: '10px', 
                               fontSize: '13px',
-                              display: 'inline-flex',
+                              display: 'flex',
+                              width: '100%',
+                              justifyContent: 'center',
                               alignItems: 'center',
                               gap: '8px',
                               borderRadius: '12px',
@@ -235,42 +377,16 @@ export default function MyEventsPage() {
                               border: `1px solid ${colors.border}`,
                               textDecoration: 'none',
                               transition: 'all 0.2s',
-                              background: '#fff'
+                              background: '#fff',
+                              marginTop: '4px'
                           }}
-                          onMouseEnter={(e) => { e.target.style.background = colors.offWhite; e.target.style.borderColor = colors.navy; }}
-                          onMouseLeave={(e) => { e.target.style.background = '#fff'; e.target.style.borderColor = colors.border; }}
                         >
                           View Details
                         </Link>
-                      </div>
                     )}
                   </div>
-                  {isMobile && (
-                      <Link 
-                        to="/participant/leaderboard" 
-                        style={{ 
-                            padding: '10px', 
-                            fontSize: '13px',
-                            display: 'flex',
-                            width: '100%',
-                            justifyContent: 'center',
-                            alignItems: 'center',
-                            gap: '8px',
-                            borderRadius: '12px',
-                            fontWeight: '600',
-                            color: colors.navy,
-                            border: `1px solid ${colors.border}`,
-                            textDecoration: 'none',
-                            transition: 'all 0.2s',
-                            background: '#fff',
-                            marginTop: '4px'
-                        }}
-                      >
-                        View Details
-                      </Link>
-                  )}
-                </div>
-              ))
+                );
+              })
             ) : (
               <div style={{ padding: '80px', textAlign: 'center' }}>
                 <span className="material-symbols-rounded" style={{ fontSize: '56px', color: colors.border, marginBottom: '20px', display: 'block' }}>event_available</span>
@@ -284,4 +400,3 @@ export default function MyEventsPage() {
     </div>
   );
 }
-

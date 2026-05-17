@@ -2,6 +2,7 @@ import React, { useState, createContext, useContext, useEffect, useRef } from 'r
 import { NavLink, Outlet, useNavigate, Link, useLocation } from 'react-router-dom';
 import { colors } from '../../styles/colors';
 import { API_URL as API_BASE } from '../../config';
+import { createClient } from '../../utils/supabase/client';
 
 const EventContext = createContext();
 export const useEventContext = () => useContext(EventContext);
@@ -47,6 +48,7 @@ export default function OrganizerLayout() {
   const [rubricsData, setRubricsData] = useState(SEED_RUBRICS);
   const [toast, setToast] = useState(null);
   const [selectedEventId, setSelectedEventId] = useState(null);
+  const [rubricConfig, setRubricConfig] = useState(null);
 
   const selectedEvent = eventsList.find(e => e.id === selectedEventId) || eventsList[0];
   const userName = localStorage.getItem('username') || 'Event Admin';
@@ -54,28 +56,78 @@ export default function OrganizerLayout() {
 
   const getParticipants = (id = selectedEventId) => participantsData[id] || [];
   const getJudges = (id = selectedEventId) => judgesData[id] || [];
-  const getRubrics = (id = selectedEventId) => rubricsData[id] || [];
+  const getRubrics = (id = selectedEventId) => {
+    if (selectedEventId === id && rubricConfig) {
+      return (rubricConfig.rubrics || []).map(r => ({
+        ...r,
+        name: r.label || r.name
+      }));
+    }
+    return rubricsData[id] || [];
+  };
 
   // ─── CRUD HELPERS ──────────────────────────────────────────────────────────
-  const addParticipant = (eventId, p) =>
-    setParticipantsData(prev => ({ ...prev, [eventId]: [p, ...(prev[eventId] || [])] }));
-  const removeParticipant = (eventId, pid) =>
+  const generateId = () => {
+    return typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+          var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+          return v.toString(16);
+        });
+  };
+
+  const addParticipant = (eventId, p) => {
+    const id = (typeof p.id === 'string' && p.id.length > 20) ? p.id : generateId();
+    const newP = { ...p, id };
+    setParticipantsData(prev => ({ ...prev, [eventId]: [newP, ...(prev[eventId] || [])] }));
+    fetch(`${API_BASE}/participants`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event_id: eventId, ...newP })
+    }).catch(console.error);
+  };
+
+  const removeParticipant = (eventId, pid) => {
     setParticipantsData(prev => ({ ...prev, [eventId]: (prev[eventId] || []).filter(x => x.id !== pid) }));
-  const updateParticipant = (eventId, pid, changes) =>
+    fetch(`${API_BASE}/participants/${pid}`, { method: 'DELETE' }).catch(console.error);
+  };
+  const updateParticipant = (eventId, pid, changes) => {
     setParticipantsData(prev => ({
       ...prev,
       [eventId]: (prev[eventId] || []).map(x => x.id === pid ? { ...x, ...changes } : x)
     }));
+    fetch(`${API_BASE}/participants/${pid}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(changes)
+    }).catch(console.error);
+  };
 
-  const addJudge = (eventId, j) =>
-    setJudgesData(prev => ({ ...prev, [eventId]: [j, ...(prev[eventId] || [])] }));
-  const removeJudge = (eventId, jid) =>
+  const addJudge = (eventId, j) => {
+    const id = (typeof j.id === 'string' && j.id.length > 20) ? j.id : generateId();
+    const newJ = { ...j, id };
+    setJudgesData(prev => ({ ...prev, [eventId]: [newJ, ...(prev[eventId] || [])] }));
+    fetch(`${API_BASE}/judges`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event_id: eventId, ...newJ })
+    }).catch(console.error);
+  };
+  const removeJudge = (eventId, jid) => {
     setJudgesData(prev => ({ ...prev, [eventId]: (prev[eventId] || []).filter(x => x.id !== jid) }));
-  const updateJudge = (eventId, jid, changes) =>
+    fetch(`${API_BASE}/judges/${jid}`, { method: 'DELETE' }).catch(console.error);
+  };
+  const updateJudge = (eventId, jid, changes) => {
     setJudgesData(prev => ({
       ...prev,
       [eventId]: (prev[eventId] || []).map(x => x.id === jid ? { ...x, ...changes } : x)
     }));
+    fetch(`${API_BASE}/judges/${jid}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(changes)
+    }).catch(console.error);
+  };
 
   const setRubrics = (eventId, criteria) =>
     setRubricsData(prev => ({ ...prev, [eventId]: criteria }));
@@ -101,6 +153,48 @@ export default function OrganizerLayout() {
       .catch(err => setEventsError(err.message))
       .finally(() => setEventsLoading(false));
   }, []);
+
+  // Fetch Participants and Judges when selectedEventId changes
+  useEffect(() => {
+    if (!selectedEventId) return;
+
+    const supabase = createClient();
+
+    fetch(`${API_BASE}/participants?event_id=${selectedEventId}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) setParticipantsData(prev => ({ ...prev, [selectedEventId]: data.data }));
+      })
+      .catch(console.error);
+
+    fetch(`${API_BASE}/judges?event_id=${selectedEventId}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) setJudgesData(prev => ({ ...prev, [selectedEventId]: data.data }));
+      })
+      .catch(console.error);
+
+    const fetchRubric = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('event_rubrics')
+          .select('*')
+          .eq('event_id', selectedEventId)
+          .maybeSingle();
+
+        if (error) throw error;
+        if (data && data.config) {
+          setRubricConfig(data.config);
+        } else {
+          setRubricConfig(null);
+        }
+      } catch (err) {
+        console.error("Error loading rubric in layout:", err);
+        setRubricConfig(null);
+      }
+    };
+    fetchRubric();
+  }, [selectedEventId]);
 
   const addEvent = (eventData, isRestore = false) => {
     const normalized = normalizeEvent(isRestore ? eventData : {
@@ -149,6 +243,11 @@ export default function OrganizerLayout() {
     timeoutRef.current = setTimeout(() => setToast(null), 5000);
   };
 
+  const handleLogout = () => {
+    localStorage.clear();
+    navigate('/');
+  };
+
   // Window Resize
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
@@ -161,6 +260,35 @@ export default function OrganizerLayout() {
     setIsSidebarOpen(false);
     setIsDropdownOpen(false);
   }, [location.pathname]);
+
+  const [isSubscribed, setIsSubscribed] = useState(localStorage.getItem('is_subscribed') === 'true');
+
+  // Verify subscription on mount or navigation if we think they are not subscribed
+  useEffect(() => {
+    const userId = localStorage.getItem('user_id');
+    if (!userId) return;
+
+    fetch(`${API_BASE}/billing/subscription/${userId}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.subscription && (data.subscription.status === 'active' || data.subscription.status === 'cancelled')) {
+          setIsSubscribed(true);
+          localStorage.setItem('is_subscribed', 'true');
+          localStorage.setItem('plan_name', data.subscription.plan_name);
+        } else {
+          setIsSubscribed(false);
+          localStorage.setItem('is_subscribed', 'false');
+        }
+      })
+      .catch(err => console.error('Layout sub check error:', err));
+  }, [location.pathname]);
+
+  // Listen to custom events
+  useEffect(() => {
+    const handleStorageChange = () => setIsSubscribed(localStorage.getItem('is_subscribed') === 'true');
+    window.addEventListener('subscriptionChanged', handleStorageChange);
+    return () => window.removeEventListener('subscriptionChanged', handleStorageChange);
+  }, []);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -303,13 +431,13 @@ export default function OrganizerLayout() {
       color: colors.inkMuted,
       margin: '20px 0 8px 12px',
     },
-    sidebarLink: (isActive, linkId) => ({
+    sidebarLink: (isActive, linkId, disabled = false) => ({
       display: 'flex',
       alignItems: 'center',
       gap: '12px',
       padding: '11px 16px',
       borderRadius: '14px',
-      color: isActive ? '#fff' : (hoveredLink === linkId ? colors.navy : colors.inkSoft),
+      color: isActive ? '#fff' : (hoveredLink === linkId ? (disabled ? colors.inkMuted : colors.navy) : colors.inkSoft),
       textDecoration: 'none',
       fontSize: '14.5px',
       fontWeight: isActive ? '700' : '600',
@@ -317,6 +445,9 @@ export default function OrganizerLayout() {
       transition: 'all 0.25s cubic-bezier(0.18, 0.89, 0.32, 1.28)',
       boxShadow: isActive ? '0 10px 25px -4px rgba(30, 45, 74, 0.25)' : 'none',
       position: 'relative',
+      cursor: disabled ? 'not-allowed' : 'pointer',
+      opacity: disabled ? 0.5 : 1,
+      pointerEvents: disabled ? 'none' : 'auto',
     }),
     sidebarBadge: {
       marginLeft: 'auto',
@@ -422,6 +553,8 @@ export default function OrganizerLayout() {
 
   const pCount = getParticipants().length;
   const jCount = getJudges().length;
+  const maxP = rubricConfig?.maxParticipants;
+  const maxJ = rubricConfig?.judges;
 
   const contextValue = {
     selectedEvent, eventsList, eventsLoading, eventsError,
@@ -433,6 +566,8 @@ export default function OrganizerLayout() {
     addEvent, updateEvent, deleteEvent,
     setSelectedEventId,
     showToast,
+    rubricConfig,
+    setRubricConfig,
   };
 
   return (
@@ -605,7 +740,7 @@ export default function OrganizerLayout() {
             <div style={styles.navSectionTitle}>Overview</div>
             <NavLink
               to="/organizer/dashboard"
-              style={({ isActive }) => styles.sidebarLink(isActive, 'dashboard')}
+              style={({ isActive }) => styles.sidebarLink(isActive, 'dashboard', !isSubscribed)}
               onMouseEnter={() => setHoveredLink('dashboard')}
               onMouseLeave={() => setHoveredLink(null)}
             >
@@ -614,7 +749,7 @@ export default function OrganizerLayout() {
             </NavLink>
             <NavLink
               to="/organizer/analytics"
-              style={({ isActive }) => styles.sidebarLink(isActive, 'analytics')}
+              style={({ isActive }) => styles.sidebarLink(isActive, 'analytics', !isSubscribed)}
               onMouseEnter={() => setHoveredLink('analytics')}
               onMouseLeave={() => setHoveredLink(null)}
             >
@@ -625,7 +760,7 @@ export default function OrganizerLayout() {
             <div style={styles.navSectionTitle}>Event Configuration</div>
             <NavLink
               to="/organizer/events/manage"
-              style={({ isActive }) => styles.sidebarLink(isActive, 'manage')}
+              style={({ isActive }) => styles.sidebarLink(isActive, 'manage', !isSubscribed)}
               onMouseEnter={() => setHoveredLink('manage')}
               onMouseLeave={() => setHoveredLink(null)}
             >
@@ -634,7 +769,7 @@ export default function OrganizerLayout() {
             </NavLink>
             <NavLink
               to="/organizer/events/settings"
-              style={({ isActive }) => styles.sidebarLink(isActive, 'settings')}
+              style={({ isActive }) => styles.sidebarLink(isActive, 'settings', !isSubscribed)}
               onMouseEnter={() => setHoveredLink('settings')}
               onMouseLeave={() => setHoveredLink(null)}
             >
@@ -643,7 +778,7 @@ export default function OrganizerLayout() {
             </NavLink>
             <NavLink
               to="/organizer/rubrics"
-              style={({ isActive }) => styles.sidebarLink(isActive, 'rubrics')}
+              style={({ isActive }) => styles.sidebarLink(isActive, 'rubrics', !isSubscribed)}
               onMouseEnter={() => setHoveredLink('rubrics')}
               onMouseLeave={() => setHoveredLink(null)}
             >
@@ -654,27 +789,27 @@ export default function OrganizerLayout() {
             <div style={styles.navSectionTitle}>People & Scoring</div>
             <NavLink
               to="/organizer/participants"
-              style={({ isActive }) => styles.sidebarLink(isActive, 'participants')}
+              style={({ isActive }) => styles.sidebarLink(isActive, 'participants', !isSubscribed)}
               onMouseEnter={() => setHoveredLink('participants')}
               onMouseLeave={() => setHoveredLink(null)}
             >
               <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>groups</span>
-              Participants {pCount > 0 && <span style={styles.sidebarBadge}>{pCount}</span>}
+              Participants {(pCount > 0 || maxP) && <span style={styles.sidebarBadge}>{pCount}{maxP ? `/${maxP}` : ''}</span>}
             </NavLink>
             <NavLink
               to="/organizer/judges"
-              style={({ isActive }) => styles.sidebarLink(isActive, 'judges')}
+              style={({ isActive }) => styles.sidebarLink(isActive, 'judges', !isSubscribed)}
               onMouseEnter={() => setHoveredLink('judges')}
               onMouseLeave={() => setHoveredLink(null)}
             >
               <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>gavel</span>
-              Judges {jCount > 0 && <span style={styles.sidebarBadge}>{jCount}</span>}
+              Judges {(jCount > 0 || maxJ) && <span style={styles.sidebarBadge}>{jCount}{maxJ ? `/${maxJ}` : ''}</span>}
             </NavLink>
 
             <div style={styles.navSectionTitle}>Post-Event</div>
             <NavLink
               to="/organizer/results"
-              style={({ isActive }) => styles.sidebarLink(isActive, 'results')}
+              style={({ isActive }) => styles.sidebarLink(isActive, 'results', !isSubscribed)}
               onMouseEnter={() => setHoveredLink('results')}
               onMouseLeave={() => setHoveredLink(null)}
             >
@@ -683,7 +818,7 @@ export default function OrganizerLayout() {
             </NavLink>
             <NavLink
               to="/organizer/certificates"
-              style={({ isActive }) => styles.sidebarLink(isActive, 'certs')}
+              style={({ isActive }) => styles.sidebarLink(isActive, 'certs', !isSubscribed)}
               onMouseEnter={() => setHoveredLink('certs')}
               onMouseLeave={() => setHoveredLink(null)}
             >
@@ -692,7 +827,7 @@ export default function OrganizerLayout() {
             </NavLink>
             <NavLink
               to="/organizer/publish"
-              style={({ isActive }) => styles.sidebarLink(isActive, 'publish')}
+              style={({ isActive }) => styles.sidebarLink(isActive, 'publish', !isSubscribed)}
               onMouseEnter={() => setHoveredLink('publish')}
               onMouseLeave={() => setHoveredLink(null)}
             >
@@ -700,6 +835,35 @@ export default function OrganizerLayout() {
               Publish Hub
             </NavLink>
           </nav>
+
+          {!isSubscribed && (
+            <div style={{ padding: '0 14px 16px 14px' }}>
+              <div style={{ 
+                background: `linear-gradient(135deg, ${colors.navy} 0%, ${colors.navySoft} 100%)`, 
+                padding: '16px', borderRadius: '18px', color: '#fff', 
+                boxShadow: '0 10px 20px -5px rgba(15, 23, 42, 0.3)',
+                position: 'relative', overflow: 'hidden'
+              }}>
+                <div style={{ position: 'absolute', top: '-10px', right: '-10px', opacity: 0.1 }}>
+                  <span className="material-symbols-rounded" style={{ fontSize: '60px' }}>workspace_premium</span>
+                </div>
+                <p style={{ fontSize: '13px', fontWeight: '800', marginBottom: '6px', position: 'relative' }}>Pro Plan Required</p>
+                <p style={{ fontSize: '11px', opacity: 0.7, marginBottom: '14px', lineHeight: 1.4, position: 'relative' }}>To fully experience StandingsHQ, you need to subscribe.</p>
+                <button 
+                   onClick={() => navigate('/organizer/profile', { state: { activeTab: 'plan' } })}
+                   style={{ 
+                     width: '100%', padding: '10px', background: colors.accent, border: 'none', 
+                     borderRadius: '10px', color: '#fff', fontSize: '11px', fontWeight: '900', 
+                     cursor: 'pointer', transition: 'all 0.2s', boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
+                   }}
+                   onMouseEnter={(e) => e.target.style.transform = 'translateY(-1px)'}
+                   onMouseLeave={(e) => e.target.style.transform = 'none'}
+                >
+                  SUBSCRIBE NOW
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* User Footer */}
           <div style={styles.sidebarFooter}>
@@ -713,7 +877,7 @@ export default function OrganizerLayout() {
               </Link>
               <button
                 style={{ background: isLogoutHovered ? colors.borderSoft : 'none', border: 'none', cursor: 'pointer', display: 'flex', color: colors.inkMuted, padding: '6px', borderRadius: '50%', transition: 'all 0.22s' }}
-                onClick={() => { navigate('/'); showToast('Signed out. See you!', 'info'); }}
+                onClick={handleLogout}
                 onMouseEnter={() => setIsLogoutHovered(true)}
                 onMouseLeave={() => setIsLogoutHovered(false)}
                 title="Sign out"
@@ -727,7 +891,34 @@ export default function OrganizerLayout() {
         {/* ── MAIN CONTENT ── */}
         <main style={styles.main}>
           <div key={location.pathname} className="slide-up-anim">
-            <Outlet />
+            {(!isSubscribed && !location.pathname.endsWith('/profile')) ? (
+              <div style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                minHeight: '60vh', textAlign: 'center', maxWidth: '500px', margin: '0 auto', gap: '24px'
+              }}>
+                <div style={{
+                  width: '80px', height: '80px', borderRadius: '24px', background: 'rgba(59, 130, 246, 0.1)',
+                  color: colors.accent, display: 'grid', placeItems: 'center', marginBottom: '8px'
+                }}>
+                  <span className="material-symbols-rounded" style={{ fontSize: '40px' }}>lock</span>
+                </div>
+                <h2 style={{ fontSize: '32px', fontWeight: '900', color: colors.navy, margin: 0, letterSpacing: '-0.02em' }}>Feature Locked</h2>
+                <p style={{ fontSize: '16px', color: colors.inkSoft, lineHeight: 1.6, margin: 0 }}>
+                  To fully experience StandingsHQ and access this feature, you need to subscribe to a Pro plan.
+                </p>
+                <button
+                  onClick={() => navigate('/organizer/profile', { state: { activeTab: 'plan' } })}
+                  style={{
+                    padding: '16px 32px', background: colors.navy, color: '#fff', border: 'none',
+                    borderRadius: '16px', fontWeight: '700', cursor: 'pointer', transition: '0.2s'
+                  }}
+                >
+                  View Subscription Plans
+                </button>
+              </div>
+            ) : (
+              <Outlet />
+            )}
           </div>
         </main>
       </div>

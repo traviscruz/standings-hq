@@ -5,13 +5,25 @@ import { colors } from '../../styles/colors';
 export default function LeaderboardPage() {
   const { myEvents } = useParticipantContext();
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
-  const activeEvent = myEvents.find(e => e.status === 'Active') || myEvents[0];
+  const registeredEvents = myEvents.filter(e => e.registrationStatus === 'Registered');
+  const activeEvent = registeredEvents.find(e => e.status === 'Active') || registeredEvents[0];
+  const isMobile = windowWidth <= 768;
 
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  if (!activeEvent) {
+    return (
+      <div className="slide-up-anim" style={{ padding: '60px 20px', textAlign: 'center', color: colors.inkMuted }}>
+        <span className="material-symbols-rounded" style={{ fontSize: '64px', color: colors.border, marginBottom: '20px' }}>event_busy</span>
+        <h2 style={{ color: colors.navy, marginBottom: '12px' }}>No Events Found</h2>
+        <p style={{ maxWidth: '400px', margin: '0 auto' }}>You need to be registered in an active event to view the leaderboard standings.</p>
+      </div>
+    );
+  }
 
   const leaderboardData = [
     { rank: 11, name: 'Gabriela Silang', team: 'Team Alpha', score: 86.4, change: 'up' },
@@ -20,8 +32,6 @@ export default function LeaderboardPage() {
     { rank: 14, name: 'Jose Rizal', team: 'La Solidaridad', score: 82.8, change: 'up' },
     { rank: 15, name: 'Emilio Aguinaldo', team: 'Magdalo', score: 81.5, change: 'down' }
   ];
-
-  const isMobile = windowWidth <= 768;
 
   const pageHeaderStyle = {
     marginBottom: '40px',
@@ -118,7 +128,7 @@ export default function LeaderboardPage() {
                width: isMobile ? '100%' : 'auto'
              }}
            >
-             {myEvents.map(e => (
+             {registeredEvents.map(e => (
                <option key={e.id}>{e.name}</option>
              ))}
            </select>
@@ -228,4 +238,3 @@ export default function LeaderboardPage() {
     </div>
   );
 }
-

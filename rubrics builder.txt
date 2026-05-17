@@ -1,0 +1,174 @@
+**StandingsHQ — AI Rules & Rubrics Builder (General Competitions)**
+
+**Context**
+
+The organizer has already created an event with: name, description, date/time. The builder reads these and uses them as context for everything that follows.
+
+**Goal**
+
+Build a single, uniform AI prompt that works for *any* general competition (dance, debate, pageant, singing, poster making, etc.) but still asks dynamic, relevant questions based on what it learns along the way.
+
+---
+
+**Full Question Flow (in order, branching where noted)**
+
+1. Verify competition type (inferred from event name/description) → confirm or correct
+2. Format → Solo / Group / Mixed
+3. *(If Group or Mixed)* Min and max members per group
+4. *(If Group or Mixed)* Are all groups required to have the same number of members, or is a range allowed?
+5. Are there categories? (e.g., age group, division, level)
+6. *(If yes)* How many categories? What are they?
+7. Are there elimination rounds? (e.g., Prelims → Semis → Finals)
+8. *(If yes)* How many rounds? How many advance per round?
+9. Is there a time limit per performance/presentation?
+10. *(If yes)* What is the minimum and maximum duration?
+11. Are props, costumes, or materials involved?
+12. *(If yes)* Are there restrictions? (approved in advance, size/weight limits, etc.)
+13. How many judges?
+14. Are scores visible to the public/audience during the event?
+15. Is there a tiebreaker rule?
+16. *(If yes)* What is the tiebreaker method? (highest single criterion, judge revote, sudden death, etc.)
+17. Are there penalties? (e.g., overtime deduction, missing member deduction)
+18. *(If yes)* What are the penalty rules?
+19. Is there a registration deadline or cutoff for participants?
+20. Are participants allowed to join multiple categories or rounds independently?
+21. *(Rubric suggestion)* AI suggests criteria + weights based on all answers
+22. Organizer reviews, edits criteria names and weights (must total 100%)
+23. AI suggests rules in plain text based on all answers
+24. Organizer reviews, adds or removes rules
+25. Summary checklist → full review
+26. Save → JSON written to Supabase, status set to `draft`
+27. Organizer publishes → status set to `published`, judges gain read access
+
+---
+
+**Constraints**
+- One question at a time
+- All questions are multiple choice with button options (no free-text unless truly unavoidable, e.g. category names)
+- Skip irrelevant questions automatically based on prior answers
+- Output must always follow the same JSON schema regardless of competition type
+- Judges access the published rubric read-only via RLS
+
+---
+
+**Master System Prompt (sent to Claude API)**
+
+```
+You are a competition rules and rubrics assistant for 
+StandingsHQ, a competition management platform.
+
+Your job is to guide an event organizer through building 
+the complete rules and rubrics for their event, one 
+question at a time.
+
+Event context:
+- Name: {{event_name}}
+- Description: {{event_description}}
+- Date: {{event_date}}
+- Time: {{event_time}}
+
+Behavior rules:
+1. Ask ONE question at a time. Never combine two questions.
+2. Every question must have 2–5 multiple choice options.
+   Only use free-text input when no options make sense 
+   (e.g. entering category names, exact time limits).
+3. Adapt your next question based on ALL previous answers.
+   Skip questions that are irrelevant given prior answers.
+4. Cover ALL of the following topics if applicable:
+   - Competition format (solo/group/mixed)
+   - Group size (min and max members, fixed or range)
+   - Categories (existence, count, names)
+   - Elimination rounds (count, advancement slots per round)
+   - Time limits (min and max duration per entry)
+   - Props/costumes/materials (existence, restrictions)
+   - Number of judges
+   - Score visibility (public or private during event)
+   - Tiebreaker rule (method)
+   - Penalties (overtime, missing members, violations)
+   - Registration/participant cutoff rules
+   - Multi-category participation rules
+5. After ALL questions are answered, output ONLY a valid 
+   JSON object following this exact schema. No explanation,
+   no extra text — just the JSON.
+6. Keep all question text short, clear, and friendly.
+7. Never reveal or explain your internal logic or 
+   question order to the user.
+
+JSON schema to follow exactly:
+{
+  "event_id": "",
+  "competition_type": "",
+  "format": "solo | group | mixed",
+  "group_size": {
+    "min": null,
+    "max": null,
+    "fixed": false
+  },
+  "categories": {
+    "exists": false,
+    "list": []
+  },
+  "rounds": [
+    {
+      "name": "",
+      "order": 1,
+      "advances": null
+    }
+  ],
+  "time_limit": {
+    "exists": false,
+    "min_minutes": null,
+    "max_minutes": null
+  },
+  "props_costumes": {
+    "allowed": false,
+    "restrictions": []
+  },
+  "judge_count": 0,
+  "scores_public": false,
+  "tiebreaker": {
+    "exists": false,
+    "method": ""
+  },
+  "penalties": {
+    "exists": false,
+    "rules": []
+  },
+  "registration_cutoff": {
+    "exists": false,
+    "details": ""
+  },
+  "multi_category_allowed": false,
+  "rubric": {
+    "scale": { "min": 1, "max": 10 },
+    "criteria": [
+      { "id": "", "name": "", "weight": 0 }
+    ]
+  },
+  "rules": [],
+  "status": "draft",
+  "created_by": "",
+  "created_at": ""
+}
+```
+
+---
+
+**How It Stays Uniform But Dynamic**
+
+| Concern | Solution |
+|---|---|
+| Different competitions, different questions | One system prompt + full conversation history sent each turn |
+| Irrelevant questions skipped | Claude reads all prior answers and branches naturally |
+| Group size, time limits, penalties captured | Explicitly listed in system prompt as required topics |
+| Output always same shape | JSON schema enforced in system prompt |
+| New competition types in the future | Zero prompt changes — Claude infers from event context |
+| Frontend always renders the same way | Same JSON shape every time, regardless of type |
+
+---
+
+**Supabase Storage**
+
+Same `event_rubrics` table with `jsonb` column. RLS rules:
+- Organizer → full access to their event's rubric
+- Judges → read-only, only after status is `published`, only if assigned to the event via `event_judges` table

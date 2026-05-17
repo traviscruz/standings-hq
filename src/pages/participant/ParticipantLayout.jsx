@@ -1,6 +1,7 @@
 import React, { useState, createContext, useContext, useEffect, useRef } from 'react';
 import { NavLink, Outlet, useNavigate, Link, useLocation } from 'react-router-dom';
 import { colors } from '../../styles/colors';
+import { API_URL as API_BASE } from '../../config';
 
 const ParticipantContext = createContext();
 export const useParticipantContext = () => useContext(ParticipantContext);
@@ -90,9 +91,48 @@ export default function ParticipantLayout() {
   const [isLogoutHovered, setIsLogoutHovered] = useState(false);
   const [isMenuHovered, setIsMenuHovered] = useState(false);
 
-  const [myEvents, setMyEvents] = useState(SEED_EVENTS);
-  const [invitations, setInvitations] = useState(SEED_INVITATIONS);
+  const [myEvents, setMyEvents] = useState([]);
+  const [invitations, setInvitations] = useState([]);
   const [certificates, setCertificates] = useState(SEED_CERTIFICATES);
+  const [isLoading, setIsLoading] = useState(true);
+  const userEmail = localStorage.getItem('email');
+
+  // Fetch Invitations and Events
+  useEffect(() => {
+    if (!userEmail) return;
+
+    const fetchData = async () => {
+      try {
+        const [invRes, eventsRes] = await Promise.all([
+          fetch(`${API_BASE}/participants/my-invitations?email=${userEmail}`),
+          fetch(`${API_BASE}/participants/my-events?email=${userEmail}`)
+        ]);
+
+        const invData = await invRes.json();
+        const eventsData = await eventsRes.json();
+
+        if (invData.success) setInvitations(invData.data);
+        if (eventsData.success) setMyEvents(eventsData.data.map(e => {
+          let uiStatus = e.status.charAt(0).toUpperCase() + e.status.slice(1);
+          if (e.status === 'ongoing') uiStatus = 'Active';
+          if (e.status === 'completed') uiStatus = 'Completed';
+          return {
+            ...e,
+            date: new Date(e.date).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }),
+            status: uiStatus,
+            registrationStatus: e.registrationStatus,
+            registrationId: e.registrationId
+          };
+        }));
+      } catch (err) {
+        console.error('Error fetching participant data:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [userEmail]);
 
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
@@ -107,28 +147,77 @@ export default function ParticipantLayout() {
     timeoutRef.current = setTimeout(() => setToast(null), 5000);
   };
 
-  const acceptInvitation = (id) => {
-    const invite = invitations.find(inv => inv.id === id);
+  const handleLogout = () => {
+    localStorage.clear();
+    navigate('/');
+  };
+
+  const acceptInvitation = async (id) => {
+    let invite = invitations.find(inv => inv.id === id);
+    if (!invite) {
+      const match = myEvents.find(e => e.registrationId === id);
+      if (match) {
+        invite = {
+          id: match.registrationId,
+          eventName: match.name,
+          date: match.date,
+          type: match.type,
+          organizer: match.organizer
+        };
+      }
+    }
     if (!invite) return;
 
     const originalInvitations = [...invitations];
     const originalMyEvents = [...myEvents];
 
+    // Optimistic UI
     setInvitations(prev => prev.filter(inv => inv.id !== id));
-    setMyEvents(prev => [{
-      id: Date.now(),
-      name: invite.eventName,
-      date: invite.date,
-      status: 'Upcoming',
-      rank: '-',
-      score: '-',
-      type: invite.type
-    }, ...prev]);
+    setMyEvents(prev => {
+      const exists = prev.some(e => e.registrationId === id);
+      if (exists) {
+        return prev.map(e => e.registrationId === id ? { ...e, registrationStatus: 'Registered' } : e);
+      } else {
+        return [{
+          id: invite.id,
+          name: invite.eventName,
+          date: invite.date,
+          status: 'Upcoming',
+          rank: '-',
+          score: '-',
+          type: invite.type,
+          registrationId: invite.id,
+          registrationStatus: 'Registered',
+          organizer: invite.organizer
+        }, ...prev];
+      }
+    });
 
-    showToast(`Joined ${invite.eventName}!`, 'success', () => {
+    try {
+      const res = await fetch(`${API_BASE}/participants/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'Registered' })
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+
+      showToast(`Joined ${invite.eventName}!`, 'success', async () => {
+        // Undo action
+        await fetch(`${API_BASE}/participants/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'Pending' })
+        });
+        setInvitations(originalInvitations);
+        setMyEvents(originalMyEvents);
+      });
+    } catch (err) {
+      console.error('Failed to accept invitation:', err);
       setInvitations(originalInvitations);
       setMyEvents(originalMyEvents);
-    });
+      showToast('Failed to join event.', 'error');
+    }
   };
 
   const deleteCertificate = (id) => {
@@ -141,12 +230,27 @@ export default function ParticipantLayout() {
     });
   };
 
-  const declineInvitation = (id) => {
+  const declineInvitation = async (id) => {
     const originalInvitations = [...invitations];
+    const originalMyEvents = [...myEvents];
     setInvitations(prev => prev.filter(inv => inv.id !== id));
-    showToast('Invitation declined.', 'info', () => {
-      setInvitations(originalInvitations);
-    });
+    setMyEvents(prev => prev.filter(e => e.registrationId !== id));
+
+    try {
+        const res = await fetch(`${API_BASE}/participants/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error);
+
+        showToast('Invitation declined.', 'info', () => {
+          setInvitations(originalInvitations);
+          setMyEvents(originalMyEvents);
+        });
+    } catch (err) {
+        console.error('Failed to decline invitation:', err);
+        setInvitations(originalInvitations);
+        setMyEvents(originalMyEvents);
+        showToast('Failed to decline invitation.', 'error');
+    }
   };
 
   // Close sidebar on navigation
@@ -373,7 +477,7 @@ export default function ParticipantLayout() {
               </Link>
               <button 
                 style={{ background: isLogoutHovered ? colors.borderSoft : 'none', border: 'none', cursor: 'pointer', display: 'flex', color: colors.inkMuted, padding: '6px', borderRadius: '50%', transition: 'all 0.22s' }}
-                onClick={() => { navigate('/'); showToast('Signed out', 'info'); }}
+                onClick={handleLogout}
                 onMouseEnter={() => setIsLogoutHovered(true)}
                 onMouseLeave={() => setIsLogoutHovered(false)}
               >
