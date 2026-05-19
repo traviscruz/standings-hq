@@ -10,6 +10,8 @@ export default function ScoringPage() {
   const [hoveredSegment, setHoveredSegment] = useState(null);
   const [hoveredScore, setHoveredScore] = useState(null); // id-criterion-val
   const [isSubmitBtnHovered, setIsSubmitBtnHovered] = useState(false);
+  // lockedCells: { [segmentId]: { [participantId]: { [criterionId]: true } } }
+  const [lockedCells, setLockedCells] = useState({});
 
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
@@ -30,6 +32,27 @@ export default function ScoringPage() {
   const isSubmitted = (submittedSegments && activeSegment) ? submittedSegments[activeSegment] : false;
   const isLockedByStatus = event?.status?.toLowerCase() !== 'active' && event?.status?.toLowerCase() !== 'ongoing';
   const isScoringDisabled = isSubmitted || isLockedByStatus;
+
+  const isCellLocked = (pId, cId) =>
+    !!(lockedCells[activeSegment]?.[pId]?.[cId]);
+
+  const toggleCellLock = (pId, cId) => {
+    setLockedCells(prev => {
+      const seg = prev[activeSegment] || {};
+      const part = seg[pId] || {};
+      const isNowLocked = !part[cId];
+      return {
+        ...prev,
+        [activeSegment]: {
+          ...seg,
+          [pId]: {
+            ...part,
+            [cId]: isNowLocked || undefined,
+          },
+        },
+      };
+    });
+  };
 
   // Render a sleek loading spinner if segments are still loading or empty
   if (!segments || segments.length === 0 || !seg) {
@@ -325,15 +348,25 @@ export default function ScoringPage() {
                             </div>
                           </div>
                         </td>
-                        {seg.criteria.map(c => (
-                          <td key={c.id} style={{ ...tdStyle, textAlign: 'center' }}>
+                        {seg.criteria.map(c => {
+                          const cellLocked = isCellLocked(p.id, c.id);
+                          const cellDisabled = isScoringDisabled || cellLocked;
+                          return (
+                          <td key={c.id} style={{ ...tdStyle, textAlign: 'center', position: 'relative' }}>
+                            {/* Score input / pill group */}
+                            <div style={{
+                              opacity: cellLocked ? 0.45 : 1,
+                              transition: 'opacity 0.2s',
+                              pointerEvents: cellLocked ? 'none' : 'auto',
+                              marginBottom: !isScoringDisabled ? '10px' : '0',
+                            }}>
                             {c.maxScore <= 10 ? (
                               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', justifyContent: 'center', maxWidth: isMobile ? '160px' : '210px', margin: '0 auto' }}>
                                 {Array.from({ length: c.maxScore }, (_, i) => i + 1).map(val => (
                                   <button
                                     key={val}
-                                    disabled={isScoringDisabled}
-                                    style={scorePillStyle(p.id, c.id, val, Number(scores[p.id]?.[activeSegment]?.[c.id]) === val, isScoringDisabled)}
+                                    disabled={cellDisabled}
+                                    style={scorePillStyle(p.id, c.id, val, Number(scores[p.id]?.[activeSegment]?.[c.id]) === val, cellDisabled)}
                                     onClick={() => updateScore(p.id, activeSegment, c.id, String(val))}
                                     onMouseEnter={() => setHoveredScore(`${p.id}-${c.id}-${val}`)}
                                     onMouseLeave={() => setHoveredScore(null)}
@@ -350,7 +383,7 @@ export default function ScoringPage() {
                                     min="0"
                                     max={c.maxScore}
                                     step="0.5"
-                                    disabled={isScoringDisabled}
+                                    disabled={cellDisabled}
                                     value={scores[p.id]?.[activeSegment]?.[c.id] ?? ''}
                                     onChange={(e) => {
                                       let val = e.target.value;
@@ -372,7 +405,7 @@ export default function ScoringPage() {
                                       fontWeight: '700',
                                       color: colors.navy,
                                       textAlign: 'center',
-                                      background: isScoringDisabled ? colors.pageBg : '#fff',
+                                      background: cellDisabled ? colors.pageBg : '#fff',
                                       transition: 'all 0.2s',
                                       boxSizing: 'border-box'
                                     }}
@@ -381,8 +414,46 @@ export default function ScoringPage() {
                                 </div>
                               </div>
                             )}
+                            </div>
+
+                            {/* Per-cell lock toggle button — inline, below scores */}
+                            {!isScoringDisabled && (() => {
+                              const hasScore = scores[p.id]?.[activeSegment]?.[c.id] !== '' && scores[p.id]?.[activeSegment]?.[c.id] != null;
+                              const canLock = cellLocked || hasScore;
+                              return (
+                                <button
+                                  title={cellLocked ? 'Unlock this score' : hasScore ? 'Lock this score' : 'Select a score first'}
+                                  onClick={() => canLock && toggleCellLock(p.id, c.id)}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '5px',
+                                    height: '30px',
+                                    padding: '0 10px',
+                                    borderRadius: '100px',
+                                    border: cellLocked ? '1.5px solid #16A34A' : `1.5px solid ${colors.borderSoft}`,
+                                    background: cellLocked ? '#F0FDF4' : '#F8FAFC',
+                                    color: cellLocked ? '#16A34A' : colors.inkMuted,
+                                    cursor: canLock ? 'pointer' : 'not-allowed',
+                                    transition: 'all 0.2s',
+                                    boxShadow: cellLocked ? '0 2px 6px rgba(22,163,74,0.15)' : 'none',
+                                    fontSize: '11px',
+                                    fontWeight: '700',
+                                    whiteSpace: 'nowrap',
+                                    opacity: canLock ? 1 : 0.35,
+                                  }}
+                                >
+                                  <span className="material-symbols-rounded" style={{ fontSize: '16px', lineHeight: 1 }}>
+                                    {cellLocked ? 'lock' : 'lock_open'}
+                                  </span>
+                                  {cellLocked ? 'Locked' : 'Lock'}
+                                </button>
+                              );
+                            })()}
                           </td>
-                        ))}
+                          );
+                        })}
                         <td style={{ ...tdStyle, textAlign: 'center' }}>
                           <div style={{ padding: '8px', borderRadius: '12px', background: colors.navy, color: '#fff', display: 'inline-block', minWidth: '60px', boxShadow: '0 4px 12px rgba(15, 23, 42, 0.15)' }}>
                             <div style={{ fontSize: '10px', textTransform: 'uppercase', fontWeight: 800, opacity: 0.5, marginBottom: '2px' }}>Sum</div>
