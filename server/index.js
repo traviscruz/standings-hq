@@ -17,6 +17,7 @@ const participantRoutes = require('./routes/participants');
 const judgeRoutes = require('./routes/judges');
 const userRoutes = require('./routes/users');
 const scoreRoutes = require('./routes/scores');
+const certificateRoutes = require('./routes/certificates');
 
 // Use Routes
 app.use('/api/auth', authRoutes);
@@ -26,6 +27,7 @@ app.use('/api/participants', participantRoutes);
 app.use('/api/judges', judgeRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/scores', scoreRoutes);
+app.use('/api/certificates', certificateRoutes);
 
 // Health Check
 app.get('/', (req, res) => {

@@ -6,10 +6,10 @@ import { colors } from '../../styles/colors';
 function StatusBadge({ status }) {
   const s = (status || '').toLowerCase();
   const configs = {
-    active:    { color: '#166534', bg: '#DCFCE7', icon: 'sensors',      pulse: true,  label: 'Active' },
-    upcoming:  { color: '#92400E', bg: '#FEF3C7', icon: 'schedule',                   label: 'Upcoming' },
-    completed: { color: '#3730A3', bg: '#E0E7FF', icon: 'check_circle',               label: 'Completed' },
-    cancelled: { color: '#991B1B', bg: '#FEE2E2', icon: 'cancel',                     label: 'Cancelled' },
+    active: { color: '#166534', bg: '#DCFCE7', icon: 'sensors', pulse: true, label: 'Active' },
+    upcoming: { color: '#92400E', bg: '#FEF3C7', icon: 'schedule', label: 'Upcoming' },
+    completed: { color: '#3730A3', bg: '#E0E7FF', icon: 'check_circle', label: 'Completed' },
+    cancelled: { color: '#991B1B', bg: '#FEE2E2', icon: 'cancel', label: 'Cancelled' },
   };
   const cfg = configs[s] || { color: '#475569', bg: '#F1F5F9', icon: 'circle', label: status || '—' };
   return (
@@ -28,7 +28,7 @@ function StatusBadge({ status }) {
           lineHeight: 1,
           position: 'relative',
           top: '0.5px',
-          animation: cfg.pulse ? 'pulse 2s infinite' : 'none',
+          animation: cfg.pulse ? 'statusPulse 2s infinite ease-in-out' : 'none',
           flexShrink: 0,
         }}
       >{cfg.icon}</span>
@@ -46,14 +46,14 @@ function SkeletonRow() {
         <div style={{ ...shimmer, height: '14px', width: '60%', marginBottom: '6px' }} />
         <div style={{ ...shimmer, height: '11px', width: '35%' }} />
       </td>
-      {[1,2,3,4].map(i => (
+      {[1, 2, 3, 4].map(i => (
         <td key={i} style={{ padding: '18px 24px' }}>
           <div style={{ ...shimmer, height: '13px', width: '70%' }} />
         </td>
       ))}
       <td style={{ padding: '18px 24px', textAlign: 'right' }}>
         <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
-          {[1,2,3].map(i => <div key={i} style={{ ...shimmer, width: '32px', height: '32px', borderRadius: '10px' }} />)}
+          {[1, 2, 3].map(i => <div key={i} style={{ ...shimmer, width: '32px', height: '32px', borderRadius: '10px' }} />)}
         </div>
       </td>
     </tr>
@@ -104,7 +104,7 @@ export default function ManageEventPage() {
     // Validate before setting to Active
     if (s !== 'active') {
       const startDate = ev.startDate ? new Date(ev.startDate + 'T00:00:00') : null;
-      const endDate   = ev.endDate   ? new Date(ev.endDate   + 'T00:00:00') : null;
+      const endDate = ev.endDate ? new Date(ev.endDate + 'T00:00:00') : null;
 
       if (startDate && today < startDate) {
         showToast(
@@ -300,7 +300,14 @@ export default function ManageEventPage() {
 
   return (
     <>
-      <style>{`@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }`}</style>
+      <style>{`
+        @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+        @keyframes statusPulse {
+          0% { opacity: 1; }
+          50% { opacity: 0.35; }
+          100% { opacity: 1; }
+        }
+      `}</style>
 
       <div style={styles.pageHeader}>
         <div>
@@ -370,7 +377,7 @@ export default function ManageEventPage() {
                 ))}
               </tr>
             </thead>
-            <tbody>{[1,2,3].map(i => <SkeletonRow key={i} />)}</tbody>
+            <tbody>{[1, 2, 3].map(i => <SkeletonRow key={i} />)}</tbody>
           </table>
         )}
 

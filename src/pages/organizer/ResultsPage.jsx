@@ -27,6 +27,185 @@ export default function ResultsPage() {
   const [hoveredRow, setHoveredRow] = useState(null);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
 
+  const handleExportPDF = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      showToast('Could not open print window. Please check popup blocker.', 'error');
+      return;
+    }
+
+    const title = `${selectedEvent.name} - Official Leaderboard`;
+    const date = new Date().toLocaleDateString();
+
+    const ranked = [...participants].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
+    const scoredCount = participants.filter(p => p.score != null).length;
+    const highScore = ranked.find(p => p.score != null)?.score ?? null;
+    const avgScore = scoredCount > 0
+      ? (participants.filter(p => p.score != null).reduce((s, p) => s + p.score, 0) / scoredCount).toFixed(1)
+      : '—';
+
+    const htmlContent = `
+      <html>
+        <head>
+          <title>${title}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@700;800;900&family=Inter:wght@400;600;700;800&display=swap');
+            body {
+              font-family: 'Inter', -apple-system, sans-serif;
+              color: #0f172a;
+              padding: 40px;
+              margin: 0;
+            }
+            .header {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              border-bottom: 2px solid #e2e8f0;
+              padding-bottom: 20px;
+              margin-bottom: 30px;
+            }
+            .brand {
+              font-size: 20px;
+              font-weight: 800;
+              color: #0f172a;
+              font-family: 'DM Sans', sans-serif;
+            }
+            .brand span {
+              color: #3b82f6;
+            }
+            .title {
+              font-size: 24px;
+              font-weight: 800;
+              margin: 0 0 8px 0;
+              font-family: 'DM Sans', sans-serif;
+            }
+            .meta {
+              font-size: 13px;
+              color: #64748b;
+            }
+            .kpis {
+              display: grid;
+              grid-template-columns: repeat(4, 1fr);
+              gap: 16px;
+              margin-bottom: 30px;
+            }
+            .kpi-card {
+              border: 1px solid #e2e8f0;
+              border-radius: 12px;
+              padding: 16px;
+              background: #f8fafc;
+            }
+            .kpi-label {
+              font-size: 11px;
+              font-weight: 700;
+              text-transform: uppercase;
+              color: #64748b;
+              margin-bottom: 6px;
+            }
+            .kpi-value {
+              font-size: 18px;
+              font-weight: 800;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 20px;
+            }
+            th {
+              background: #f8fafc;
+              padding: 12px 16px;
+              font-size: 11px;
+              font-weight: 700;
+              text-transform: uppercase;
+              color: #475569;
+              border-bottom: 2px solid #cbd5e1;
+              text-align: left;
+            }
+            td {
+              padding: 14px 16px;
+              border-bottom: 1px solid #e2e8f0;
+              font-size: 14px;
+            }
+            @media print {
+              body { padding: 20px; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div>
+              <h1 class="title">${title}</h1>
+              <div class="meta">Exported on ${date} • Event Status: ${selectedEvent.status}</div>
+            </div>
+            <div class="brand">Standings<span>HQ</span></div>
+          </div>
+          
+          <div class="kpis">
+            <div class="kpi-card">
+              <div class="kpi-label">Total Participants</div>
+              <div class="kpi-value">${participants.length}</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Scores Submitted</div>
+              <div class="kpi-value">${scoredCount} / ${participants.length}</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Highest Score</div>
+              <div class="kpi-value">${highScore ?? '—'}</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Average Score</div>
+              <div class="kpi-value">${avgScore}</div>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 70px; text-align: center;">Rank</th>
+                <th>Participant</th>
+                <th>Team</th>
+                <th style="text-align: center;">Status</th>
+                <th style="text-align: right;">Score</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${ranked.length === 0 ? `
+                <tr>
+                  <td colspan="5" style="text-align: center; color: #64748b; padding: 40px;">No participants added yet.</td>
+                </tr>
+              ` : ranked.map((p, idx) => {
+                const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : '';
+                const rankDisplay = p.score != null ? (medal ? `${medal} ${idx + 1}` : idx + 1) : '—';
+                return `
+                  <tr>
+                    <td style="text-align: center; font-weight: 800; font-size: ${idx < 3 ? '16px' : '14px'}">${rankDisplay}</td>
+                    <td style="font-weight: 700;">${p.name}</td>
+                    <td>${p.team || ''}</td>
+                    <td style="text-align: center; color: ${p.score != null ? '#16a34a' : '#64748b'}; font-weight: 600;">
+                      ${p.score != null ? 'Scored' : 'Pending'}
+                    </td>
+                    <td style="text-align: right; font-weight: 800; font-size: 16px;">${p.score ?? '—'}</td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+          <script>
+            window.onload = function() {
+              window.print();
+              setTimeout(function() { window.close(); }, 500);
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+    showToast('PDF Rankings Report generated!', 'success');
+  };
+
   useEffect(() => {
     const t = setInterval(() => forceUpdate(n => n + 1), 30000);
     return () => clearInterval(t);
@@ -238,7 +417,7 @@ export default function ResultsPage() {
             style={styles.btn(activeBtnHover === 'export', true)}
             onMouseEnter={() => setActiveBtnHover('export')}
             onMouseLeave={() => setActiveBtnHover(null)}
-            onClick={() => showToast('Generating PDF rankings... Download starting.', 'success')}
+            onClick={handleExportPDF}
           >
             <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>download</span>
             Export PDF

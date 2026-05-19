@@ -63,21 +63,6 @@ const SEED_INVITATIONS = [
   }
 ];
 
-const SEED_CERTIFICATES = [
-  {
-    id: 4, // ID matching the completed event
-    eventName: 'Regional Science Fair 2025',
-    achievement: '3rd Place',
-    date: 'Aug 11, 2025'
-  },
-  {
-    id: 99,
-    eventName: 'Youth Leadership Summit 2025',
-    achievement: 'Participation',
-    date: 'Jun 15, 2025'
-  }
-];
-
 export default function ParticipantLayout() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -85,7 +70,7 @@ export default function ParticipantLayout() {
   const [toast, setToast] = useState(null);
   const timeoutRef = useRef(null);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
-  const userName = localStorage.getItem('username') || 'Member';
+  const userName = localStorage.getItem('full_name') || localStorage.getItem('username') || 'Member';
   const userInitials = userName.split(' ').map(n => n[0]).join('').toUpperCase();
   const [hoveredLink, setHoveredLink] = useState(null);
   const [isLogoutHovered, setIsLogoutHovered] = useState(false);
@@ -93,25 +78,29 @@ export default function ParticipantLayout() {
 
   const [myEvents, setMyEvents] = useState([]);
   const [invitations, setInvitations] = useState([]);
-  const [certificates, setCertificates] = useState(SEED_CERTIFICATES);
+  const [certificates, setCertificates] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const userEmail = localStorage.getItem('email');
 
-  // Fetch Invitations and Events
+  // Fetch Invitations, Events, and Certificates
   useEffect(() => {
     if (!userEmail) return;
 
     const fetchData = async () => {
       try {
-        const [invRes, eventsRes] = await Promise.all([
+        const [invRes, eventsRes, certsRes] = await Promise.all([
           fetch(`${API_BASE}/participants/my-invitations?email=${userEmail}`),
-          fetch(`${API_BASE}/participants/my-events?email=${userEmail}`)
+          fetch(`${API_BASE}/participants/my-events?email=${userEmail}`),
+          fetch(`${API_BASE}/certificates/participant?email=${userEmail}`)
         ]);
 
         const invData = await invRes.json();
         const eventsData = await eventsRes.json();
+        const certsData = await certsRes.json();
 
         if (invData.success) setInvitations(invData.data);
+        if (certsData.success) setCertificates(certsData.data);
+        
         if (eventsData.success) setMyEvents(eventsData.data.map(e => {
           let uiStatus = e.status.charAt(0).toUpperCase() + e.status.slice(1);
           if (e.status === 'ongoing') uiStatus = 'Active';

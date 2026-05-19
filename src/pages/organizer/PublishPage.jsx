@@ -19,6 +19,35 @@ export default function PublishPage() {
   const [published, setPublished] = useState(false);
   const [activeBtnHover, setActiveBtnHover] = useState(null);
 
+  const handleCSVDownload = () => {
+    if (participants.length === 0) {
+      showToast('No participants to export.', 'error');
+      return;
+    }
+    const headers = ['Rank', 'Name', 'Team', 'Score'];
+    const rows = ranked.map((p, idx) => [
+      idx + 1,
+      p.name || '',
+      p.team || '',
+      p.score != null ? p.score : 'N/A'
+    ]);
+    
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(r => r.map(val => `"${String(val).replace(/"/g, '""')}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${selectedEvent.name.toLowerCase().replace(/\s+/g, '_')}_scores.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast('Scores exported to CSV!', 'success');
+  };
+
   if (eventsLoading) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '40vh', flexDirection: 'column', gap: '12px' }}>
@@ -379,7 +408,7 @@ export default function PublishPage() {
                 style={{ ...styles.btn(activeBtnHover === 'csv'), width: '100%' }}
                 onMouseEnter={() => setActiveBtnHover('csv')}
                 onMouseLeave={() => setActiveBtnHover(null)}
-                onClick={() => showToast('Downloading scores_export.csv...', 'info')}
+                onClick={handleCSVDownload}
               >
                 <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>file_download</span> Download CSV
               </button>

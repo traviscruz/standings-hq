@@ -9,6 +9,209 @@ export default function RubricReviewPage() {
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const [hoveredButton, setHoveredButton] = useState(null); // export, scoring
 
+  const handleExportPDF = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      showToast('Could not open print window. Please check popup blocker.', 'error');
+      return;
+    }
+
+    const title = `${event.name} - Official Scoring Rubric`;
+    const date = new Date().toLocaleDateString();
+
+    const htmlContent = `
+      <html>
+        <head>
+          <title>${title}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@700;800;900&family=Inter:wght@400;600;700;800&display=swap');
+            body {
+              font-family: 'Inter', -apple-system, sans-serif;
+              color: #0f172a;
+              padding: 40px;
+              margin: 0;
+            }
+            .header {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              border-bottom: 2px solid #e2e8f0;
+              padding-bottom: 20px;
+              margin-bottom: 30px;
+            }
+            .brand {
+              font-size: 20px;
+              font-weight: 800;
+              color: #0f172a;
+              font-family: 'DM Sans', sans-serif;
+            }
+            .brand span {
+              color: #3b82f6;
+            }
+            .title {
+              font-size: 24px;
+              font-weight: 800;
+              margin: 0 0 8px 0;
+              font-family: 'DM Sans', sans-serif;
+            }
+            .meta {
+              font-size: 13px;
+              color: #64748b;
+            }
+            .summary {
+              display: flex;
+              align-items: center;
+              gap: 12px;
+              padding: 16px;
+              border-radius: 12px;
+              background-color: #eff6ff;
+              border: 1px solid #bfdbfe;
+              margin-bottom: 30px;
+              font-size: 15px;
+            }
+            .summary-title {
+              font-weight: 700;
+              color: #1e3a8a;
+            }
+            .summary-value {
+              font-size: 20px;
+              font-weight: 800;
+              color: #1e3a8a;
+            }
+            .segment-card {
+              border: 1px solid #e2e8f0;
+              border-radius: 16px;
+              overflow: hidden;
+              margin-bottom: 24px;
+              page-break-inside: avoid;
+            }
+            .segment-header {
+              padding: 16px 24px;
+              background: #f8fafc;
+              border-bottom: 1px solid #e2e8f0;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+            }
+            .segment-title {
+              font-size: 16px;
+              font-weight: 700;
+              color: #0f172a;
+            }
+            .segment-meta {
+              font-size: 12px;
+              color: #64748b;
+              margin-top: 4px;
+            }
+            .segment-points {
+              font-size: 18px;
+              font-weight: 800;
+              color: #3b82f6;
+              text-align: right;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+            }
+            th {
+              background: #f8fafc;
+              padding: 10px 24px;
+              font-size: 10px;
+              font-weight: 700;
+              text-transform: uppercase;
+              letter-spacing: 0.05em;
+              color: #64748b;
+              border-bottom: 1px solid #e2e8f0;
+              text-align: left;
+            }
+            td {
+              padding: 12px 24px;
+              border-bottom: 1px solid #e2e8f0;
+              font-size: 13.5px;
+            }
+            @media print {
+              body { padding: 20px; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div>
+              <h1 class="title">${title}</h1>
+              <div class="meta">Exported on ${date} • Rubric Specifications</div>
+            </div>
+            <div class="brand">Standings<span>HQ</span></div>
+          </div>
+          
+          <div class="summary">
+            <span class="summary-title">Grand Total Possible Score:</span>
+            <span class="summary-value">${grandTotal} pts</span>
+            <span style="color: #64748b; margin-left: auto;">${segments.length} segments · Standard Average scoring mode</span>
+          </div>
+
+          <div>
+            ${segments.map((seg, idx) => {
+              const segMax = seg.criteria.reduce((a, c) => a + c.maxScore, 0);
+              const pct = grandTotal > 0 ? Math.round((segMax / grandTotal) * 100) : 0;
+              return `
+                <div class="segment-card">
+                  <div class="segment-header">
+                    <div>
+                      <div class="segment-title">${idx + 1}. ${seg.label}</div>
+                      <div class="segment-meta">
+                        ${seg.criteria.length} criteria 
+                        ${seg.weight !== undefined ? `• <span style="color: #3b82f6; font-weight: 600;">Weight: ${seg.weight}%</span>` : ''}
+                      </div>
+                    </div>
+                    <div>
+                      <div class="segment-points">${segMax} pts</div>
+                      <div style="font-size: 11px; color: #64748b; text-align: right;">${pct}% of total</div>
+                    </div>
+                  </div>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th style="width: 40px;">#</th>
+                        <th>Criterion</th>
+                        <th style="text-align: center; width: 100px;">Max Score</th>
+                        <th>Scoring Guidance</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${seg.criteria.map((c, ci) => `
+                        <tr>
+                          <td style="color: #64748b; font-weight: 600;">${ci + 1}</td>
+                          <td style="font-weight: 600;">${c.name}</td>
+                          <td style="text-align: center;">
+                            <span style="display: inline-block; padding: 3px 10px; background: #eff6ff; color: #1d4ed8; font-weight: 700; border-radius: 12px; font-size: 12px;">
+                              ${c.maxScore} pts
+                            </span>
+                          </td>
+                          <td style="color: #64748b; font-size: 12.5px;">Score from 0 to ${c.maxScore}. Half points are allowed.</td>
+                        </tr>
+                      `).join('')}
+                    </tbody>
+                  </table>
+                </div>
+              `;
+            }).join('')}
+          </div>
+          
+          <script>
+            window.onload = function() {
+              window.print();
+              setTimeout(function() { window.close(); }, 500);
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+    showToast('Rubric downloaded as PDF!', 'success');
+  };
+
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
     window.addEventListener('resize', handleResize);
@@ -138,7 +341,7 @@ export default function RubricReviewPage() {
         <div style={{ display: 'flex', gap: '12px', flexDirection: isMobile ? 'column' : 'row' }}>
           <button 
             style={secondaryBtnStyle} 
-            onClick={() => showToast('Rubric downloaded as PDF.')}
+            onClick={handleExportPDF}
             onMouseEnter={() => setHoveredButton('export')}
             onMouseLeave={() => setHoveredButton(null)}
           >

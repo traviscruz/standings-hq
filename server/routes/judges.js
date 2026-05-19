@@ -12,8 +12,8 @@ router.get('/my-invitations', async (req, res) => {
     const { data, error } = await supabase
       .from('event_judges')
       .select('*, event:events(name, start_date, type, profiles(first_name, last_name))')
-      .eq('email', email)
-      .eq('status', 'Pending')
+      .ilike('email', email)
+      .in('status', ['Pending', 'pending'])
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -24,7 +24,8 @@ router.get('/my-invitations', async (req, res) => {
       eventName: inv.event?.name || 'Unknown Event',
       organizer: inv.event?.profiles ? `${inv.event.profiles.first_name} ${inv.event.profiles.last_name}` : 'Unknown Organizer',
       date: inv.event?.start_date || 'TBD',
-      role: inv.role || 'Judge'
+      role: inv.role || 'Judge',
+      status: inv.status || 'Pending'
     }));
 
     res.json({ success: true, data: formatted });
@@ -44,8 +45,8 @@ router.get('/my-events', async (req, res) => {
     const { data, error } = await supabase
       .from('event_judges')
       .select('*, event:events(id, name, type, description, start_date, start_time, end_date, end_time, location, status, visibility, profiles(first_name, last_name))')
-      .eq('email', email)
-      .eq('status', 'Accepted')
+      .ilike('email', email)
+      .in('status', ['Accepted', 'accepted'])
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -111,7 +112,7 @@ router.post('/', async (req, res) => {
     if (email) {
       const { data: existing } = await supabase
         .from('event_judges')
-        .select('id')
+        .select('*')
         .eq('event_id', event_id)
         .eq('email', email)
         .maybeSingle();
@@ -122,11 +123,25 @@ router.post('/', async (req, res) => {
       }
     }
 
+    // Look up real name from profiles table if registered in system
+    let finalName = name;
+    if (email) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('first_name, last_name')
+        .eq('email', email)
+        .maybeSingle();
+
+      if (profile) {
+        finalName = `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || name;
+      }
+    }
+
     const { data, error } = await supabase
       .from('event_judges')
       .insert([{
         event_id,
-        name,
+        name: finalName,
         email: email || null,
         expertise: expertise || null,
         role: role || null,

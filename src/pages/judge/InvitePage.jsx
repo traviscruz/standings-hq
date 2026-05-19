@@ -140,7 +140,9 @@ export default function InvitePage() {
   const statusBadgeStyle = (status) => {
     let bg = '#FEF3C7';
     let color = '#92400E';
-    if (status === 'accepted') { bg = '#DCFCE7'; color = '#166534'; }
+    const norm = status ? status.toLowerCase() : '';
+    if (norm === 'accepted' || norm === 'confirmed') { bg = '#DCFCE7'; color = '#166534'; }
+    else if (norm === 'declined' || norm === 'rejected') { bg = '#FEE2E2'; color = '#991B1B'; }
 
     return {
       display: 'inline-flex',
@@ -194,9 +196,9 @@ export default function InvitePage() {
               <div style={{ flex: 1 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px', gap: '12px' }}>
                   <h3 style={{ fontSize: '17px', fontWeight: 800, color: colors.navy, fontFamily: "'DM Sans', system-ui, sans-serif", margin: 0 }}>{inv.eventName}</h3>
-                  {inv.status !== 'pending' ? (
+                  {inv.status?.toLowerCase() !== 'pending' ? (
                     <div style={statusBadgeStyle(inv.status)}>
-                      {inv.status === 'accepted' ? 'Confirmed' : 'Declined'}
+                      {(inv.status?.toLowerCase() === 'accepted' || inv.status?.toLowerCase() === 'confirmed') ? 'Confirmed' : 'Declined'}
                     </div>
                   ) : (
                     <span style={{ 
@@ -216,7 +218,7 @@ export default function InvitePage() {
                     <span className="material-symbols-rounded" style={{ fontSize: '15px' }}>person</span>
                     By <span style={{ color: colors.navy, fontWeight: 600 }}>{inv.organizer}</span>
                   </div>
-                  {inv.status !== 'pending' && (
+                  {inv.status?.toLowerCase() !== 'pending' && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12.5px', color: colors.inkMuted }}>
                       <span className="material-symbols-rounded" style={{ fontSize: '15px' }}>work</span>
                       <span style={{ color: colors.navy, fontWeight: 600 }}>{inv.role}</span>
@@ -228,7 +230,7 @@ export default function InvitePage() {
                   </div>
                 </div>
 
-                {inv.status === 'pending' && (
+                {inv.status?.toLowerCase() === 'pending' && (
                   <div style={{ display: 'flex', gap: '12px' }}>
                     <button 
                         style={btnPrimaryStyle} 

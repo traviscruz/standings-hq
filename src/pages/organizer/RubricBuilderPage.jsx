@@ -177,25 +177,16 @@ export default function RubricBuilderPage() {
   const [promptText, setPromptText] = useState("");
   const [isPromptLoading, setIsPromptLoading] = useState(false);
 
-  // Safety Lock Check: Evaluates all states (even pending/upcoming status is locked if start_date is past or today)
+  // Safety Lock Check: Evaluates all states (only lock if the event is not active status)
   const isRubricLocked = () => {
     if (!selectedEvent) return false;
     
     // Normalize status to lowercase for comparison (supports 'ongoing', 'completed', 'cancelled', 'active', etc.)
     const status = (selectedEvent.status || "").toLowerCase();
     
-    // 1. Lock immediately if marked as anything other than 'upcoming' (e.g. ongoing, completed, active, cancelled)
-    const isNotUpcoming = status !== 'upcoming';
-    
-    // 2. Date check: is the event scheduled to have started (start date is past or today)?
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const eventStartDate = selectedEvent.startDate ? new Date(selectedEvent.startDate + 'T00:00:00') : null;
-    const isStartDatePastOrToday = eventStartDate ? today >= eventStartDate : false;
-
-    // Lock if the event has been initiated in database status OR if the calendar date has already arrived/passed
-    return isNotUpcoming || isStartDatePastOrToday;
+    // only lock if the event is active/ongoing status.
+    // if not (e.g. upcoming, completed), then don't lock.
+    return status === 'active' || status === 'ongoing';
   };
 
   const isLocked = isRubricLocked();

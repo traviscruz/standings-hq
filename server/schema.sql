@@ -289,3 +289,51 @@ USING (
 CREATE TRIGGER set_event_judges_updated_at
 BEFORE UPDATE ON public.event_judges
 FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 12. Certificates Table
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.certificates (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id        UUID NOT NULL REFERENCES public.events(id) ON DELETE CASCADE,
+  participant_id  UUID NOT NULL REFERENCES public.event_participants(id) ON DELETE CASCADE,
+  achievement     TEXT NOT NULL,                           -- e.g. 'Champion', '1st Runner Up', 'Participation'
+  custom_text     TEXT,                                    -- Customized certificate text
+  template_config JSONB NOT NULL,                          -- Dynamic border template, orient, signatories config
+  created_at      TIMESTAMPTZ DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ DEFAULT NOW(),
+  
+  -- Prevent multiple certificates for the same event and participant
+  CONSTRAINT unique_event_participant_cert UNIQUE (event_id, participant_id)
+);
+
+-- Setup RLS for Certificates
+ALTER TABLE public.certificates ENABLE ROW LEVEL SECURITY;
+
+-- Policy: Organizers can manage certificates for their own events
+CREATE POLICY "Organizers can manage own certificates"
+ON public.certificates FOR ALL
+USING (
+  EXISTS (
+    SELECT 1 FROM public.events 
+    WHERE public.events.id = public.certificates.event_id 
+    AND public.events.organizer_id = auth.uid()
+  )
+);
+
+-- Policy: Participants can view their own certificates (joined by email matching their profile)
+CREATE POLICY "Participants can view own certificates"
+ON public.certificates FOR SELECT
+USING (
+  EXISTS (
+    SELECT 1 FROM public.event_participants ep
+    JOIN public.profiles p ON ep.email = p.email
+    WHERE ep.id = public.certificates.participant_id
+    AND p.id = auth.uid()
+  )
+);
+
+-- Trigger for updated_at
+CREATE TRIGGER set_certificates_updated_at
+BEFORE UPDATE ON public.certificates
+FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();

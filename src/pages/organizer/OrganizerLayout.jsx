@@ -105,11 +105,11 @@ export default function OrganizerLayout() {
     })
       .then(r => r.json())
       .then(json => {
-        if (json.success && json.data?.id && json.data.id !== tempId) {
-          // Swap temp id with real DB id so future PATCH/DELETE work correctly
+        if (json.success && json.data) {
+          // Swap temp id with real DB data so future PATCH/DELETE work correctly, and use server resolved name
           setParticipantsData(prev => ({
             ...prev,
-            [eventId]: (prev[eventId] || []).map(x => x.id === tempId ? { ...x, id: json.data.id } : x)
+            [eventId]: (prev[eventId] || []).map(x => x.id === tempId ? { ...x, ...json.data } : x)
           }));
         }
       })
@@ -145,11 +145,11 @@ export default function OrganizerLayout() {
     })
       .then(r => r.json())
       .then(json => {
-        if (json.success && json.data?.id && json.data.id !== tempId) {
-          // Swap temp id with real DB id so future PATCH/DELETE work correctly
+        if (json.success && json.data) {
+          // Swap temp id with real DB data so future PATCH/DELETE work correctly, and use server resolved name
           setJudgesData(prev => ({
             ...prev,
-            [eventId]: (prev[eventId] || []).map(x => x.id === tempId ? { ...x, id: json.data.id } : x)
+            [eventId]: (prev[eventId] || []).map(x => x.id === tempId ? { ...x, ...json.data } : x)
           }));
         }
       })
@@ -905,16 +905,7 @@ export default function OrganizerLayout() {
               <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>workspace_premium</span>
               Certificates
             </NavLink>
-            <NavLink
-              to="/organizer/publish"
-              style={({ isActive }) => styles.sidebarLink(isActive, 'publish', !isSubscribed)}
-              onMouseEnter={() => setHoveredLink('publish')}
-              onMouseLeave={() => setHoveredLink(null)}
-            >
-              <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>campaign</span>
-              Publish Hub
-            </NavLink>
-          </nav>
+           </nav>
 
           {!isSubscribed && (
             <div style={{ padding: '0 14px 16px 14px' }}>

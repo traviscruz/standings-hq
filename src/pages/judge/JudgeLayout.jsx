@@ -34,20 +34,7 @@ export default function JudgeLayout() {
   const userEmail = localStorage.getItem('email');
   const selectedEvent = eventsList.find(e => e.id === selectedEventId);
 
-  // Fetch Pending Invitations
-  useEffect(() => {
-    if (!userEmail) return;
-
-    fetch(`${API_BASE}/judges/my-invitations?email=${userEmail}`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) setInvitations(data.data.map(inv => ({ ...inv, status: 'pending' })));
-      })
-      .catch(err => console.error('Error fetching judge invitations:', err));
-  }, [userEmail]);
-
-  // Fetch Accepted Events
-  useEffect(() => {
+  const fetchAcceptedEvents = () => {
     if (!userEmail) {
       setEventsLoading(false);
       return;
@@ -58,7 +45,10 @@ export default function JudgeLayout() {
       .then(data => {
         if (data.success && data.data.length > 0) {
           setEventsList(data.data);
-          setSelectedEventId(data.data[0].id);
+          setSelectedEventId(prev => {
+            if (prev && data.data.some(e => e.id === prev)) return prev;
+            return data.data[0].id;
+          });
         } else {
           setEventsList([]);
           setSelectedEventId(null);
@@ -66,6 +56,28 @@ export default function JudgeLayout() {
       })
       .catch(err => console.error('Error fetching accepted events:', err))
       .finally(() => setEventsLoading(false));
+  };
+
+  // Fetch Pending Invitations
+  useEffect(() => {
+    if (!userEmail) return;
+
+    fetch(`${API_BASE}/judges/my-invitations?email=${userEmail}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setInvitations(data.data.map(inv => ({
+            ...inv,
+            status: inv.status ? inv.status.toLowerCase() : 'pending'
+          })));
+        }
+      })
+      .catch(err => console.error('Error fetching judge invitations:', err));
+  }, [userEmail]);
+
+  // Fetch Accepted Events
+  useEffect(() => {
+    fetchAcceptedEvents();
   }, [userEmail]);
 
   // Fetch active event participants & rubric configuration
@@ -306,6 +318,11 @@ export default function JudgeLayout() {
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
 
+      // Dynamically sync workspace rooms
+      if (action === 'accepted') {
+        fetchAcceptedEvents();
+      }
+
       const msg = action === 'accepted' ? 'Attendance confirmed. Event added to dashboard.' : 'Invitation declined.';
       showToast(msg, action === 'accepted' ? 'success' : 'info', async () => {
         // Undo
@@ -315,6 +332,9 @@ export default function JudgeLayout() {
             body: JSON.stringify({ status: 'Pending' })
         });
         setInvitations(prevInvs);
+        if (action === 'accepted') {
+          fetchAcceptedEvents();
+        }
       });
     } catch (err) {
       console.error('Failed to update invitation status:', err);
@@ -754,8 +774,8 @@ export default function JudgeLayout() {
             >
               <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>mail</span>
               <span>Pending Invites</span>
-              {invitations.filter(i => i.status === 'pending').length > 0 && (
-                <span style={sidebarBadgeStyle}>{invitations.filter(i => i.status === 'pending').length}</span>
+              {invitations.filter(i => i.status?.toLowerCase() === 'pending').length > 0 && (
+                <span style={sidebarBadgeStyle}>{invitations.filter(i => i.status?.toLowerCase() === 'pending').length}</span>
               )}
             </NavLink>
 

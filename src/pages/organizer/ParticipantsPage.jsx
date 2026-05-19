@@ -255,24 +255,104 @@ export default function ParticipantsPage() {
 
   const handleFileImport = e => {
     const file = e.target.files?.[0]; if (!file) return;
-    const newItems = [
-      { id: Date.now() + 1, name: 'CSV User One', email: 'one@csv.ph', team: 'CSV Team A', status: 'Pending', score: null },
-      { id: Date.now() + 2, name: 'CSV User Two', email: 'two@csv.ph', team: 'CSV Team B', status: 'Pending', score: null },
-    ];
-    if (maxP && participants.length + newItems.length > maxP) {
-      showToast(`Cannot import CSV: importing ${newItems.length} participant(s) will exceed the event limit of ${maxP}. (Current: ${participants.length})`, 'error');
-      e.target.value = '';
-      return;
-    }
-    showToast(`Importing from "${file.name}"...`, 'info');
-    setTimeout(() => {
-      const ids = newItems.map(p => p.id);
-      newItems.forEach(p => addParticipant(selectedEvent.id, p));
-      showToast(`Imported ${newItems.length} participants.`, 'success', () => {
-        ids.forEach(id => removeParticipant(selectedEvent.id, id));
-        showToast('Import undone.', 'info');
-      });
-    }, 800);
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target.result;
+        const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+        if (lines.length < 2) {
+          showToast("CSV file is empty or missing data rows.", "error");
+          return;
+        }
+        
+        // Parse headers
+        const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/^["']|["']$/g, ''));
+        const emailIndex = headers.indexOf('email');
+        const teamIndex = headers.indexOf('team');
+        const nameIndex = headers.indexOf('name');
+        
+        if (emailIndex === -1) {
+          showToast("CSV must contain at least an 'email' column.", "error");
+          return;
+        }
+        
+        const newItems = [];
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i];
+          const values = [];
+          let currentVal = '';
+          let inQuotes = false;
+          
+          for (let j = 0; j < line.length; j++) {
+            const char = line[j];
+            if (char === '"') {
+              inQuotes = !inQuotes;
+            } else if (char === ',' && !inQuotes) {
+              values.push(currentVal.trim().replace(/^["']|["']$/g, ''));
+              currentVal = '';
+            } else {
+              currentVal += char;
+            }
+          }
+          values.push(currentVal.trim().replace(/^["']|["']$/g, ''));
+          
+          const email = values[emailIndex] || '';
+          if (!email || !email.includes('@')) continue; // Skip invalid rows or empty emails
+          
+          const team = teamIndex !== -1 ? (values[teamIndex] || '') : '';
+          
+          // Generate a name from the email prefix if name is missing or empty
+          let name = '';
+          if (nameIndex !== -1 && values[nameIndex]) {
+            name = values[nameIndex];
+          } else {
+            const prefix = email.split('@')[0];
+            name = prefix
+              .split(/[\._-]/)
+              .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+              .join(' ');
+          }
+          
+          newItems.push({
+            id: Date.now() + i,
+            name,
+            email,
+            team,
+            status: 'Pending',
+            score: null
+          });
+        }
+        
+        if (newItems.length === 0) {
+          showToast("No valid participants found in CSV.", "error");
+          return;
+        }
+        
+        if (maxP && participants.length + newItems.length > maxP) {
+          showToast(`Cannot import CSV: importing ${newItems.length} participant(s) will exceed the event limit of ${maxP}. (Current: ${participants.length})`, 'error');
+          return;
+        }
+        
+        showToast(`Importing ${newItems.length} participant(s)...`, 'info');
+        
+        const ids = newItems.map(p => p.id);
+        newItems.forEach(p => addParticipant(selectedEvent.id, p));
+        
+        showToast(`Imported ${newItems.length} participants.`, 'success', () => {
+          ids.forEach(id => removeParticipant(selectedEvent.id, id));
+          showToast('Import undone.', 'info');
+        });
+        
+      } catch (err) {
+        console.error("CSV import error:", err);
+        showToast("Failed to parse CSV file.", "error");
+      }
+    };
+    reader.onerror = () => {
+      showToast("Error reading file.", "error");
+    };
+    reader.readAsText(file);
     e.target.value = '';
   };
 
@@ -892,12 +972,13 @@ export default function ParticipantsPage() {
               </div>
 
               <div style={{ background: colors.pageBg, borderRadius: '16px', padding: '20px', border: `1px solid ${colors.borderSoft}`, marginBottom: '24px' }}>
-                <div style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: colors.inkMuted, marginBottom: '12px' }}>Required Columns</div>
+                <div style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: colors.inkMuted, marginBottom: '12px' }}>Columns</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  {(isGroupOrTeam ? ['name', 'email', 'team'] : ['name', 'email']).map(col => (
+                  {['email', ...(isGroupOrTeam ? ['team'] : [])].map(col => (
                     <code key={col} style={{ background: '#fff', border: `1px solid ${colors.border}`, padding: '4px 10px', borderRadius: '8px', fontSize: '13px', fontWeight: 600, color: colors.navy }}>{col}</code>
                   ))}
                 </div>
+                <p style={{ fontSize: '12px', color: colors.inkMuted, marginTop: '8px', margin: 0 }}>Required: <code>email</code>{isGroupOrTeam ? ' and ' + '<code>team</code>' : ''}. (Optional: <code>name</code>)</p>
               </div>
 
               <div style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: colors.inkMuted, marginBottom: '12px' }}>Sample Data</div>
@@ -905,21 +986,21 @@ export default function ParticipantsPage() {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                   <thead>
                     <tr style={{ background: colors.pageBg }}>
-                      <th style={{ padding: '10px 14px', textAlign: 'left', borderBottom: `1px solid ${colors.borderSoft}`, color: colors.inkMuted }}>name</th>
                       <th style={{ padding: '10px 14px', textAlign: 'left', borderBottom: `1px solid ${colors.borderSoft}`, color: colors.inkMuted }}>email</th>
                       {isGroupOrTeam && <th style={{ padding: '10px 14px', textAlign: 'left', borderBottom: `1px solid ${colors.borderSoft}`, color: colors.inkMuted }}>team</th>}
+                      <th style={{ padding: '10px 14px', textAlign: 'left', borderBottom: `1px solid ${colors.borderSoft}`, color: colors.inkMuted }}>name (optional)</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr>
-                      <td style={{ padding: '10px 14px', borderBottom: `1px solid ${colors.borderSoft}`, color: colors.navy, fontWeight: 500 }}>Lapu-Lapu</td>
                       <td style={{ padding: '10px 14px', borderBottom: `1px solid ${colors.borderSoft}` }}>lapu@mactan.ph</td>
                       {isGroupOrTeam && <td style={{ padding: '10px 14px', borderBottom: `1px solid ${colors.borderSoft}` }}>Kadato-an Warriors</td>}
+                      <td style={{ padding: '10px 14px', borderBottom: `1px solid ${colors.borderSoft}`, color: colors.navy, fontWeight: 500 }}>Lapu-Lapu</td>
                     </tr>
                     <tr>
-                      <td style={{ padding: '10px 14px', color: colors.navy, fontWeight: 500 }}>Diego Cera</td>
                       <td style={{ padding: '10px 14px' }}>diego@manila.ph</td>
                       {isGroupOrTeam && <td style={{ padding: '10px 14px' }}>Tondo FC</td>}
+                      <td style={{ padding: '10px 14px', color: colors.navy, fontWeight: 500 }}>Diego Cera</td>
                     </tr>
                   </tbody>
                 </table>
