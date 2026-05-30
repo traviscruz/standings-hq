@@ -239,7 +239,7 @@ export default function JudgesPage() {
     const file = e.target.files?.[0]; if (!file) return;
     
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       try {
         const text = event.target.result;
         const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
@@ -251,7 +251,6 @@ export default function JudgesPage() {
         // Parse headers
         const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/^["']|["']$/g, ''));
         const emailIndex = headers.indexOf('email');
-        const nameIndex = headers.indexOf('name');
         const roleIndex = headers.indexOf('role');
         const expertiseIndex = headers.indexOf('expertise');
         
@@ -260,7 +259,7 @@ export default function JudgesPage() {
           return;
         }
         
-        const newItems = [];
+        const newItemsRaw = [];
         for (let i = 1; i < lines.length; i++) {
           const line = lines[i];
           const values = [];
@@ -286,48 +285,69 @@ export default function JudgesPage() {
           const role = roleIndex !== -1 ? (values[roleIndex] || 'Line Judge') : 'Line Judge';
           const expertise = expertiseIndex !== -1 ? (values[expertiseIndex] || 'General') : 'General';
           
-          // Generate a name from the email prefix if name is missing or empty
-          let name = '';
-          if (nameIndex !== -1 && values[nameIndex]) {
-            name = values[nameIndex];
-          } else {
-            const prefix = email.split('@')[0];
-            name = prefix
-              .split(/[\._-]/)
-              .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-              .join(' ');
+          newItemsRaw.push({ email, role, expertise });
+        }
+        
+        if (newItemsRaw.length === 0) {
+          showToast("No valid email addresses found in CSV.", "error");
+          return;
+        }
+
+        showToast(`Verifying ${newItemsRaw.length} email(s) in system...`, 'info');
+
+        // Look up each email in the database
+        const lookupPromises = newItemsRaw.map(async (item) => {
+          try {
+            const res = await fetch(`${API_BASE}/users/search?q=${encodeURIComponent(item.email)}`);
+            const json = await res.json();
+            if (json.success && json.data) {
+              const matched = json.data.find(u => u.email.toLowerCase() === item.email.toLowerCase());
+              if (matched) {
+                return {
+                  name: matched.name,
+                  email: matched.email,
+                  role: item.role,
+                  expertise: item.expertise,
+                  rsvp: 'Pending'
+                };
+              }
+            }
+            return { error: `Email "${item.email}" not found in system database.` };
+          } catch (err) {
+            return { error: `Failed to verify email "${item.email}".` };
           }
-          
-          newItems.push({
-            id: Date.now() + i,
-            name,
-            email,
-            expertise,
-            role,
-            rsvp: 'Pending'
-          });
-        }
-        
-        if (newItems.length === 0) {
-          showToast("No valid judges found in CSV.", "error");
+        });
+
+        const lookupResults = await Promise.all(lookupPromises);
+        const validNewItems = lookupResults.filter(r => !r.error);
+        const errors = lookupResults.filter(r => r.error).map(r => r.error);
+
+        if (validNewItems.length === 0) {
+          showToast("No imported emails were found in the database. Nobody was added.", "error");
           return;
         }
-        
-        if (maxJ && judges.length + newItems.length > maxJ) {
-          showToast(`Cannot import CSV: importing ${newItems.length} judge(s) will exceed the panel limit of ${maxJ}. (Current: ${judges.length})`, 'error');
+
+        if (errors.length > 0) {
+          showToast(`Skipped ${errors.length} invalid email(s) not found in DB.`, 'warning');
+        }
+
+        if (maxJ && judges.length + validNewItems.length > maxJ) {
+          showToast(`Cannot import CSV: importing ${validNewItems.length} judge(s) will exceed the panel limit of ${maxJ}. (Current: ${judges.length})`, 'error');
           return;
         }
-        
-        showToast(`Importing ${newItems.length} judge(s)...`, 'info');
-        
-        const ids = newItems.map(j => j.id);
-        newItems.forEach(j => addJudge(selectedEvent.id, j));
-        
-        showToast(`Imported ${newItems.length} judges.`, 'success', () => {
-          ids.forEach(id => removeJudge(selectedEvent.id, id));
+
+        showToast(`Importing ${validNewItems.length} judge(s)...`, 'info');
+
+        const tempIds = validNewItems.map((j, idx) => Date.now() + idx);
+        validNewItems.forEach((j, idx) => {
+          addJudge(selectedEvent.id, { ...j, id: tempIds[idx] });
+        });
+
+        showToast(`Imported ${validNewItems.length} judges successfully.`, 'success', () => {
+          tempIds.forEach(id => removeJudge(selectedEvent.id, id));
           showToast('Import undone.', 'info');
         });
-        
+
       } catch (err) {
         console.error("CSV import error:", err);
         showToast("Failed to parse CSV file.", "error");
@@ -800,7 +820,7 @@ export default function JudgesPage() {
           </div>
           {[
             { icon: 'badge', label: 'Set Role', action: () => setShowBulkRole(true), id: 'bulk-role' },
-            { icon: 'check_circle', label: 'Mark Accepted', action: () => { [...selected].forEach(id => updateJudge(selectedEvent.id, id, { rsvp: 'Accepted', status: 'Accepted' })); showToast(`Accepted ${sel} judge(s).`, 'success'); setSelected(new Set()); }, id: 'bulk-acc' },
+            { icon: 'check_circle', label: 'Mark Accepted', action: () => { [...selected].forEach(id => updateJudge(selectedEvent.id, id, { status: 'Accepted' })); showToast(`Accepted ${sel} judge(s).`, 'success'); setSelected(new Set()); }, id: 'bulk-acc' },
             { icon: 'mail', label: 'Resend Invite', action: () => { showToast(`Resent ${sel} invite(s).`, 'info'); setSelected(new Set()); }, id: 'bulk-mail' },
           ].map(a => (
             <button key={a.id} onClick={a.action} style={{
@@ -995,7 +1015,7 @@ export default function JudgesPage() {
                     <code key={col} style={{ background: '#fff', border: `1px solid ${colors.border}`, padding: '4px 10px', borderRadius: '8px', fontSize: '13px', fontWeight: 600, color: colors.navy }}>{col}</code>
                   ))}
                 </div>
-                <p style={{ fontSize: '12px', color: colors.inkMuted, marginTop: '8px', margin: 0 }}>Required: <code>email</code>. (Optional: <code>name</code>, <code>role</code>, <code>expertise</code>)</p>
+                <p style={{ fontSize: '12px', color: colors.inkMuted, marginTop: '8px', margin: 0 }}>Required: <code>email</code>. (Optional: <code>role</code>, <code>expertise</code>). Verified emails will resolve their name automatically.</p>
               </div>
 
               <div style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: colors.inkMuted, marginBottom: '12px' }}>Sample Data</div>
@@ -1004,19 +1024,16 @@ export default function JudgesPage() {
                   <thead>
                     <tr style={{ background: colors.pageBg }}>
                       <th style={{ padding: '10px 14px', textAlign: 'left', borderBottom: `1px solid ${colors.borderSoft}`, color: colors.inkMuted }}>email</th>
-                      <th style={{ padding: '10px 14px', textAlign: 'left', borderBottom: `1px solid ${colors.borderSoft}`, color: colors.inkMuted }}>name (optional)</th>
                       <th style={{ padding: '10px 14px', textAlign: 'left', borderBottom: `1px solid ${colors.borderSoft}`, color: colors.inkMuted }}>expertise (optional)</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr>
                       <td style={{ padding: '10px 14px', borderBottom: `1px solid ${colors.borderSoft}` }}>juan@example.ph</td>
-                      <td style={{ padding: '10px 14px', borderBottom: `1px solid ${colors.borderSoft}`, color: colors.navy, fontWeight: 500 }}>Juan dela Cruz</td>
                       <td style={{ padding: '10px 14px', borderBottom: `1px solid ${colors.borderSoft}` }}>Mathematics</td>
                     </tr>
                     <tr>
                       <td style={{ padding: '10px 14px' }}>maria@univ.edu.ph</td>
-                      <td style={{ padding: '10px 14px', color: colors.navy, fontWeight: 500 }}>Maria Santos</td>
                       <td style={{ padding: '10px 14px' }}>Arts</td>
                     </tr>
                   </tbody>

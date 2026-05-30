@@ -20,12 +20,39 @@ function getElapsed(startDate, startTime) {
 }
 
 export default function ResultsPage() {
-  const { selectedEvent, participants, judges, showToast, eventsLoading } = useEventContext();
+  const { selectedEvent, participants, judges, showToast, eventsLoading, rubricConfig } = useEventContext();
   const [, forceUpdate] = useState(0);
   const [liveToggle, setLiveToggle] = useState(true);
   const [activeBtnHover, setActiveBtnHover] = useState(null);
   const [hoveredRow, setHoveredRow] = useState(null);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+
+  const isGroupOrTeam = rubricConfig?.format === 'group' || rubricConfig?.format === 'team';
+
+  const uniqueTeams = React.useMemo(() => {
+    if (!isGroupOrTeam) return [];
+    const teamsMap = {};
+    participants.forEach(p => {
+      const teamName = p.team?.trim() || 'Independent';
+      if (!teamsMap[teamName]) {
+        teamsMap[teamName] = {
+          id: p.id,
+          name: teamName,
+          team: teamName,
+          status: p.status,
+          score: null,
+          members: []
+        };
+      }
+      teamsMap[teamName].members.push(p);
+      if (p.score !== null && p.score !== undefined) {
+        teamsMap[teamName].score = p.score;
+      }
+    });
+    return Object.values(teamsMap);
+  }, [participants, isGroupOrTeam]);
+
+  const displayList = isGroupOrTeam ? uniqueTeams : participants;
 
   const handleExportPDF = () => {
     const printWindow = window.open('', '_blank');
@@ -37,11 +64,11 @@ export default function ResultsPage() {
     const title = `${selectedEvent.name} - Official Leaderboard`;
     const date = new Date().toLocaleDateString();
 
-    const ranked = [...participants].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
-    const scoredCount = participants.filter(p => p.score != null).length;
+    const ranked = [...displayList].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
+    const scoredCount = displayList.filter(p => p.score != null).length;
     const highScore = ranked.find(p => p.score != null)?.score ?? null;
     const avgScore = scoredCount > 0
-      ? (participants.filter(p => p.score != null).reduce((s, p) => s + p.score, 0) / scoredCount).toFixed(1)
+      ? (displayList.filter(p => p.score != null).reduce((s, p) => s + p.score, 0) / scoredCount).toFixed(1)
       : '—';
 
     const htmlContent = `
@@ -177,11 +204,15 @@ export default function ResultsPage() {
               ` : ranked.map((p, idx) => {
                 const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : '';
                 const rankDisplay = p.score != null ? (medal ? `${medal} ${idx + 1}` : idx + 1) : '—';
+                const nameDisplay = isGroupOrTeam 
+                  ? `${p.name} <br/><span style="font-size:11px; font-weight:normal; color:#64748b;">Members: ${p.members.map(m => m.name).join(', ')}</span>`
+                  : p.name;
+                const teamDisplay = isGroupOrTeam ? `${p.members.length} members` : (p.team || '');
                 return `
                   <tr>
                     <td style="text-align: center; font-weight: 800; font-size: ${idx < 3 ? '16px' : '14px'}">${rankDisplay}</td>
-                    <td style="font-weight: 700;">${p.name}</td>
-                    <td>${p.team || ''}</td>
+                    <td style="font-weight: 700;">${nameDisplay}</td>
+                    <td>${teamDisplay}</td>
                     <td style="text-align: center; color: ${p.score != null ? '#16a34a' : '#64748b'}; font-weight: 600;">
                       ${p.score != null ? 'Scored' : 'Pending'}
                     </td>
@@ -238,11 +269,11 @@ export default function ResultsPage() {
     );
   }
 
-  const ranked = [...participants].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
-  const scoredCount = participants.filter(p => p.score != null).length;
+  const ranked = [...displayList].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
+  const scoredCount = displayList.filter(p => p.score != null).length;
   const highScore = ranked.find(p => p.score != null)?.score ?? null;
   const avgScore = scoredCount > 0
-    ? (participants.filter(p => p.score != null).reduce((s, p) => s + p.score, 0) / scoredCount).toFixed(1)
+    ? (displayList.filter(p => p.score != null).reduce((s, p) => s + p.score, 0) / scoredCount).toFixed(1)
     : null;
   const elapsed = getElapsed(selectedEvent.startDate, selectedEvent.startTime);
   const isLive = selectedEvent.status === 'Active';
@@ -449,11 +480,11 @@ export default function ResultsPage() {
           <span style={styles.statLabel}>Scores Submitted</span>
           <div style={styles.statValue}>
             {scoredCount}
-            <span style={{ fontSize: '16px', color: colors.inkMuted, marginLeft: '4px' }}>/{participants.length}</span>
+            <span style={{ fontSize: '16px', color: colors.inkMuted, marginLeft: '4px' }}>/{displayList.length}</span>
           </div>
-          {participants.length > 0 && (
+          {displayList.length > 0 && (
             <div style={{ marginTop: '10px', height: '5px', background: colors.borderSoft, borderRadius: '100px', overflow: 'hidden' }}>
-              <div style={{ height: '100%', width: `${(scoredCount / participants.length) * 100}%`, background: colors.accent, borderRadius: '100px', transition: 'width 0.5s' }} />
+              <div style={{ height: '100%', width: `${(scoredCount / displayList.length) * 100}%`, background: colors.accent, borderRadius: '100px', transition: 'width 0.5s' }} />
             </div>
           )}
         </div>
@@ -530,10 +561,19 @@ export default function ResultsPage() {
                       <div style={styles.userAvatar(32, 11, idx === 0 && p.score != null ? 'rgba(250,204,21,0.15)' : colors.accentBg, idx === 0 && p.score != null ? '#B45309' : colors.accentDeep)}>
                         {p.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
                       </div>
-                      {p.name}
+                      <div>
+                        <div>{p.name}</div>
+                        {isGroupOrTeam && p.members && (
+                          <div style={{ fontSize: '11px', fontWeight: 'normal', color: colors.inkMuted, marginTop: '2px' }}>
+                            Members: {p.members.map(m => m.name).join(', ')}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </td>
-                  <td style={{ ...styles.td, fontSize: '13px' }}>{p.team}</td>
+                  <td style={{ ...styles.td, fontSize: '13px' }}>
+                    {isGroupOrTeam ? `${p.members.length} members` : p.team}
+                  </td>
                   <td style={{ ...styles.td, textAlign: 'center' }}>
                     <span style={{ background: colors.pageBg, color: p.score != null ? colors.success : colors.inkMuted, borderRadius: '100px', padding: '3px 12px', fontSize: '12px', fontWeight: 700 }}>
                       {p.score != null ? 'Scored' : 'Pending'}

@@ -25,7 +25,35 @@ const AI_TEXTS = {
 };
 
 export default function CertificatesPage() {
-  const { selectedEvent, participants = [], showToast, eventsLoading } = useEventContext();
+  const { selectedEvent, participants = [], showToast, eventsLoading, rubricConfig } = useEventContext();
+
+  const isGroupOrTeam = rubricConfig?.format === 'group' || rubricConfig?.format === 'team';
+
+  const uniqueTeams = React.useMemo(() => {
+    if (!isGroupOrTeam) return [];
+    const teamsMap = {};
+    participants.forEach(p => {
+      const teamName = p.team?.trim() || 'Independent';
+      if (!teamsMap[teamName]) {
+        teamsMap[teamName] = {
+          id: p.id,
+          name: teamName,
+          team: teamName,
+          status: p.status,
+          score: null,
+          email: p.email || '',
+          members: []
+        };
+      }
+      teamsMap[teamName].members.push(p);
+      if (p.score !== null && p.score !== undefined) {
+        teamsMap[teamName].score = p.score;
+      }
+    });
+    return Object.values(teamsMap);
+  }, [participants, isGroupOrTeam]);
+
+  const displayList = isGroupOrTeam ? uniqueTeams : participants;
 
   const [generating, setGenerating] = useState(false);
 
@@ -149,10 +177,10 @@ export default function CertificatesPage() {
     );
   }
 
-  const targetList = participants.filter(p => {
+  const targetList = displayList.filter(p => {
     if (bulkRecipient === 'all') return true;
     if (bulkRecipient === 'winners') {
-      const ranked = [...participants].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
+      const ranked = [...displayList].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
       return ranked.slice(0, 3).some(r => r.id === p.id);
     }
     if (bulkRecipient === 'registered') return p.status === 'Registered';
@@ -446,7 +474,7 @@ Rules:
     }
 
     const rName = p.name;
-    const sorted = [...participants].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
+    const sorted = [...displayList].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
     const rank = sorted.findIndex(s => s.id === p.id) + 1;
     
     let achievement = 'Participation';
@@ -1223,7 +1251,7 @@ Rules:
                   <div>
                     <label style={styles.label}>Bulk Target</label>
                     <select style={styles.input} value={bulkRecipient} onChange={e => setBulkRecipient(e.target.value)}>
-                      <option value="all">All Recipients ({participants.length})</option>
+                      <option value="all">All Recipients ({displayList.length})</option>
                       <option value="winners">Winners Only (Top 3)</option>
                       <option value="registered">Registered Only</option>
                     </select>
@@ -1254,7 +1282,7 @@ Rules:
                           No participants match this group.
                         </div>
                       ) : targetList.map((p) => {
-                        const sorted = [...participants].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
+                        const sorted = [...displayList].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
                         const rank = sorted.findIndex(s => s.id === p.id) + 1;
                         let badge = '🎖️';
                         let badgeColor = colors.navy;
@@ -1277,7 +1305,9 @@ Rules:
                               <span style={{ fontSize: '16px', flexShrink: 0 }}>{badge}</span>
                               <div style={{ minWidth: 0 }}>
                                 <div style={{ fontWeight: 700, color: colors.navy, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
-                                <div style={{ fontSize: '10px', color: colors.inkMuted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.email}</div>
+                                <div style={{ fontSize: '10px', color: colors.inkMuted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  {isGroupOrTeam && p.members ? `Members: ${p.members.map(m => m.name).join(', ')}` : p.email}
+                                </div>
                               </div>
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0, marginLeft: '8px' }}>

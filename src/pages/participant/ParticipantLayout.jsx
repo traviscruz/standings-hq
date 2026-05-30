@@ -81,12 +81,16 @@ export default function ParticipantLayout() {
   const [certificates, setCertificates] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const userEmail = localStorage.getItem('email');
+  const isInitialLoadRef = useRef(true);
+  const inFlightActionsRef = useRef(new Set());
 
-  // Fetch Invitations, Events, and Certificates
+  // Poll invitations, events, and certificates every 5 seconds
   useEffect(() => {
     if (!userEmail) return;
 
-    const fetchData = async () => {
+    let isFirst = true;
+
+    const pollData = async () => {
       try {
         const [invRes, eventsRes, certsRes] = await Promise.all([
           fetch(`${API_BASE}/participants/my-invitations?email=${userEmail}`),
@@ -98,29 +102,54 @@ export default function ParticipantLayout() {
         const eventsData = await eventsRes.json();
         const certsData = await certsRes.json();
 
-        if (invData.success) setInvitations(invData.data);
+        if (invData.success) {
+          const activeInvs = invData.data.filter(inv => !inFlightActionsRef.current.has(inv.id));
+          setInvitations(prev => {
+            const prevIds = new Set(prev.map(i => i.id));
+            const newInvites = activeInvs.filter(i => !prevIds.has(i.id));
+            if (newInvites.length > 0 && !isInitialLoadRef.current) {
+              newInvites.forEach(invite => {
+                showToast(`New invitation: ${invite.eventName}`, 'info');
+              });
+            }
+            return activeInvs;
+          });
+        }
         if (certsData.success) setCertificates(certsData.data);
         
-        if (eventsData.success) setMyEvents(eventsData.data.map(e => {
-          let uiStatus = e.status.charAt(0).toUpperCase() + e.status.slice(1);
-          if (e.status === 'ongoing') uiStatus = 'Active';
-          if (e.status === 'completed') uiStatus = 'Completed';
-          return {
-            ...e,
-            date: new Date(e.date).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }),
-            status: uiStatus,
-            registrationStatus: e.registrationStatus,
-            registrationId: e.registrationId
-          };
-        }));
+        if (eventsData.success) {
+          setMyEvents(eventsData.data.map(e => {
+            let uiStatus = e.status.charAt(0).toUpperCase() + e.status.slice(1);
+            if (e.status === 'ongoing') uiStatus = 'Active';
+            if (e.status === 'completed') uiStatus = 'Completed';
+            return {
+              ...e,
+              date: new Date(e.date).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }),
+              status: uiStatus,
+              registrationStatus: e.registrationStatus,
+              registrationId: e.registrationId
+            };
+          }));
+        }
       } catch (err) {
         console.error('Error fetching participant data:', err);
       } finally {
-        setIsLoading(false);
+        if (isFirst) setIsLoading(false);
+        isFirst = false;
       }
     };
 
-    fetchData();
+    pollData();
+    const interval = setInterval(pollData, 5000);
+
+    const timer = setTimeout(() => {
+      isInitialLoadRef.current = false;
+    }, 2000);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timer);
+    };
   }, [userEmail]);
 
   useEffect(() => {
@@ -160,6 +189,8 @@ export default function ParticipantLayout() {
     const originalInvitations = [...invitations];
     const originalMyEvents = [...myEvents];
 
+    inFlightActionsRef.current.add(id);
+
     // Optimistic UI
     setInvitations(prev => prev.filter(inv => inv.id !== id));
     setMyEvents(prev => {
@@ -191,18 +222,27 @@ export default function ParticipantLayout() {
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
 
+      setTimeout(() => {
+        inFlightActionsRef.current.delete(id);
+      }, 1000);
+
       showToast(`Joined ${invite.eventName}!`, 'success', async () => {
         // Undo action
+        inFlightActionsRef.current.add(id);
+        setInvitations(originalInvitations);
+        setMyEvents(originalMyEvents);
         await fetch(`${API_BASE}/participants/${id}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: 'Pending' })
         });
-        setInvitations(originalInvitations);
-        setMyEvents(originalMyEvents);
+        setTimeout(() => {
+          inFlightActionsRef.current.delete(id);
+        }, 1000);
       });
     } catch (err) {
       console.error('Failed to accept invitation:', err);
+      inFlightActionsRef.current.delete(id);
       setInvitations(originalInvitations);
       setMyEvents(originalMyEvents);
       showToast('Failed to join event.', 'error');
@@ -222,6 +262,8 @@ export default function ParticipantLayout() {
   const declineInvitation = async (id) => {
     const originalInvitations = [...invitations];
     const originalMyEvents = [...myEvents];
+
+    inFlightActionsRef.current.add(id);
     setInvitations(prev => prev.filter(inv => inv.id !== id));
     setMyEvents(prev => prev.filter(e => e.registrationId !== id));
 
@@ -230,12 +272,21 @@ export default function ParticipantLayout() {
         const data = await res.json();
         if (!data.success) throw new Error(data.error);
 
+        setTimeout(() => {
+          inFlightActionsRef.current.delete(id);
+        }, 1000);
+
         showToast('Invitation declined.', 'info', () => {
+          inFlightActionsRef.current.add(id);
           setInvitations(originalInvitations);
           setMyEvents(originalMyEvents);
+          setTimeout(() => {
+            inFlightActionsRef.current.delete(id);
+          }, 1000);
         });
     } catch (err) {
         console.error('Failed to decline invitation:', err);
+        inFlightActionsRef.current.delete(id);
         setInvitations(originalInvitations);
         setMyEvents(originalMyEvents);
         showToast('Failed to decline invitation.', 'error');

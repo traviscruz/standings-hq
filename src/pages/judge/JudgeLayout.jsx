@@ -24,6 +24,7 @@ export default function JudgeLayout() {
   const [scores, setScores] = useState({});
   const [submittedSegments, setSubmittedSegments] = useState({});
   const [invitations, setInvitations] = useState([]);
+  const [rubricConfig, setRubricConfig] = useState(null);
 
   // Switcher Dropdown States
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -33,13 +34,14 @@ export default function JudgeLayout() {
   const dropdownRef = useRef(null);
   const userEmail = localStorage.getItem('email');
   const selectedEvent = eventsList.find(e => e.id === selectedEventId);
+  const isInitialLoadRef = useRef(true);
 
-  const fetchAcceptedEvents = () => {
+  const fetchAcceptedEvents = (silent = false) => {
     if (!userEmail) {
       setEventsLoading(false);
       return;
     }
-    setEventsLoading(true);
+    if (!silent) setEventsLoading(true);
     fetch(`${API_BASE}/judges/my-events?email=${userEmail}`)
       .then(res => res.json())
       .then(data => {
@@ -55,29 +57,58 @@ export default function JudgeLayout() {
         }
       })
       .catch(err => console.error('Error fetching accepted events:', err))
-      .finally(() => setEventsLoading(false));
+      .finally(() => {
+        if (!silent) setEventsLoading(false);
+      });
   };
 
-  // Fetch Pending Invitations
+  // Poll invitations and events every 5 seconds
   useEffect(() => {
     if (!userEmail) return;
 
-    fetch(`${API_BASE}/judges/my-invitations?email=${userEmail}`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          setInvitations(data.data.map(inv => ({
-            ...inv,
-            status: inv.status ? inv.status.toLowerCase() : 'pending'
-          })));
-        }
-      })
-      .catch(err => console.error('Error fetching judge invitations:', err));
-  }, [userEmail]);
+    let isFirst = true;
 
-  // Fetch Accepted Events
-  useEffect(() => {
-    fetchAcceptedEvents();
+    const pollData = () => {
+      // 1. Fetch invitations
+      fetch(`${API_BASE}/judges/my-invitations?email=${userEmail}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            const newInvs = data.data.map(inv => ({
+              ...inv,
+              status: inv.status ? inv.status.toLowerCase() : 'pending'
+            }));
+
+            setInvitations(prev => {
+              const prevIds = new Set(prev.map(i => i.id));
+              const freshInvites = newInvs.filter(i => !prevIds.has(i.id));
+              if (freshInvites.length > 0 && !isInitialLoadRef.current) {
+                freshInvites.forEach(invite => {
+                  showToast(`New judging invitation: ${invite.eventName}`, 'info');
+                });
+              }
+              return newInvs;
+            });
+          }
+        })
+        .catch(err => console.error('Error fetching judge invitations:', err));
+
+      // 2. Fetch accepted events (silent = true after the first load)
+      fetchAcceptedEvents(!isFirst);
+      isFirst = false;
+    };
+
+    pollData();
+    const interval = setInterval(pollData, 5000);
+
+    const timer = setTimeout(() => {
+      isInitialLoadRef.current = false;
+    }, 2000);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timer);
+    };
   }, [userEmail]);
 
   // Fetch active event participants & rubric configuration
@@ -85,6 +116,7 @@ export default function JudgeLayout() {
     if (!selectedEventId) {
       setParticipants([]);
       setSegments([]);
+      setRubricConfig(null);
       return;
     }
 
@@ -116,29 +148,36 @@ export default function JudgeLayout() {
           .maybeSingle();
 
         if (error) throw error;
-        if (data && data.config && data.config.rubrics) {
-          const scaleMax = data.config.scale?.max || 10;
-          const mapped = data.config.rubrics.map((r, idx) => ({
-            id: r.id,
-            label: r.label,
-            weight: r.weight,
-            icon: idx % 4 === 0 ? 'emoji_events' : idx % 4 === 1 ? 'military_tech' : idx % 4 === 2 ? 'workspace_premium' : 'hotel_class',
-            color: idx % 4 === 0 ? '#D25E41' : idx % 4 === 1 ? '#1E2D4A' : idx % 4 === 2 ? '#7A5C8A' : '#8BA888',
-            colorBg: idx % 4 === 0 ? 'rgba(210,94,65,0.08)' : idx % 4 === 1 ? 'rgba(30,45,74,0.08)' : idx % 4 === 2 ? 'rgba(122,92,138,0.08)' : 'rgba(139,168,136,0.08)',
-            criteria: [
-              {
-                id: r.id + '_score',
-                name: 'Score',
-                maxScore: scaleMax,
-              }
-            ]
-          }));
-          setSegments(mapped);
+        if (data && data.config) {
+          setRubricConfig(data.config);
+          if (data.config.rubrics) {
+            const scaleMax = data.config.scale?.max || 10;
+            const mapped = data.config.rubrics.map((r, idx) => ({
+              id: r.id,
+              label: r.label,
+              weight: r.weight,
+              icon: idx % 4 === 0 ? 'emoji_events' : idx % 4 === 1 ? 'military_tech' : idx % 4 === 2 ? 'workspace_premium' : 'hotel_class',
+              color: idx % 4 === 0 ? '#D25E41' : idx % 4 === 1 ? '#1E2D4A' : idx % 4 === 2 ? '#7A5C8A' : '#8BA888',
+              colorBg: idx % 4 === 0 ? 'rgba(210,94,65,0.08)' : idx % 4 === 1 ? 'rgba(30,45,74,0.08)' : idx % 4 === 2 ? 'rgba(122,92,138,0.08)' : 'rgba(139,168,136,0.08)',
+              criteria: [
+                {
+                  id: r.id + '_score',
+                  name: 'Score',
+                  maxScore: scaleMax,
+                }
+              ]
+            }));
+            setSegments(mapped);
+          } else {
+            setSegments([]);
+          }
         } else {
+          setRubricConfig(null);
           setSegments([]);
         }
       } catch (err) {
         console.error('Error fetching event rubric config:', err);
+        setRubricConfig(null);
       }
     };
 
@@ -221,13 +260,20 @@ export default function JudgeLayout() {
 
   const updateScore = (participantId, segmentId, criterionId, value) => {
     // 1. Update state locally (for instant UI feedback)
-    setScores(prev => ({
-      ...prev,
-      [participantId]: {
-        ...prev[participantId],
-        [segmentId]: { ...prev[participantId][segmentId], [criterionId]: value },
-      },
-    }));
+    setScores(prev => {
+      const participantScores = prev[participantId] || {};
+      const segmentScores = participantScores[segmentId] || {};
+      return {
+        ...prev,
+        [participantId]: {
+          ...participantScores,
+          [segmentId]: {
+            ...segmentScores,
+            [criterionId]: value
+          }
+        }
+      };
+    });
 
     // 2. Persist to backend in the background (autosave)
     if (!selectedEventId || !selectedEvent?.eventJudgeId) return;
@@ -544,6 +590,7 @@ export default function JudgeLayout() {
       submitSegment,
       handleInvitation,
       showToast,
+      rubricConfig,
     }}>
       <style>
         {`

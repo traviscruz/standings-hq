@@ -3,7 +3,7 @@ import { useJudgeContext } from './JudgeLayout';
 import { colors } from '../../styles/colors';
 
 export default function ScoringPage() {
-  const { event, segments, participants, scores, submittedSegments, updateScore, submitSegment, showToast } = useJudgeContext();
+  const { event, segments, participants, scores, submittedSegments, updateScore, submitSegment, showToast, rubricConfig } = useJudgeContext();
   const [activeSegment, setActiveSegment] = useState(null);
   const [confirmingSubmit, setConfirmingSubmit] = useState(false);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
@@ -54,6 +54,44 @@ export default function ScoringPage() {
     });
   };
 
+  const isGroupOrTeam = rubricConfig?.format === 'group' || rubricConfig?.format === 'team';
+
+  const uniqueTeams = React.useMemo(() => {
+    if (!isGroupOrTeam) return [];
+    const teamsMap = {};
+    participants.forEach((p, index) => {
+      const teamName = p.barangay || 'Independent';
+      if (!teamsMap[teamName]) {
+        teamsMap[teamName] = {
+          id: p.id, // Using first participant's id as representative ID for cell keys & reading scores
+          number: index + 1,
+          barangay: teamName,
+          name: teamName,
+          memberIds: [],
+          memberNames: []
+        };
+      }
+      teamsMap[teamName].memberIds.push(p.id);
+      teamsMap[teamName].memberNames.push(p.name);
+    });
+    return Object.values(teamsMap).map((t, idx) => ({
+      ...t,
+      number: idx + 1
+    }));
+  }, [participants, isGroupOrTeam]);
+
+  const contestants = isGroupOrTeam ? uniqueTeams : participants;
+
+  const handleUpdateScore = (contestant, segmentId, criterionId, value) => {
+    if (isGroupOrTeam) {
+      contestant.memberIds.forEach(mId => {
+        updateScore(mId, segmentId, criterionId, value);
+      });
+    } else {
+      updateScore(contestant.id, segmentId, criterionId, value);
+    }
+  };
+
   // Render a sleek loading spinner if segments are still loading or empty
   if (!segments || segments.length === 0 || !seg) {
     return (
@@ -67,8 +105,8 @@ export default function ScoringPage() {
   const getParticipantTotal = (pId) =>
     seg.criteria.reduce((sum, c) => sum + (parseFloat(scores[pId]?.[activeSegment]?.[c.id]) || 0), 0);
 
-  const allFilled = participants.every(p =>
-    seg.criteria.every(c => scores[p.id]?.[activeSegment]?.[c.id] !== '')
+  const allFilled = contestants.every(c =>
+    seg.criteria.every(crit => scores[c.id]?.[activeSegment]?.[crit.id] !== '' && scores[c.id]?.[activeSegment]?.[crit.id] != null)
   );
 
   const maxSegmentScore = seg.criteria.reduce((a, c) => a + c.maxScore, 0);
@@ -335,7 +373,7 @@ export default function ScoringPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {participants.map(p => {
+                  {contestants.map(p => {
                     const total = getParticipantTotal(p.id);
                     return (
                       <tr key={p.id}>
@@ -344,7 +382,9 @@ export default function ScoringPage() {
                             <div style={{ width: '30px', height: '30px', borderRadius: '10px', background: colors.navy, color: '#fff', display: 'grid', placeItems: 'center', fontWeight: '800', fontSize: '12px' }}>{p.number}</div>
                             <div style={{ display: 'flex', flexDirection: 'column' }}>
                               <span style={{ fontSize: '14.5px', fontWeight: '700', color: colors.navy }}>{p.name}</span>
-                              <span style={{ fontSize: '11px', color: colors.inkMuted }}>{p.barangay}</span>
+                              <span style={{ fontSize: '11px', color: colors.inkMuted }}>
+                                {isGroupOrTeam ? `Members: ${p.memberNames.join(', ')}` : p.barangay}
+                              </span>
                             </div>
                           </div>
                         </td>
@@ -367,7 +407,7 @@ export default function ScoringPage() {
                                     key={val}
                                     disabled={cellDisabled}
                                     style={scorePillStyle(p.id, c.id, val, Number(scores[p.id]?.[activeSegment]?.[c.id]) === val, cellDisabled)}
-                                    onClick={() => updateScore(p.id, activeSegment, c.id, String(val))}
+                                    onClick={() => handleUpdateScore(p, activeSegment, c.id, String(val))}
                                     onMouseEnter={() => setHoveredScore(`${p.id}-${c.id}-${val}`)}
                                     onMouseLeave={() => setHoveredScore(null)}
                                   >
@@ -392,7 +432,7 @@ export default function ScoringPage() {
                                         if (num < 0) val = '0';
                                         if (num > c.maxScore) val = String(c.maxScore);
                                       }
-                                      updateScore(p.id, activeSegment, c.id, val);
+                                      handleUpdateScore(p, activeSegment, c.id, val);
                                     }}
                                     placeholder={`0-${c.maxScore}`}
                                     style={{

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParticipantContext } from './ParticipantLayout';
 import { colors } from '../../styles/colors';
 import { API_URL as API_BASE } from '../../config';
+import { createClient } from '../../utils/supabase/client';
 
 export default function LeaderboardPage() {
   const { myEvents } = useParticipantContext();
@@ -14,6 +15,7 @@ export default function LeaderboardPage() {
   const [selectedEventId, setSelectedEventId] = useState(activeEvent?.id);
   const [participants, setParticipants] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [rubricConfig, setRubricConfig] = useState(null);
   const isMobile = windowWidth <= 768;
 
   const currentEvent = registeredEvents.find(e => e.id === selectedEventId) || activeEvent;
@@ -48,6 +50,96 @@ export default function LeaderboardPage() {
       .finally(() => setLoading(false));
   }, [selectedEventId]);
 
+  // Fetch event rubric config to check group format
+  useEffect(() => {
+    if (!selectedEventId) {
+      setRubricConfig(null);
+      return;
+    }
+    const supabase = createClient();
+    supabase
+      .from('event_rubrics')
+      .select('config')
+      .eq('event_id', selectedEventId)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (!error && data && data.config) {
+          setRubricConfig(data.config);
+        } else {
+          setRubricConfig(null);
+        }
+      })
+      .catch(err => {
+        console.error('Error loading rubric config:', err);
+        setRubricConfig(null);
+      });
+  }, [selectedEventId]);
+
+  const isGroupOrTeam = rubricConfig?.format === 'group' || rubricConfig?.format === 'team';
+
+  // Calculate live ranking standings
+  const leaderboardData = React.useMemo(() => {
+    const registeredParticipants = participants.filter(p => p.status === 'Registered');
+    if (isGroupOrTeam) {
+      const teamsMap = {};
+      registeredParticipants.forEach(p => {
+        const teamName = p.team?.trim() || 'Independent';
+        if (!teamsMap[teamName]) {
+          teamsMap[teamName] = {
+            name: teamName,
+            members: [],
+            scoreSum: 0,
+            scoreCount: 0,
+            hasMe: false
+          };
+        }
+        teamsMap[teamName].members.push(p);
+        if (p.score !== null && p.score !== undefined) {
+          teamsMap[teamName].scoreSum += Number(p.score);
+          teamsMap[teamName].scoreCount += 1;
+        }
+        if (p.email?.toLowerCase() === myEmail?.toLowerCase()) {
+          teamsMap[teamName].hasMe = true;
+        }
+      });
+
+      return Object.values(teamsMap)
+        .map(t => ({
+          name: t.name,
+          team: `${t.members.length} member${t.members.length > 1 ? 's' : ''}`,
+          score: t.scoreCount > 0 ? t.scoreSum / t.scoreCount : 0,
+          hasScore: t.scoreCount > 0,
+          change: 'none',
+          current: t.hasMe,
+          memberNames: t.members.map(m => m.name).join(', ')
+        }))
+        .sort((a, b) => {
+          if (b.hasScore && !a.hasScore) return 1;
+          if (!b.hasScore && a.hasScore) return -1;
+          return b.score - a.score;
+        })
+        .map((t, idx) => ({
+          ...t,
+          rank: t.hasScore ? idx + 1 : '—'
+        }));
+    } else {
+      const sorted = [...registeredParticipants].sort((a, b) => {
+        const scoreA = a.score !== null && a.score !== undefined ? Number(a.score) : 0;
+        const scoreB = b.score !== null && b.score !== undefined ? Number(b.score) : 0;
+        return scoreB - scoreA;
+      });
+      return sorted.map((p, idx) => ({
+        rank: p.score !== null && p.score !== undefined ? idx + 1 : '—',
+        name: p.name,
+        team: p.team || 'Individual',
+        score: p.score !== null && p.score !== undefined ? Number(p.score) : 0,
+        hasScore: p.score !== null && p.score !== undefined,
+        change: 'none',
+        current: p.email?.toLowerCase() === myEmail?.toLowerCase()
+      }));
+    }
+  }, [participants, isGroupOrTeam, myEmail]);
+
   if (!currentEvent) {
     return (
       <div className="slide-up-anim" style={{ padding: '60px 20px', textAlign: 'center', color: colors.inkMuted }}>
@@ -58,27 +150,9 @@ export default function LeaderboardPage() {
     );
   }
 
-  // Calculate live ranking standings
-  const registeredParticipants = participants
-    .filter(p => p.status === 'Registered')
-    .sort((a, b) => {
-      const scoreA = a.score !== null && a.score !== undefined ? Number(a.score) : 0;
-      const scoreB = b.score !== null && b.score !== undefined ? Number(b.score) : 0;
-      return scoreB - scoreA; // Descending score
-    });
-
-  const leaderboardData = registeredParticipants.map((p, idx) => ({
-    rank: idx + 1,
-    name: p.name,
-    team: p.team || 'Individual',
-    score: p.score !== null && p.score !== undefined ? Number(p.score) : 0,
-    change: 'none',
-    current: p.email?.toLowerCase() === myEmail?.toLowerCase()
-  }));
-
   // Find currently logged-in participant's performance stats
   const myPerf = leaderboardData.find(row => row.current);
-  const nextPerson = myPerf && myPerf.rank > 1 ? leaderboardData[myPerf.rank - 2] : null;
+  const nextPerson = myPerf && typeof myPerf.rank === 'number' && myPerf.rank > 1 ? leaderboardData[myPerf.rank - 2] : null;
   const progressPercent = myPerf && nextPerson ? Math.min(100, Math.max(0, (myPerf.score / nextPerson.score) * 100)) : 0;
 
   const pageHeaderStyle = {
@@ -263,7 +337,7 @@ export default function LeaderboardPage() {
                          </tr>
                        ) : (
                          leaderboardData.map(row => (
-                           <tr key={row.rank} style={{ borderBottom: `1px solid ${colors.borderSoft}`, background: row.current ? 'rgba(59, 130, 246, 0.05)' : 'transparent' }}>
+                           <tr key={row.name} style={{ borderBottom: `1px solid ${colors.borderSoft}`, background: row.current ? 'rgba(59, 130, 246, 0.05)' : 'transparent' }}>
                               <td style={{ padding: '16px' }}>
                                  <div style={getRankBoxStyle(row.rank)}>
                                     {row.rank}
@@ -271,7 +345,7 @@ export default function LeaderboardPage() {
                               </td>
                               <td style={{ padding: '16px' }}>
                                  <div style={{ fontSize: '14.5px', fontWeight: 700, color: colors.navy }}>{row.name} {row.current && <span style={{ fontSize: '10px', color: colors.accent, fontWeight: 800, background: 'rgba(59, 130, 246, 0.1)', padding: '2px 6px', borderRadius: '4px', marginLeft: '8px' }}>YOU</span>}</div>
-                                 <div style={{ fontSize: '12px', color: colors.inkMuted }}>{row.team}</div>
+                                 <div style={{ fontSize: '12px', color: colors.inkMuted }}>{row.team} {isGroupOrTeam && row.memberNames && `(${row.memberNames})`}</div>
                               </td>
                               <td style={{ padding: '16px', fontWeight: 800, color: colors.navy, fontSize: '16px' }}>{row.score.toFixed(1)}</td>
                               <td style={{ padding: '16px' }}>

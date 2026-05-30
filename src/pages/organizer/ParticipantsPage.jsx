@@ -257,7 +257,7 @@ export default function ParticipantsPage() {
     const file = e.target.files?.[0]; if (!file) return;
     
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       try {
         const text = event.target.result;
         const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
@@ -270,14 +270,13 @@ export default function ParticipantsPage() {
         const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/^["']|["']$/g, ''));
         const emailIndex = headers.indexOf('email');
         const teamIndex = headers.indexOf('team');
-        const nameIndex = headers.indexOf('name');
         
         if (emailIndex === -1) {
           showToast("CSV must contain at least an 'email' column.", "error");
           return;
         }
         
-        const newItems = [];
+        const newItemsRaw = [];
         for (let i = 1; i < lines.length; i++) {
           const line = lines[i];
           const values = [];
@@ -302,48 +301,69 @@ export default function ParticipantsPage() {
           
           const team = teamIndex !== -1 ? (values[teamIndex] || '') : '';
           
-          // Generate a name from the email prefix if name is missing or empty
-          let name = '';
-          if (nameIndex !== -1 && values[nameIndex]) {
-            name = values[nameIndex];
-          } else {
-            const prefix = email.split('@')[0];
-            name = prefix
-              .split(/[\._-]/)
-              .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-              .join(' ');
+          newItemsRaw.push({ email, team });
+        }
+        
+        if (newItemsRaw.length === 0) {
+          showToast("No valid email addresses found in CSV.", "error");
+          return;
+        }
+
+        showToast(`Verifying ${newItemsRaw.length} email(s) in system...`, 'info');
+
+        // Look up each email in the database
+        const lookupPromises = newItemsRaw.map(async (item) => {
+          try {
+            const res = await fetch(`${API_BASE}/users/search?q=${encodeURIComponent(item.email)}`);
+            const json = await res.json();
+            if (json.success && json.data) {
+              const matched = json.data.find(u => u.email.toLowerCase() === item.email.toLowerCase());
+              if (matched) {
+                return {
+                  name: matched.name,
+                  email: matched.email,
+                  team: item.team,
+                  status: 'Pending',
+                  score: null
+                };
+              }
+            }
+            return { error: `Email "${item.email}" not found in system database.` };
+          } catch (err) {
+            return { error: `Failed to verify email "${item.email}".` };
           }
-          
-          newItems.push({
-            id: Date.now() + i,
-            name,
-            email,
-            team,
-            status: 'Pending',
-            score: null
-          });
-        }
-        
-        if (newItems.length === 0) {
-          showToast("No valid participants found in CSV.", "error");
+        });
+
+        const lookupResults = await Promise.all(lookupPromises);
+        const validNewItems = lookupResults.filter(r => !r.error);
+        const errors = lookupResults.filter(r => r.error).map(r => r.error);
+
+        if (validNewItems.length === 0) {
+          showToast("No imported emails were found in the database. Nobody was added.", "error");
           return;
         }
-        
-        if (maxP && participants.length + newItems.length > maxP) {
-          showToast(`Cannot import CSV: importing ${newItems.length} participant(s) will exceed the event limit of ${maxP}. (Current: ${participants.length})`, 'error');
+
+        if (errors.length > 0) {
+          showToast(`Skipped ${errors.length} invalid email(s) not found in DB.`, 'warning');
+        }
+
+        if (maxP && participants.length + validNewItems.length > maxP) {
+          showToast(`Cannot import CSV: importing ${validNewItems.length} participant(s) will exceed the event limit of ${maxP}. (Current: ${participants.length})`, 'error');
           return;
         }
-        
-        showToast(`Importing ${newItems.length} participant(s)...`, 'info');
-        
-        const ids = newItems.map(p => p.id);
-        newItems.forEach(p => addParticipant(selectedEvent.id, p));
-        
-        showToast(`Imported ${newItems.length} participants.`, 'success', () => {
-          ids.forEach(id => removeParticipant(selectedEvent.id, id));
+
+        showToast(`Importing ${validNewItems.length} participant(s)...`, 'info');
+
+        const tempIds = validNewItems.map((p, idx) => Date.now() + idx);
+        validNewItems.forEach((p, idx) => {
+          addParticipant(selectedEvent.id, { ...p, id: tempIds[idx] });
+        });
+
+        showToast(`Imported ${validNewItems.length} participants successfully.`, 'success', () => {
+          tempIds.forEach(id => removeParticipant(selectedEvent.id, id));
           showToast('Import undone.', 'info');
         });
-        
+
       } catch (err) {
         console.error("CSV import error:", err);
         showToast("Failed to parse CSV file.", "error");
@@ -978,7 +998,7 @@ export default function ParticipantsPage() {
                     <code key={col} style={{ background: '#fff', border: `1px solid ${colors.border}`, padding: '4px 10px', borderRadius: '8px', fontSize: '13px', fontWeight: 600, color: colors.navy }}>{col}</code>
                   ))}
                 </div>
-                <p style={{ fontSize: '12px', color: colors.inkMuted, marginTop: '8px', margin: 0 }}>Required: <code>email</code>{isGroupOrTeam ? ' and ' + '<code>team</code>' : ''}. (Optional: <code>name</code>)</p>
+                <p style={{ fontSize: '12px', color: colors.inkMuted, marginTop: '8px', margin: 0 }}>Required: <code>email</code>{isGroupOrTeam ? ' and ' + '<code>team</code>' : ''}. Verified emails will resolve their name automatically.</p>
               </div>
 
               <div style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: colors.inkMuted, marginBottom: '12px' }}>Sample Data</div>
@@ -988,19 +1008,16 @@ export default function ParticipantsPage() {
                     <tr style={{ background: colors.pageBg }}>
                       <th style={{ padding: '10px 14px', textAlign: 'left', borderBottom: `1px solid ${colors.borderSoft}`, color: colors.inkMuted }}>email</th>
                       {isGroupOrTeam && <th style={{ padding: '10px 14px', textAlign: 'left', borderBottom: `1px solid ${colors.borderSoft}`, color: colors.inkMuted }}>team</th>}
-                      <th style={{ padding: '10px 14px', textAlign: 'left', borderBottom: `1px solid ${colors.borderSoft}`, color: colors.inkMuted }}>name (optional)</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr>
                       <td style={{ padding: '10px 14px', borderBottom: `1px solid ${colors.borderSoft}` }}>lapu@mactan.ph</td>
                       {isGroupOrTeam && <td style={{ padding: '10px 14px', borderBottom: `1px solid ${colors.borderSoft}` }}>Kadato-an Warriors</td>}
-                      <td style={{ padding: '10px 14px', borderBottom: `1px solid ${colors.borderSoft}`, color: colors.navy, fontWeight: 500 }}>Lapu-Lapu</td>
                     </tr>
                     <tr>
                       <td style={{ padding: '10px 14px' }}>diego@manila.ph</td>
                       {isGroupOrTeam && <td style={{ padding: '10px 14px' }}>Tondo FC</td>}
-                      <td style={{ padding: '10px 14px', color: colors.navy, fontWeight: 500 }}>Diego Cera</td>
                     </tr>
                   </tbody>
                 </table>

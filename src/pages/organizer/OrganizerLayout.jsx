@@ -201,25 +201,11 @@ export default function OrganizerLayout() {
       .finally(() => setEventsLoading(false));
   }, []);
 
-  // Fetch Participants and Judges when selectedEventId changes
+  // Fetch Participants and Judges when selectedEventId changes, and poll every 5 seconds
   useEffect(() => {
     if (!selectedEventId) return;
 
     const supabase = createClient();
-
-    fetch(`${API_BASE}/participants?event_id=${selectedEventId}`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) setParticipantsData(prev => ({ ...prev, [selectedEventId]: data.data }));
-      })
-      .catch(console.error);
-
-    fetch(`${API_BASE}/judges?event_id=${selectedEventId}`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) setJudgesData(prev => ({ ...prev, [selectedEventId]: data.data }));
-      })
-      .catch(console.error);
 
     const fetchRubric = async () => {
       try {
@@ -240,7 +226,47 @@ export default function OrganizerLayout() {
         setRubricConfig(null);
       }
     };
+    
     fetchRubric();
+
+    const pollEventData = () => {
+      fetch(`${API_BASE}/participants?event_id=${selectedEventId}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setParticipantsData(prev => {
+              const currentList = prev[selectedEventId] || [];
+              const hasChanged = currentList.length !== data.data.length || 
+                JSON.stringify(currentList.map(p => ({ id: p.id, status: p.status, score: p.score }))) !== 
+                JSON.stringify(data.data.map(p => ({ id: p.id, status: p.status, score: p.score })));
+              return hasChanged ? { ...prev, [selectedEventId]: data.data } : prev;
+            });
+          }
+        })
+        .catch(console.error);
+
+      fetch(`${API_BASE}/judges?event_id=${selectedEventId}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setJudgesData(prev => {
+              const currentList = prev[selectedEventId] || [];
+              const hasChanged = currentList.length !== data.data.length || 
+                JSON.stringify(currentList.map(j => ({ id: j.id, rsvp: j.rsvp, status: j.status, role: j.role }))) !== 
+                JSON.stringify(data.data.map(j => ({ id: j.id, rsvp: j.rsvp, status: j.status, role: j.role })));
+              return hasChanged ? { ...prev, [selectedEventId]: data.data } : prev;
+            });
+          }
+        })
+        .catch(console.error);
+    };
+
+    pollEventData();
+    const interval = setInterval(pollEventData, 5000);
+
+    return () => {
+      clearInterval(interval);
+    };
   }, [selectedEventId]);
 
   const addEvent = (eventData, isRestore = false) => {
