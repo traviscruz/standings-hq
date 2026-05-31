@@ -34,45 +34,73 @@ export default function LeaderboardPage() {
     }
   }, [activeEvent, selectedEventId]);
 
-  // Fetch participant list for selected event
+  // Fetch participant list for selected event, and poll every 5s for live updates
   useEffect(() => {
     if (!selectedEventId) return;
 
-    setLoading(true);
-    fetch(`${API_BASE}/participants?event_id=${selectedEventId}`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          setParticipants(data.data || []);
-        }
-      })
-      .catch(err => console.error('Error fetching participants:', err))
-      .finally(() => setLoading(false));
+    let cancelled = false;
+
+    const fetchParticipants = (isInitial = false) => {
+      if (isInitial) setLoading(true);
+      fetch(`${API_BASE}/participants?event_id=${selectedEventId}`)
+        .then(res => res.json())
+        .then(data => {
+          if (!cancelled && data.success) {
+            setParticipants(data.data || []);
+          }
+        })
+        .catch(err => console.error('Error fetching participants:', err))
+        .finally(() => {
+          if (isInitial && !cancelled) setLoading(false);
+        });
+    };
+
+    fetchParticipants(true);
+    const interval = setInterval(() => fetchParticipants(false), 5000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, [selectedEventId]);
 
-  // Fetch event rubric config to check group format
+  // Fetch event rubric config to check group format, and poll every 10s
   useEffect(() => {
     if (!selectedEventId) {
       setRubricConfig(null);
       return;
     }
+
+    let cancelled = false;
     const supabase = createClient();
-    supabase
-      .from('event_rubrics')
-      .select('config')
-      .eq('event_id', selectedEventId)
-      .maybeSingle()
-      .then(({ data, error }) => {
-        if (!error && data && data.config) {
-          setRubricConfig(data.config);
-        } else {
-          setRubricConfig(null);
-        }
-      })
-      .catch(err => {
-        console.error('Error loading rubric config:', err);
-        setRubricConfig(null);
-      });
+
+    const fetchRubric = () => {
+      supabase
+        .from('event_rubrics')
+        .select('config')
+        .eq('event_id', selectedEventId)
+        .maybeSingle()
+        .then(({ data, error }) => {
+          if (cancelled) return;
+          if (!error && data && data.config) {
+            setRubricConfig(data.config);
+          } else {
+            setRubricConfig(null);
+          }
+        })
+        .catch(err => {
+          console.error('Error loading rubric config:', err);
+          if (!cancelled) setRubricConfig(null);
+        });
+    };
+
+    fetchRubric();
+    const interval = setInterval(fetchRubric, 10000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, [selectedEventId]);
 
   const isGroupOrTeam = rubricConfig?.format === 'group' || rubricConfig?.format === 'team';
