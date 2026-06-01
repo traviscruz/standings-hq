@@ -320,74 +320,80 @@ export default function BracketPage() {
   const teamColors = {};
   (cfg.teams || []).forEach(t => { teamColors[t.name] = t.color; });
 
+  const CARD_H = 100;
+  const CARD_W = 236;
+  const SLOT_H = 168;
+  const CONNECTOR_W = 48;
+
   const MatchCard = ({ match }) => {
     const isHovered = hoveredMatch === match.id;
-    const isPending = match.status === 'pending' || !match.status;
     const isCompleted = match.status === 'completed';
-    const isBye = match.team_a === 'BYE' || match.team_b === 'BYE';
-
-    const teamAColor = teamColors[match.team_a] || colors.accent;
-    const teamBColor = teamColors[match.team_b] || '#8B5CF6';
+    const hasBothTeams = match.team_a && match.team_b && match.team_a !== 'BYE' && match.team_b !== 'BYE';
 
     return (
       <div
         onMouseEnter={() => setHoveredMatch(match.id)}
         onMouseLeave={() => setHoveredMatch(null)}
         style={{
+          width: CARD_W, height: CARD_H,
           background: '#fff',
-          borderRadius: '16px',
-          border: `1.5px solid ${isCompleted ? 'rgba(16,185,129,0.2)' : isHovered ? colors.accentGlow : colors.borderSoft}`,
-          boxShadow: isHovered ? '0 10px 30px rgba(15,23,42,0.08)' : '0 1px 3px rgba(0,0,0,0.03)',
-          transition: 'all 0.25s',
+          borderRadius: '14px',
+          border: `1.5px solid ${isCompleted ? 'rgba(16,185,129,0.35)' : isHovered ? colors.accent + '60' : colors.borderSoft}`,
+          boxShadow: isCompleted ? '0 4px 16px rgba(16,185,129,0.1)' : isHovered ? '0 8px 28px rgba(15,23,42,0.1)' : '0 2px 6px rgba(0,0,0,0.04)',
           overflow: 'hidden',
-          width: isMobile ? '100%' : '220px',
-          flexShrink: 0,
+          display: 'flex', flexDirection: 'column',
+          transition: 'all 0.2s',
         }}
       >
-        {/* Match Header */}
-        <div style={{ padding: '8px 14px', background: isCompleted ? 'rgba(16,185,129,0.05)' : '#FAFBFC', borderBottom: `1px solid ${colors.borderSoft}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: '10.5px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', color: colors.inkMuted }}>Match {match.match_order}</span>
-          {isCompleted && <span className="material-symbols-rounded" style={{ fontSize: '14px', color: colors.success }}>verified</span>}
-          {isPending && match.team_a && match.team_b && !isBye && <span style={{ fontSize: '10px', fontWeight: 700, color: '#F59E0B', background: 'rgba(245,158,11,0.08)', padding: '2px 8px', borderRadius: '100px' }}>PENDING</span>}
+        {/* Header */}
+        <div style={{ padding: '5px 11px', background: isCompleted ? 'rgba(16,185,129,0.06)' : '#F8FAFC', borderBottom: '1px solid rgba(0,0,0,0.055)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+          <span style={{ fontSize: '9.5px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em', color: colors.inkMuted }}>
+            Match {match.match_order}
+          </span>
+          {isCompleted ? (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '9px', fontWeight: 800, color: colors.success, textTransform: 'uppercase' }}>
+              <span className="material-symbols-rounded" style={{ fontSize: '11px' }}>check_circle</span> Done
+            </span>
+          ) : hasBothTeams ? (
+            <span style={{ fontSize: '9px', fontWeight: 800, color: '#D97706', background: 'rgba(245,158,11,0.1)', padding: '2px 7px', borderRadius: '4px', textTransform: 'uppercase' }}>
+              Pending
+            </span>
+          ) : (
+            <span style={{ fontSize: '9px', color: colors.inkMuted, fontWeight: 600 }}>Waiting</span>
+          )}
         </div>
 
-        {/* Teams */}
-        <div style={{ padding: '12px' }}>
-          {[{ team: match.team_a, side: 'a' }, { team: match.team_b, side: 'b' }].map(({ team, side }) => {
-            const isWinner = match.winner === team;
-            const isLoser = match.winner && match.winner !== team && team;
-            const teamColor = side === 'a' ? teamAColor : teamBColor;
-            const isTBD = !team || team === 'BYE';
-            const isHoveredWinner = hoveredWinner === `${match.id}-${side}`;
+        {/* Team rows */}
+        {[{ team: match.team_a, side: 'a' }, { team: match.team_b, side: 'b' }].map(({ team, side }) => {
+          const isWinner = match.winner === team;
+          const isLoser = match.winner && match.winner !== team && team;
+          const isTBD = !team || team === 'BYE';
+          const teamColor = isTBD ? '#CBD5E1' : (teamColors[team] || (side === 'a' ? colors.accent : '#8B5CF6'));
 
-            return (
-              <div
-                key={side}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  padding: '8px 12px',
-                  borderRadius: '12px',
-                  marginBottom: side === 'a' ? '8px' : '0',
-                  background: isWinner ? `${teamColor}12` : 'transparent',
-                  border: `1.5px solid ${isWinner ? `${teamColor}35` : 'transparent'}`,
-                  cursor: 'default',
-                  transition: 'all 0.2s',
-                  opacity: isLoser ? 0.45 : 1,
-                }}
-              >
-                <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: isTBD ? colors.borderSoft : teamColor, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-                  {isWinner ? <span className="material-symbols-rounded" style={{ fontSize: '15px', color: '#fff' }}>emoji_events</span> : isTBD ? <span className="material-symbols-rounded" style={{ fontSize: '14px', color: colors.inkMuted }}>more_horiz</span> : <span style={{ fontSize: '11px', fontWeight: 800, color: '#fff' }}>{team?.substring(0, 1) || '?'}</span>}
-                </div>
-                <span style={{ fontSize: '13px', fontWeight: isWinner ? 800 : 600, color: isTBD ? colors.inkMuted : isWinner ? teamColor : colors.navy, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {isTBD ? 'TBD' : team}
-                </span>
+          return (
+            <div key={side} style={{
+              flex: 1, display: 'flex', alignItems: 'center', gap: '8px',
+              padding: '0 11px',
+              borderBottom: side === 'a' ? '1px solid rgba(0,0,0,0.05)' : 'none',
+              background: isWinner ? `${teamColor}12` : 'transparent',
+              opacity: isLoser ? 0.36 : 1,
+              position: 'relative', overflow: 'hidden',
+              transition: 'all 0.15s',
+            }}>
+              {isWinner && <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '3px', background: teamColor, borderRadius: '0 2px 2px 0' }} />}
+              <div style={{ width: '22px', height: '22px', borderRadius: '6px', flexShrink: 0, background: isTBD ? '#E2E8F0' : teamColor, display: 'grid', placeItems: 'center' }}>
+                {isWinner
+                  ? <span className="material-symbols-rounded" style={{ fontSize: '13px', color: '#fff' }}>emoji_events</span>
+                  : isTBD
+                    ? <span className="material-symbols-rounded" style={{ fontSize: '12px', color: '#94A3B8' }}>more_horiz</span>
+                    : <span style={{ fontSize: '10px', fontWeight: 800, color: '#fff' }}>{team?.[0] || '?'}</span>}
               </div>
-            );
-          })}
-
-        </div>
+              <span style={{ flex: 1, fontSize: '12.5px', fontWeight: isWinner ? 800 : 600, color: isTBD ? colors.inkMuted : isWinner ? teamColor : colors.navy, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {isTBD ? 'TBD' : team}
+              </span>
+            </div>
+          );
+        })}
       </div>
     );
   };
@@ -572,57 +578,97 @@ export default function BracketPage() {
           </div>
         ) : isMobile ? (
           // Mobile: Stacked rounds
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
             {roundedData.map(({ round, label, matches: rMatches }) => (
               <div key={round}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-                  <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: colors.navy, display: 'grid', placeItems: 'center' }}>
-                    <span style={{ fontSize: '12px', fontWeight: 800, color: '#fff' }}>{round}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+                  <div style={{ width: '26px', height: '26px', borderRadius: '8px', background: colors.navy, display: 'grid', placeItems: 'center' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 800, color: '#fff' }}>{round}</span>
                   </div>
-                  <h3 style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '16px', fontWeight: '800', color: colors.navy, margin: 0 }}>{label}</h3>
+                  <h3 style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '15px', fontWeight: 800, color: colors.navy, margin: 0 }}>{label}</h3>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   {rMatches.map(m => <MatchCard key={m.id} match={m} />)}
                 </div>
               </div>
             ))}
           </div>
-        ) : (
-          // Desktop: Horizontal bracket
-          <div style={{ display: 'flex', gap: '0', alignItems: 'flex-start' }}>
-            {roundedData.map(({ round, label, matches: rMatches }, ridx) => {
-              const totalRounds = roundedData.length;
-              const totalMatches = rMatches.length;
-              const matchHeight = Math.pow(2, ridx) * 160;
+        ) : (() => {
+          // Desktop: proper connected bracket with SVG lines
+          const round1Count = roundedData[0]?.matches.length || 1;
+          const totalBracketH = round1Count * SLOT_H;
+          const totalRounds = roundedData.length;
 
-              return (
-                <div key={round} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '260px' }}>
-                  {/* Round Label */}
-                  <div style={{ marginBottom: '20px', padding: '6px 16px', borderRadius: '100px', background: round === totalRounds ? 'rgba(252,211,77,0.12)' : colors.accentBg, border: `1px solid ${round === totalRounds ? 'rgba(252,211,77,0.3)' : colors.accentGlow}` }}>
-                    <span style={{ fontSize: '11.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: round === totalRounds ? '#B45309' : colors.accentDeep }}>{label}</span>
-                  </div>
-
-                  {/* Matches */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: `${Math.max(24, matchHeight - 160)}px`, alignItems: 'center', width: '100%', paddingLeft: ridx === 0 ? '0' : '24px' }}>
-                    {rMatches.map((m, midx) => (
-                      <div key={m.id} style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                        {/* Connector lines (not for first round) */}
-                        {ridx > 0 && (
-                          <div style={{ position: 'absolute', left: '-24px', top: '50%', width: '24px', height: '1.5px', background: colors.borderSoft }} />
-                        )}
-                        <MatchCard match={m} />
-                        {/* Right connector lines (not for last round) */}
-                        {ridx < totalRounds - 1 && (
-                          <div style={{ position: 'absolute', right: '-24px', top: '50%', width: '24px', height: '1.5px', background: colors.borderSoft }} />
-                        )}
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              {/* Round label row */}
+              <div style={{ display: 'flex', marginBottom: '16px' }}>
+                {roundedData.map(({ round, label }, ridx) => (
+                  <React.Fragment key={round}>
+                    <div style={{ width: CARD_W, display: 'flex', justifyContent: 'center' }}>
+                      <div style={{ padding: '5px 14px', borderRadius: '100px', background: round === totalRounds ? 'rgba(252,211,77,0.12)' : colors.accentBg, border: `1px solid ${round === totalRounds ? 'rgba(252,211,77,0.35)' : colors.accent + '30'}` }}>
+                        <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: round === totalRounds ? '#B45309' : colors.accentDeep }}>{label}</span>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+                    </div>
+                    {ridx < totalRounds - 1 && <div style={{ width: CONNECTOR_W }} />}
+                  </React.Fragment>
+                ))}
+              </div>
+
+              {/* Bracket rows: positioned card columns + SVG connectors */}
+              <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+                {roundedData.map(({ round, matches: rMatches }, ridx) => {
+                  const slotH = SLOT_H * Math.pow(2, ridx);
+                  const isLastRound = ridx === totalRounds - 1;
+
+                  return (
+                    <React.Fragment key={round}>
+                      {/* Match column */}
+                      <div style={{ position: 'relative', width: CARD_W, height: totalBracketH, flexShrink: 0 }}>
+                        {rMatches.map((m, idx) => {
+                          const cardTop = idx * slotH + (slotH - CARD_H) / 2;
+                          return (
+                            <div key={m.id} style={{ position: 'absolute', top: cardTop, left: 0 }}>
+                              <MatchCard match={m} />
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* SVG connector to next round */}
+                      {!isLastRound && (
+                        <svg width={CONNECTOR_W} height={totalBracketH} style={{ flexShrink: 0, display: 'block' }}>
+                          {Array.from({ length: Math.ceil(rMatches.length / 2) }, (_, pairIdx) => {
+                            const top = rMatches[pairIdx * 2];
+                            const bot = rMatches[pairIdx * 2 + 1];
+                            const y1 = pairIdx * 2 * slotH + slotH / 2;
+                            const y2 = bot ? (pairIdx * 2 + 1) * slotH + slotH / 2 : y1;
+                            const yMid = (y1 + y2) / 2;
+                            const hw = CONNECTOR_W / 2;
+                            const bothDone = top?.status === 'completed' && (!bot || bot?.status === 'completed');
+                            const lineColor = bothDone ? 'rgba(16,185,129,0.5)' : '#D1D5DB';
+                            const strokeW = bothDone ? 2 : 1.5;
+
+                            return (
+                              <g key={pairIdx}>
+                                <line x1={0} y1={y1} x2={hw} y2={y1} stroke={lineColor} strokeWidth={strokeW} strokeLinecap="round" />
+                                {bot && <>
+                                  <line x1={0} y1={y2} x2={hw} y2={y2} stroke={lineColor} strokeWidth={strokeW} strokeLinecap="round" />
+                                  <line x1={hw} y1={y1} x2={hw} y2={y2} stroke={lineColor} strokeWidth={strokeW} />
+                                </>}
+                                <line x1={hw} y1={yMid} x2={CONNECTOR_W} y2={yMid} stroke={lineColor} strokeWidth={strokeW} strokeLinecap="round" />
+                              </g>
+                            );
+                          })}
+                        </svg>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {/* Reset Confirmation Modal */}

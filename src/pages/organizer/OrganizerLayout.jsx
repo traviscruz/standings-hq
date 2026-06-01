@@ -240,6 +240,14 @@ export default function OrganizerLayout() {
           else setGameSetupConfig(null);
         })
         .catch(() => setGameSetupConfig(null));
+    } else if (currentEvent?.competition_mode === 'sports') {
+      fetch(`${API_BASE}/sports/setup?event_id=${selectedEventId}`)
+        .then(r => r.json())
+        .then(json => {
+          if (json.success && json.data) setGameSetupConfig(json.data.config || null);
+          else setGameSetupConfig(null);
+        })
+        .catch(() => setGameSetupConfig(null));
     } else {
       setGameSetupConfig(null);
     }
@@ -919,6 +927,27 @@ export default function OrganizerLayout() {
                 >
                   <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>account_tree</span>
                   Tournament Bracket
+                </NavLink>
+              </>
+            ) : selectedEvent?.competition_mode === 'sports' ? (
+              <>
+                <NavLink
+                  to="/organizer/sports-setup"
+                  style={({ isActive }) => styles.sidebarLink(isActive, 'sports-setup', !isSubscribed)}
+                  onMouseEnter={() => setHoveredLink('sports-setup')}
+                  onMouseLeave={() => setHoveredLink(null)}
+                >
+                  <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>sports</span>
+                  Sport Setup
+                </NavLink>
+                <NavLink
+                  to="/organizer/sports-bracket"
+                  style={({ isActive }) => styles.sidebarLink(isActive, 'sports-bracket', !isSubscribed)}
+                  onMouseEnter={() => setHoveredLink('sports-bracket')}
+                  onMouseLeave={() => setHoveredLink(null)}
+                >
+                  <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>account_tree</span>
+                  Match Brackets
                 </NavLink>
               </>
             ) : (

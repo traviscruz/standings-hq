@@ -229,9 +229,12 @@ export default function JudgeLayout() {
     const isGame = !!gameSetupConfig;
     const path = location.pathname;
 
-    if (isGame && (path === '/judge/scoring' || path === '/judge/rubric')) {
+    const isSports = gameSetupConfig?.sportType != null;
+    if (isSports && path !== '/judge/sports-scoring' && path !== '/judge/dashboard' && path !== '/judge/invites' && path !== '/judge/profile') {
+      navigate('/judge/sports-scoring');
+    } else if (isGame && !isSports && (path === '/judge/scoring' || path === '/judge/rubric')) {
       navigate('/judge/game-scoring');
-    } else if (!isGame && path === '/judge/game-scoring') {
+    } else if (!isGame && !isSports && path === '/judge/game-scoring') {
       navigate('/judge/scoring');
     }
   }, [selectedEventId, location.pathname, gameSetupConfig, gameSetupLoading, navigate]);
@@ -868,7 +871,19 @@ export default function JudgeLayout() {
             </NavLink>
 
             <div style={sectionTitleStyle}>Scoring Loop</div>
-            {!!gameSetupConfig ? (
+            {gameSetupConfig?.sportType != null ? (
+              <>
+                <NavLink
+                  to="/judge/sports-scoring"
+                  style={({ isActive }) => getSidebarLinkStyle(isActive, 'sports-scoring')}
+                  onMouseEnter={() => setHoveredLink('sports-scoring')}
+                  onMouseLeave={() => setHoveredLink(null)}
+                >
+                  <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>sports</span>
+                  <span>Sport Score Sheet</span>
+                </NavLink>
+              </>
+            ) : !!gameSetupConfig ? (
               <>
                 <NavLink
                   to="/judge/game-scoring"

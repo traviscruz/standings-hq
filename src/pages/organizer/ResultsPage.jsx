@@ -34,6 +34,7 @@ export default function ResultsPage() {
   const [hasGameData, setHasGameData] = useState(false);
 
   const isGameMode = selectedEvent?.competition_mode === 'game';
+  const isSportsMode = selectedEvent?.competition_mode === 'sports';
 
   const [selectedTieBreakerWinner, setSelectedTieBreakerWinner] = useState('');
   const [isSavingTieBreaker, setIsSavingTieBreaker] = useState(false);
@@ -48,14 +49,15 @@ export default function ResultsPage() {
         tieBreakerWinner: winnerName
       };
 
-      const res = await fetch(`${API_URL}/game/setup`, {
+      const setupEndpoint = isSportsMode ? 'sports' : 'game';
+      const res = await fetch(`${API_URL}/${setupEndpoint}/setup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ event_id: selectedEvent.id, config: updatedConfig, created_by: userId })
       });
       const json = await res.json();
       if (!json.success) throw new Error(json.error);
-      
+
       setGameSetup(prev => ({ ...prev, config: updatedConfig }));
       showToast(`Tie-breaker winner recorded: ${winnerName}!`, 'success');
     } catch (err) {
@@ -73,14 +75,15 @@ export default function ResultsPage() {
       const updatedConfig = { ...gameSetup.config };
       delete updatedConfig.tieBreakerWinner;
 
-      const res = await fetch(`${API_URL}/game/setup`, {
+      const setupEndpoint2 = isSportsMode ? 'sports' : 'game';
+      const res = await fetch(`${API_URL}/${setupEndpoint2}/setup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ event_id: selectedEvent.id, config: updatedConfig, created_by: userId })
       });
       const json = await res.json();
       if (!json.success) throw new Error(json.error);
-      
+
       setGameSetup(prev => ({ ...prev, config: updatedConfig }));
       setSelectedTieBreakerWinner('');
       showToast('Tie-breaker cleared successfully.', 'info');
@@ -100,28 +103,29 @@ export default function ResultsPage() {
   }, [selectedEvent?.id]);
 
   useEffect(() => {
-    if (!selectedEvent || !isGameMode) return;
+    if (!selectedEvent || (!isGameMode && !isSportsMode)) return;
+    const setupEndpoint = isSportsMode ? 'sports' : 'game';
     const fetchGameData = async () => {
       try {
         const [setupRes, bracketsRes] = await Promise.all([
-          fetch(`${API_URL}/game/setup?event_id=${selectedEvent.id}`),
-          fetch(`${API_URL}/game/brackets?event_id=${selectedEvent.id}`)
+          fetch(`${API_URL}/${setupEndpoint}/setup?event_id=${selectedEvent.id}`),
+          fetch(`${API_URL}/${setupEndpoint}/brackets?event_id=${selectedEvent.id}`)
         ]);
         const setupJson = await setupRes.json();
         const bracketsJson = await bracketsRes.json();
         if (setupJson.success) setGameSetup(setupJson.data);
         if (bracketsJson.success) setMatches(bracketsJson.data || []);
       } catch (err) {
-        console.error('Error fetching game results:', err);
+        console.error('Error fetching results:', err);
       } finally {
-        setHasGameData(true); // permanently show content after first fetch
+        setHasGameData(true);
       }
     };
     fetchGameData();
 
     let interval;
     if (liveToggle) {
-      interval = setInterval(fetchGameData, 5000); // refresh every 5s if live
+      interval = setInterval(fetchGameData, 5000);
     }
 
     const supabase = createClient();
@@ -145,13 +149,13 @@ export default function ResultsPage() {
       if (interval) clearInterval(interval);
       supabase.removeChannel(channel);
     };
-  }, [selectedEvent, isGameMode, liveToggle]);
+  }, [selectedEvent, isGameMode, isSportsMode, liveToggle]);
 
   const isRoundRobin = gameSetup?.config?.bracketFormat === 'round_robin' || matches.some(m => m.round_label === 'Round Robin');
   const allMatchesCompleted = matches.length > 0 && matches.every(m => m.status === 'completed');
 
   const teamWins = React.useMemo(() => {
-    if (!isGameMode) return [];
+    if (!isGameMode && !isSportsMode) return [];
     const wins = {};
     const teamsList = gameSetup?.config?.teams || [];
     teamsList.forEach(t => {
@@ -184,10 +188,10 @@ export default function ResultsPage() {
       }
       return b.matchesPlayed - a.matchesPlayed;
     });
-  }, [matches, gameSetup, isGameMode]);
+  }, [matches, gameSetup, isGameMode, isSportsMode]);
 
   const champion = React.useMemo(() => {
-    if (!isGameMode || matches.length === 0 || !gameSetup) return null;
+    if ((!isGameMode && !isSportsMode) || matches.length === 0 || !gameSetup) return null;
     
     if (isRoundRobin) {
       if (gameSetup?.config?.tieBreakerWinner) {
@@ -206,7 +210,7 @@ export default function ResultsPage() {
       const finalMatch = matches.find(m => m.round === maxRound && m.match_order === 1);
       return finalMatch?.winner || null;
     }
-  }, [matches, gameSetup, isGameMode, isRoundRobin, allMatchesCompleted, teamWins]);
+  }, [matches, gameSetup, isGameMode, isSportsMode, isRoundRobin, allMatchesCompleted, teamWins]);
 
   const isGroupOrTeam = rubricConfig?.format === 'group' || rubricConfig?.format === 'team';
 
@@ -236,7 +240,7 @@ export default function ResultsPage() {
   const displayList = isGroupOrTeam ? uniqueTeams : participants;
 
   const handleExportPDF = () => {
-    if (isGameMode) {
+    if (isGameMode || isSportsMode) {
       const printWindow = window.open('', '_blank');
       if (!printWindow) {
         showToast('Could not open print window. Please check popup blocker.', 'error');
@@ -804,7 +808,7 @@ export default function ResultsPage() {
 
   return (
     <>
-      {isGameMode && (() => {
+      {(isGameMode || isSportsMode) && (() => {
         const scoredCount = matches.filter(m => m.status === 'completed').length;
         return (
           <>
@@ -824,7 +828,7 @@ export default function ResultsPage() {
                   )}
                   {elapsed && <span style={{ fontSize: '13px', color: colors.inkMuted }}>Running for {elapsed}</span>}
                 </div>
-                <h1 style={styles.pageTitle}>{gameSetup?.config?.gameName || gameSetup?.config?.gameType || 'Game'} Results</h1>
+                <h1 style={styles.pageTitle}>{gameSetup?.config?.sportType || gameSetup?.config?.sportName || gameSetup?.config?.gameName || gameSetup?.config?.gameType || 'Results'}</h1>
                 <p style={styles.pageDescription}>
                   Live tournament overview and standings for <strong style={{ color: colors.navy }}>{selectedEvent.name}</strong>.
                 </p>
@@ -860,7 +864,7 @@ export default function ResultsPage() {
                 <div>
                   <div style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(255,255,255,0.5)', marginBottom: '4px' }}>🏆 Grand Champion Winner</div>
                   <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '28px', fontWeight: '900', color: '#FCD34D', letterSpacing: '-0.02em' }}>{champion}</div>
-                  <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', marginTop: '4px' }}>{gameSetup?.config?.gameName || gameSetup?.config?.gameType} · {selectedEvent.name}</div>
+                  <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', marginTop: '4px' }}>{gameSetup?.config?.sportType || gameSetup?.config?.sportName || gameSetup?.config?.gameName || gameSetup?.config?.gameType} · {selectedEvent.name}</div>
                 </div>
               </div>
             )}
@@ -1142,7 +1146,7 @@ export default function ResultsPage() {
         );
       })()}
 
-      {!isGameMode && (
+      {!isGameMode && !isSportsMode && (
         <>
           <div style={styles.pageHeader}>
             <div>

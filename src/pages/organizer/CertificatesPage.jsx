@@ -58,14 +58,16 @@ export default function CertificatesPage() {
   const [matches, setMatches] = useState([]);
 
   const isGameMode = selectedEvent?.competition_mode === 'game';
+  const isSportsMode = selectedEvent?.competition_mode === 'sports';
 
   React.useEffect(() => {
-    if (!selectedEvent || !isGameMode) return;
+    if (!selectedEvent || (!isGameMode && !isSportsMode)) return;
+    const setupEndpoint = isSportsMode ? 'sports' : 'game';
     const fetchGameData = async () => {
       try {
         const [setupRes, bracketsRes] = await Promise.all([
-          fetch(`${API_BASE}/game/setup?event_id=${selectedEvent.id}`),
-          fetch(`${API_BASE}/game/brackets?event_id=${selectedEvent.id}`)
+          fetch(`${API_BASE}/${setupEndpoint}/setup?event_id=${selectedEvent.id}`),
+          fetch(`${API_BASE}/${setupEndpoint}/brackets?event_id=${selectedEvent.id}`)
         ]);
         const setupJson = await setupRes.json();
         const bracketsJson = await bracketsRes.json();
@@ -97,10 +99,10 @@ export default function CertificatesPage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [selectedEvent, isGameMode]);
+  }, [selectedEvent, isGameMode, isSportsMode]);
 
   const gameTeams = React.useMemo(() => {
-    if (!isGameMode || !gameSetup) return [];
+    if ((!isGameMode && !isSportsMode) || !gameSetup) return [];
     const teamsList = gameSetup.config?.teams || [];
     const wins = {};
     teamsList.forEach(t => {
@@ -143,9 +145,9 @@ export default function CertificatesPage() {
       score: t.winsCount,
       email: ''
     }));
-  }, [gameSetup, matches, isGameMode]);
+  }, [gameSetup, matches, isGameMode, isSportsMode]);
 
-  const displayList = isGameMode ? gameTeams : (isGroupOrTeam ? uniqueTeams : participants);
+  const displayList = (isGameMode || isSportsMode) ? gameTeams : (isGroupOrTeam ? uniqueTeams : participants);
 
   const [generating, setGenerating] = useState(false);
 

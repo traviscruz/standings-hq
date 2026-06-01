@@ -27,10 +27,11 @@ export default function MyEventsPage() {
 
     registeredEventsList.forEach(async (event) => {
       try {
-        if (event.competition_mode === 'game') {
+        if (event.competition_mode === 'game' || event.competition_mode === 'sports') {
+          const setupEndpoint = event.competition_mode === 'sports' ? 'sports' : 'game';
           const [setupRes, bracketsRes, participantsRes] = await Promise.all([
-            fetch(`${API_BASE}/game/setup?event_id=${event.id}`).then(res => res.json()),
-            fetch(`${API_BASE}/game/brackets?event_id=${event.id}`).then(res => res.json()),
+            fetch(`${API_BASE}/${setupEndpoint}/setup?event_id=${event.id}`).then(res => res.json()),
+            fetch(`${API_BASE}/${setupEndpoint}/brackets?event_id=${event.id}`).then(res => res.json()),
             fetch(`${API_BASE}/participants?event_id=${event.id}`).then(res => res.json())
           ]);
 
@@ -423,11 +424,11 @@ export default function MyEventsPage() {
                          </div>
                       </div>
                       <div style={{ textAlign: isMobile ? 'left' : 'right' }}>
-                         <div style={{ fontSize: '11px', fontWeight: 700, color: colors.inkMuted, textTransform: 'uppercase' }}>{event.competition_mode === 'game' ? 'Wins' : 'Score'}</div>
+                         <div style={{ fontSize: '11px', fontWeight: 700, color: colors.inkMuted, textTransform: 'uppercase' }}>{(event.competition_mode === 'game' || event.competition_mode === 'sports') ? 'Wins' : 'Score'}</div>
                          <div style={{ fontSize: '18px', fontWeight: 800, color: colors.navy }}>
                            {regStatus === 'Pending' ? '-' : (
                              eventStats[event.id]?.score != null
-                               ? (event.competition_mode === 'game' ? eventStats[event.id].score : eventStats[event.id].score.toFixed(1))
+                               ? ((event.competition_mode === 'game' || event.competition_mode === 'sports') ? eventStats[event.id].score : eventStats[event.id].score.toFixed(1))
                                : '—'
                            )}
                          </div>

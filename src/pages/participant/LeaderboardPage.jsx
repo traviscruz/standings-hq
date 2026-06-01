@@ -24,6 +24,7 @@ export default function LeaderboardPage() {
   const currentEvent = registeredEvents.find(e => e.id === selectedEventId) || activeEvent;
   const myEmail = localStorage.getItem('email');
   const isGameMode = eventDetails ? (eventDetails.competition_mode === 'game') : (currentEvent?.competition_mode === 'game');
+  const isSportsMode = eventDetails ? (eventDetails.competition_mode === 'sports') : (currentEvent?.competition_mode === 'sports');
 
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
@@ -89,21 +90,22 @@ export default function LeaderboardPage() {
     };
   }, [selectedEventId]);
 
-  // Fetch tournament/game config & brackets, and poll every 5s for live updates
+  // Fetch tournament/game/sports config & brackets, and poll every 5s for live updates
   useEffect(() => {
-    if (!selectedEventId || !isGameMode) {
+    if (!selectedEventId || (!isGameMode && !isSportsMode)) {
       setGameSetup(null);
       setMatches([]);
       return;
     }
 
+    const setupEndpoint = isSportsMode ? 'sports' : 'game';
     let cancelled = false;
 
     const fetchGameData = (isInitial = false) => {
       if (isInitial) setLoading(true);
       Promise.all([
-        fetch(`${API_BASE}/game/setup?event_id=${selectedEventId}`).then(res => res.json()),
-        fetch(`${API_BASE}/game/brackets?event_id=${selectedEventId}`).then(res => res.json())
+        fetch(`${API_BASE}/${setupEndpoint}/setup?event_id=${selectedEventId}`).then(res => res.json()),
+        fetch(`${API_BASE}/${setupEndpoint}/brackets?event_id=${selectedEventId}`).then(res => res.json())
       ])
         .then(([setupJson, bracketsJson]) => {
           if (cancelled) return;
@@ -123,7 +125,7 @@ export default function LeaderboardPage() {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [selectedEventId, isGameMode]);
+  }, [selectedEventId, isGameMode, isSportsMode]);
 
   // Fetch event rubric config to check group format, and poll every 10s
   useEffect(() => {
@@ -170,7 +172,7 @@ export default function LeaderboardPage() {
   const leaderboardData = React.useMemo(() => {
     const registeredParticipants = participants.filter(p => p.status === 'Registered');
 
-    if (isGameMode) {
+    if (isGameMode || isSportsMode) {
       const teamsMap = {};
       const teamsList = gameSetup?.config?.teams || [];
       teamsList.forEach(t => {
@@ -306,7 +308,7 @@ export default function LeaderboardPage() {
         current: p.email?.toLowerCase() === myEmail?.toLowerCase()
       }));
     }
-  }, [participants, isGroupOrTeam, myEmail, isGameMode, gameSetup, matches, eventDetails]);
+  }, [participants, isGroupOrTeam, myEmail, isGameMode, isSportsMode, gameSetup, matches, eventDetails]);
 
   if (!currentEvent) {
     return (
@@ -445,19 +447,19 @@ export default function LeaderboardPage() {
                
                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                   <div>
-                     <div style={{ fontSize: '11px', fontWeight: 700, color: colors.accentBright, textTransform: 'uppercase', marginBottom: '8px' }}>{isGameMode ? 'Total Wins' : 'Total Score'}</div>
-                     <div style={{ fontSize: '24px', fontWeight: 700 }}>{myPerf ? (isGameMode ? `${myPerf.score}` : myPerf.score.toFixed(1)) : (isGameMode ? '0' : '0.0')}</div>
+                     <div style={{ fontSize: '11px', fontWeight: 700, color: colors.accentBright, textTransform: 'uppercase', marginBottom: '8px' }}>{(isGameMode || isSportsMode) ? 'Total Wins' : 'Total Score'}</div>
+                     <div style={{ fontSize: '24px', fontWeight: 700 }}>{myPerf ? ((isGameMode || isSportsMode) ? `${myPerf.score}` : myPerf.score.toFixed(1)) : ((isGameMode || isSportsMode) ? '0' : '0.0')}</div>
                   </div>
                   <div>
-                     <div style={{ fontSize: '11px', fontWeight: 700, color: colors.accentBright, textTransform: 'uppercase', marginBottom: '8px' }}>{isGameMode ? 'Matches Played' : 'Avg Grade'}</div>
-                     <div style={{ fontSize: '24px', fontWeight: 700 }}>{myPerf ? (isGameMode ? `${myPerf.matchesPlayed}` : `${(myPerf.score / 10).toFixed(1)} / 10`) : '—'}</div>
+                     <div style={{ fontSize: '11px', fontWeight: 700, color: colors.accentBright, textTransform: 'uppercase', marginBottom: '8px' }}>{(isGameMode || isSportsMode) ? 'Matches Played' : 'Avg Grade'}</div>
+                     <div style={{ fontSize: '24px', fontWeight: 700 }}>{myPerf ? ((isGameMode || isSportsMode) ? `${myPerf.matchesPlayed}` : `${(myPerf.score / 10).toFixed(1)} / 10`) : '—'}</div>
                   </div>
                </div>
                
                <div style={{ background: 'rgba(255,255,255,0.08)', padding: '16px', borderRadius: '12px' }}>
                   {nextPerson ? (
                     <>
-                      <div style={{ fontSize: '13px', color: '#fff', opacity: 0.9, marginBottom: '12px' }}>Next rank threshold: {isGameMode ? `${nextPerson.score} Wins` : nextPerson.score.toFixed(1)}</div>
+                      <div style={{ fontSize: '13px', color: '#fff', opacity: 0.9, marginBottom: '12px' }}>Next rank threshold: {(isGameMode || isSportsMode) ? `${nextPerson.score} Wins` : nextPerson.score.toFixed(1)}</div>
                       <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '100px', overflow: 'hidden' }}>
                          <div style={{ width: `${progressPercent}%`, height: '100%', background: colors.accentBright }}></div>
                       </div>
@@ -465,7 +467,7 @@ export default function LeaderboardPage() {
                   ) : myPerf && myPerf.rank === 1 ? (
                     <div style={{ fontSize: '13px', color: '#fff', opacity: 0.9, fontWeight: '700' }}>You are leading the board! 🎉</div>
                   ) : (
-                    <div style={{ fontSize: '13px', color: '#fff', opacity: 0.7 }}>{isGameMode ? 'No matches played yet.' : 'No evaluation scores yet.'}</div>
+                    <div style={{ fontSize: '13px', color: '#fff', opacity: 0.7 }}>{(isGameMode || isSportsMode) ? 'No matches played yet.' : 'No evaluation scores yet.'}</div>
                   )}
                </div>
             </div>
@@ -483,8 +485,8 @@ export default function LeaderboardPage() {
                     <thead>
                        <tr style={{ borderBottom: `1px solid ${colors.borderSoft}` }}>
                           <th style={{ textAlign: 'left', padding: '12px 16px', fontSize: '11px', fontWeight: '700', color: colors.inkMuted, textTransform: 'uppercase' }}>Rank</th>
-                          <th style={{ textAlign: 'left', padding: '12px 16px', fontSize: '11px', fontWeight: '700', color: colors.inkMuted, textTransform: 'uppercase' }}>{isGameMode ? 'Team' : 'Participant'}</th>
-                          <th style={{ textAlign: 'left', padding: '12px 16px', fontSize: '11px', fontWeight: '700', color: colors.inkMuted, textTransform: 'uppercase' }}>{isGameMode ? 'Wins' : 'Score'}</th>
+                          <th style={{ textAlign: 'left', padding: '12px 16px', fontSize: '11px', fontWeight: '700', color: colors.inkMuted, textTransform: 'uppercase' }}>{(isGameMode || isSportsMode) ? 'Team' : 'Participant'}</th>
+                          <th style={{ textAlign: 'left', padding: '12px 16px', fontSize: '11px', fontWeight: '700', color: colors.inkMuted, textTransform: 'uppercase' }}>{(isGameMode || isSportsMode) ? 'Wins' : 'Score'}</th>
                        </tr>
                     </thead>
                     <tbody>
@@ -512,10 +514,10 @@ export default function LeaderboardPage() {
                               </td>
                               <td style={{ padding: '16px' }}>
                                  <div style={{ fontSize: '14.5px', fontWeight: 700, color: colors.navy }}>{row.name} {row.current && <span style={{ fontSize: '10px', color: colors.accent, fontWeight: 800, background: 'rgba(59, 130, 246, 0.1)', padding: '2px 6px', borderRadius: '4px', marginLeft: '8px' }}>YOU</span>}</div>
-                                 <div style={{ fontSize: '12px', color: colors.inkMuted }}>{row.team} {(isGroupOrTeam || isGameMode) && row.memberNames && `(${row.memberNames})`}</div>
+                                 <div style={{ fontSize: '12px', color: colors.inkMuted }}>{row.team} {(isGroupOrTeam || isGameMode || isSportsMode) && row.memberNames && `(${row.memberNames})`}</div>
                               </td>
                               <td style={{ padding: '16px', fontWeight: 800, color: colors.navy, fontSize: '16px' }}>
-                                {isGameMode ? `${row.score} Win${row.score !== 1 ? 's' : ''}` : row.score.toFixed(1)}
+                                {(isGameMode || isSportsMode) ? `${row.score} Win${row.score !== 1 ? 's' : ''}` : row.score.toFixed(1)}
                               </td>
                            </tr>
                          ))

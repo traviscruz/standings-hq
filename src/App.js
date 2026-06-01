@@ -30,6 +30,8 @@ import EventSettingsPage from './pages/organizer/EventSettingsPage';
 import OrganizerAnalyticsPage from './pages/organizer/OrganizerAnalyticsPage';
 import GameSetupBuilderPage from './pages/organizer/GameSetupBuilderPage';
 import BracketPage from './pages/organizer/BracketPage';
+import SportsSetupPage from './pages/organizer/SportsSetupPage';
+import SportsBracketPage from './pages/organizer/SportsBracketPage';
 
 // Judge Pages
 import JudgeLayout from './pages/judge/JudgeLayout';
@@ -38,6 +40,7 @@ import ScoringPage from './pages/judge/ScoringPage';
 import RubricReviewPage from './pages/judge/RubricReviewPage';
 import InvitePage from './pages/judge/InvitePage';
 import GameScoringPage from './pages/judge/GameScoringPage';
+import SportsScoringPage from './pages/judge/SportsScoringPage';
 
 // Participant Pages
 import ParticipantLayout from './pages/participant/ParticipantLayout';
@@ -88,6 +91,8 @@ function App() {
           <Route path="analytics" element={<OrganizerAnalyticsPage />} />
           <Route path="game-setup" element={<GameSetupBuilderPage />} />
           <Route path="bracket" element={<BracketPage />} />
+          <Route path="sports-setup" element={<SportsSetupPage />} />
+          <Route path="sports-bracket" element={<SportsBracketPage />} />
           <Route path="profile" element={<ProfilePage />} />
         </Route>
 
@@ -102,6 +107,7 @@ function App() {
           <Route path="rubric" element={<RubricReviewPage />} />
           <Route path="invites" element={<InvitePage />} />
           <Route path="game-scoring" element={<GameScoringPage />} />
+          <Route path="sports-scoring" element={<SportsScoringPage />} />
           <Route path="profile" element={<ProfilePage />} />
         </Route>
 

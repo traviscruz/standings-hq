@@ -369,7 +369,8 @@ export default function CreateEventPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
                   {[
                     { id: 'standard', label: 'Standard Rubric', icon: 'gavel', desc: 'Score participants using customizable multi-criteria rubrics. Perfect for pageants, debates, or talent shows.' },
-                    { id: 'game', label: 'Traditional Games / Tournament', icon: 'sports_esports', desc: 'Run bracket matchups (e.g. Tug of War, Patintero). AI creates round limits, scoring configs, and advances winners.' }
+                    { id: 'game', label: 'Traditional Games / Tournament', icon: 'sports_esports', desc: 'Run bracket matchups (e.g. Tug of War, Patintero). AI creates round limits, scoring configs, and advances winners.' },
+                    { id: 'sports', label: 'Sports Competition', icon: 'sports', desc: 'Track scores per quarter, set, or period for sports like Basketball, Volleyball, Badminton and more. Brackets auto-advance winners.' }
                   ].map(m => (
                     <label key={m.id} style={{
                       display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '8px', padding: '16px 20px',

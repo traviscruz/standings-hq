@@ -126,4 +126,81 @@ Return JSON: {
   return stepPrompts[step] || stepPrompts[0];
 }
 
+// ── POST /api/claude/sports-suggest ────────────────────────────────
+// AI suggestions for Sport Setup Builder steps
+router.post('/sports-suggest', async (req, res) => {
+  try {
+    const { step, eventTitle, eventDescription, sportName, currentConfig, isRegenerating } = req.body;
+    if (step === undefined || step === null) {
+      return res.status(400).json({ success: false, error: 'step is required' });
+    }
+
+    const prompt = buildSportsPrompt(step, eventTitle, eventDescription, sportName, currentConfig, isRegenerating);
+
+    const message = await anthropic.messages.create({
+      model: 'claude-haiku-4-5',
+      max_tokens: 1024,
+      messages: [{ role: 'user', content: prompt }]
+    });
+
+    let jsonText = message.content[0].text.trim();
+    const match = jsonText.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (match) jsonText = match[1].trim();
+
+    const parsed = JSON.parse(jsonText);
+    res.json({ success: true, data: parsed });
+  } catch (err) {
+    console.error('[POST /api/claude/sports-suggest]', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+function buildSportsPrompt(step, eventTitle, eventDescription, sportName, currentConfig, isRegenerating) {
+  const base = `
+You are an expert sports competition coordinator.
+Event: "${eventTitle || 'Sports Event'}"
+Sport: "${sportName || 'Unknown Sport'}"
+Description: "${eventDescription || ''}"
+${isRegenerating ? 'Generate a DIFFERENT suggestion than before.' : ''}
+Return ONLY a raw JSON object. No markdown, no explanation.
+`;
+
+  const steps = {
+    0: `${base}
+Identify the sport and suggest competition settings.
+Return JSON: {
+  "sportType": "exact sport name (e.g., Basketball, Volleyball, Badminton, Football, Tennis, Table Tennis)",
+  "category": "team | individual",
+  "description": "one sentence description of the sport format",
+  "suggestedTeamCount": number (typical tournament size, power of 2 preferred),
+  "periodsPerMatch": number (e.g. 4 for basketball quarters, 3 for volleyball sets, 3 for badminton games, 2 for football halves),
+  "periodLabel": "Quarter | Set | Game | Half | Period | Inning",
+  "winCondition": "most_points | most_sets",
+  "reason": "brief friendly explanation"
+}
+- winCondition is "most_points" for sports where the total score determines the winner (basketball, football)
+- winCondition is "most_sets" for sports where winning individual periods/sets determines the winner (volleyball, badminton, tennis)`,
+
+    1: `${base}
+Current sport: "${sportName}"
+Suggest team count for this tournament.
+Return JSON: {
+  "teamCount": number (2, 4, 8, or 16),
+  "reason": "brief explanation"
+}`,
+
+    2: `${base}
+Current sport: "${sportName}"
+Current config: ${JSON.stringify(currentConfig || {})}
+Generate a complete summary for review.
+Return JSON: {
+  "summary": "2-3 sentence overview of the tournament",
+  "keyRules": ["rule 1", "rule 2", "rule 3"],
+  "estimatedDuration": "estimated total tournament duration"
+}`
+  };
+
+  return steps[step] || steps[0];
+}
+
 module.exports = router;

@@ -20,6 +20,7 @@ const scoreRoutes = require('./routes/scores');
 const certificateRoutes = require('./routes/certificates');
 const claudeRoutes = require('./routes/claude');
 const gameRoutes = require('./routes/game');
+const sportsRoutes = require('./routes/sports');
 
 // Use Routes
 app.use('/api/auth', authRoutes);
@@ -32,6 +33,7 @@ app.use('/api/scores', scoreRoutes);
 app.use('/api/certificates', certificateRoutes);
 app.use('/api/claude', claudeRoutes);
 app.use('/api/game', gameRoutes);
+app.use('/api/sports', sportsRoutes);
 
 // Health Check
 app.get('/', (req, res) => {
