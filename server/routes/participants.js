@@ -61,7 +61,8 @@ router.get('/my-events', async (req, res) => {
       score: inv.score || '-',
       rank: '-', // Logic for rank would be complex, leaving as '-' for now
       registrationId: inv.id,
-      registrationStatus: inv.status
+      registrationStatus: inv.status,
+      competition_mode: inv.event?.competition_mode || 'standard'
     }));
 
     res.json({ success: true, data: formatted });

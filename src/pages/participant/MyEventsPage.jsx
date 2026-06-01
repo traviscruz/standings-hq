@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParticipantContext } from './ParticipantLayout';
 import { Link } from 'react-router-dom';
 import { colors } from '../../styles/colors';
+import { API_URL as API_BASE } from '../../config';
 
 export default function MyEventsPage() {
   const { myEvents, acceptInvitation, declineInvitation } = useParticipantContext();
@@ -9,12 +10,145 @@ export default function MyEventsPage() {
   const [search, setSearch] = useState('');
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const [hoveredEvent, setHoveredEvent] = useState(null);
+  const [eventStats, setEventStats] = useState({});
 
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  useEffect(() => {
+    const registeredEventsList = myEvents.filter(e => e.registrationStatus === 'Registered');
+    if (registeredEventsList.length === 0) return;
+
+    const myEmail = localStorage.getItem('email')?.toLowerCase();
+    if (!myEmail) return;
+
+    registeredEventsList.forEach(async (event) => {
+      try {
+        if (event.competition_mode === 'game') {
+          const [setupRes, bracketsRes, participantsRes] = await Promise.all([
+            fetch(`${API_BASE}/game/setup?event_id=${event.id}`).then(res => res.json()),
+            fetch(`${API_BASE}/game/brackets?event_id=${event.id}`).then(res => res.json()),
+            fetch(`${API_BASE}/participants?event_id=${event.id}`).then(res => res.json())
+          ]);
+
+          if (setupRes.success && bracketsRes.success && participantsRes.success) {
+            const gameSetup = setupRes.data;
+            const matches = bracketsRes.data || [];
+            const participantsList = participantsRes.data || [];
+
+            // Group participants by team
+            const teamsMap = {};
+            const teamsList = gameSetup?.config?.teams || [];
+            teamsList.forEach(t => {
+              teamsMap[t.name] = {
+                name: t.name,
+                members: [],
+                score: 0,
+                winsCount: 0,
+                matchesPlayed: 0,
+                hasMe: false
+              };
+            });
+
+            const registeredParticipants = participantsList.filter(p => p.status === 'Registered');
+            registeredParticipants.forEach(p => {
+              const teamName = p.team?.trim() || p.name?.trim() || 'Independent';
+              if (!teamsMap[teamName]) {
+                teamsMap[teamName] = {
+                  name: teamName,
+                  members: [],
+                  score: 0,
+                  winsCount: 0,
+                  matchesPlayed: 0,
+                  hasMe: false
+                };
+              }
+              teamsMap[teamName].members.push(p);
+              if (p.email?.toLowerCase() === myEmail) {
+                teamsMap[teamName].hasMe = true;
+              }
+            });
+
+            // Calculate matches/wins
+            matches.forEach(m => {
+              if (m.status === 'completed' && m.winner) {
+                if (teamsMap[m.winner]) {
+                  teamsMap[m.winner].winsCount += 1;
+                  teamsMap[m.winner].score += 1;
+                }
+              }
+              if (m.team_a && m.team_a !== 'BYE') {
+                if (teamsMap[m.team_a] && m.status === 'completed') {
+                  teamsMap[m.team_a].matchesPlayed += 1;
+                }
+              }
+              if (m.team_b && m.team_b !== 'BYE') {
+                if (teamsMap[m.team_b] && m.status === 'completed') {
+                  teamsMap[m.team_b].matchesPlayed += 1;
+                }
+              }
+            });
+
+            const sortedStandings = Object.values(teamsMap)
+              .sort((a, b) => {
+                if (b.score !== a.score) {
+                  return b.score - a.score;
+                }
+                const tbWinner = gameSetup?.config?.tieBreakerWinner;
+                if (tbWinner) {
+                  if (a.name === tbWinner) return -1;
+                  if (b.name === tbWinner) return 1;
+                }
+                return b.matchesPlayed - a.matchesPlayed;
+              });
+
+            const myTeamIndex = sortedStandings.findIndex(t => t.hasMe);
+            if (myTeamIndex !== -1) {
+              const myTeamData = sortedStandings[myTeamIndex];
+              setEventStats(prev => ({
+                ...prev,
+                [event.id]: {
+                  rank: myTeamIndex + 1,
+                  score: myTeamData.winsCount
+                }
+              }));
+            }
+          }
+        } else {
+          // Standard Rubric Event
+          const rubricRes = await fetch(`${API_BASE}/participants?event_id=${event.id}`).then(res => res.json());
+          if (rubricRes.success) {
+            const participantsList = rubricRes.data || [];
+            const registeredParticipants = participantsList.filter(p => p.status === 'Registered');
+
+            const sortedParticipants = [...registeredParticipants].sort((a, b) => {
+              const scoreA = a.score !== null && a.score !== undefined ? Number(a.score) : 0;
+              const scoreB = b.score !== null && b.score !== undefined ? Number(b.score) : 0;
+              return scoreB - scoreA;
+            });
+
+            const myParticipantIndex = sortedParticipants.findIndex(p => p.email?.toLowerCase() === myEmail);
+            if (myParticipantIndex !== -1) {
+              const myPart = sortedParticipants[myParticipantIndex];
+              const hasScore = myPart.score !== null && myPart.score !== undefined;
+              setEventStats(prev => ({
+                ...prev,
+                [event.id]: {
+                  rank: hasScore ? myParticipantIndex + 1 : null,
+                  score: hasScore ? Number(myPart.score) : null
+                }
+              }));
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching event stats in MyEventsPage:', err);
+      }
+    });
+  }, [myEvents]);
 
   const filteredEvents = myEvents
     .filter(e => e.name.toLowerCase().includes(search.toLowerCase()))
@@ -284,11 +418,19 @@ export default function MyEventsPage() {
                     }}>
                       <div style={{ textAlign: isMobile ? 'left' : 'right' }}>
                          <div style={{ fontSize: '11px', fontWeight: 700, color: colors.inkMuted, textTransform: 'uppercase' }}>Rank</div>
-                         <div style={{ fontSize: '18px', fontWeight: 800, color: colors.navy }}>{regStatus === 'Pending' ? '-' : event.rank}</div>
+                         <div style={{ fontSize: '18px', fontWeight: 800, color: colors.navy }}>
+                           {regStatus === 'Pending' ? '-' : (eventStats[event.id]?.rank != null ? `#${eventStats[event.id].rank}` : '—')}
+                         </div>
                       </div>
                       <div style={{ textAlign: isMobile ? 'left' : 'right' }}>
-                         <div style={{ fontSize: '11px', fontWeight: 700, color: colors.inkMuted, textTransform: 'uppercase' }}>Score</div>
-                         <div style={{ fontSize: '18px', fontWeight: 800, color: colors.navy }}>{regStatus === 'Pending' ? '-' : event.score}</div>
+                         <div style={{ fontSize: '11px', fontWeight: 700, color: colors.inkMuted, textTransform: 'uppercase' }}>{event.competition_mode === 'game' ? 'Wins' : 'Score'}</div>
+                         <div style={{ fontSize: '18px', fontWeight: 800, color: colors.navy }}>
+                           {regStatus === 'Pending' ? '-' : (
+                             eventStats[event.id]?.score != null
+                               ? (event.competition_mode === 'game' ? eventStats[event.id].score : eventStats[event.id].score.toFixed(1))
+                               : '—'
+                           )}
+                         </div>
                       </div>
                       
                       {regStatus === 'Pending' ? (

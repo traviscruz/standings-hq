@@ -48,8 +48,6 @@ export default function DashboardPage() {
   const [activeBtnHover, setActiveBtnHover] = useState(null);
   const [hoveredCard, setHoveredCard] = useState(null);
   const [showGoLiveModal, setShowGoLiveModal] = useState(false);
-  const [showShareModal, setShowShareModal] = useState(false);
-  const [shareCopied, setShareCopied] = useState(false);
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
     window.addEventListener('resize', handleResize);
@@ -122,14 +120,6 @@ export default function DashboardPage() {
       updateEvent(selectedEvent.id, { status: prev.toLowerCase() });
       showToast('Status reverted.', 'info');
     });
-  };
-
-  const handleShare = () => {
-    const shareUrl = `${window.location.origin}/leaderboard/${selectedEvent.id}`;
-    navigator.clipboard.writeText(shareUrl).catch(() => {});
-    setShareCopied(true);
-    setShowShareModal(true);
-    setTimeout(() => setShareCopied(false), 3000);
   };
 
   const styles = {
@@ -237,12 +227,19 @@ export default function DashboardPage() {
     },
   };
 
-  const auditLogs = [
-    { label: 'Event status updated to Active', time: '12m ago', icon: 'sync', color: '#6366F1', bg: '#EEF2FF', user: 'Self' },
-    { label: 'Bulk participant invite sent', time: '45m ago', icon: 'group_add', color: colors.accent, bg: colors.accentBg, user: 'Self' },
-    { label: 'Judge seat confirmed: Marian Rivera', time: '2h ago', icon: 'how_to_reg', color: '#16A34A', bg: '#F0FDF4', user: 'System' },
-    { label: 'Rubric criteria updated', time: 'Yesterday', icon: 'edit_square', color: '#D97706', bg: '#FFFBEB', user: 'Self' },
-  ];
+  const registeredParticipants = participants.filter(p => p.status === 'Registered');
+  const scoredParticipants = registeredParticipants.filter(p => p.score != null);
+  const avgScore = scoredParticipants.length
+    ? (scoredParticipants.reduce((s, p) => s + Number(p.score), 0) / scoredParticipants.length).toFixed(1)
+    : null;
+  const sortedByScore = [...registeredParticipants].sort((a, b) => (Number(b.score) || 0) - (Number(a.score) || 0));
+  const topScorer = scoredParticipants.length ? sortedByScore[0] : null;
+
+  const acceptedJudges = judges.filter(j => j.rsvp === 'Accepted' || j.status === 'Accepted');
+  const pendingJudges  = judges.filter(j => j.rsvp !== 'Accepted' && j.status !== 'Accepted');
+
+  const eventType = selectedEvent.type || selectedEvent.competition_mode || 'Standard';
+  const format = rubricConfig?.format || 'individual';
 
   return (
     <>
@@ -269,14 +266,6 @@ export default function DashboardPage() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '12px' }}>
-          <button
-            style={styles.btn(activeBtnHover === 'share')}
-            onMouseEnter={() => setActiveBtnHover('share')}
-            onMouseLeave={() => setActiveBtnHover(null)}
-            onClick={handleShare}
-          >
-            <span className="material-symbols-rounded">share</span> Share
-          </button>
           <button
             style={styles.btn(activeBtnHover === 'primary', true)}
             onMouseEnter={() => setActiveBtnHover('primary')}
@@ -342,48 +331,110 @@ export default function DashboardPage() {
 
       {/* LOWER SECTION */}
       <div style={{ display: 'grid', gridTemplateColumns: isDesktop ? '2fr 1fr' : '1fr', gap: '32px' }}>
-        <div style={{ background: '#fff', border: `1.5px solid ${colors.borderSoft}`, borderRadius: '24px', overflow: 'hidden' }}>
-          <div style={{ padding: '24px', borderBottom: `1px solid ${colors.borderSoft}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3 style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 800, color: colors.navy }}>Audit & Security Log</h3>
-            <button style={{ background: 'none', border: 'none', color: colors.accent, fontWeight: 700, cursor: 'pointer', fontSize: '13px' }}>Full History</button>
-          </div>
-          <div>
-            {auditLogs.map((log, i) => (
-              <div key={i} style={{ display: 'flex', gap: '16px', padding: '20px 24px', borderBottom: i < auditLogs.length - 1 ? `1px solid ${colors.borderSoft}` : 'none', alignItems: 'center' }}>
-                <div style={styles.iconWrapper(log.bg, log.color)}>
-                  <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>{log.icon}</span>
+
+        {/* LEFT — About This Event */}
+        <div style={{ background: '#fff', border: `1.5px solid ${colors.borderSoft}`, borderRadius: '24px', padding: '32px' }}>
+          <h3 style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 800, color: colors.navy, marginBottom: '6px' }}>About This Event</h3>
+          <p style={{ fontSize: '14px', color: colors.inkMuted, marginBottom: '28px', lineHeight: '1.6' }}>
+            {selectedEvent.description || 'No description provided for this event.'}
+          </p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0px', borderTop: `1px solid ${colors.borderSoft}` }}>
+            {[
+              { icon: 'badge',          label: 'Event Name',  value: selectedEvent.name },
+              { icon: 'calendar_today', label: 'Date',        value: selectedEvent.startDate ? `${formatDate(selectedEvent.startDate)}${selectedEvent.endDate && selectedEvent.endDate !== selectedEvent.startDate ? ' — ' + formatDate(selectedEvent.endDate) : ''}` : 'TBD' },
+              { icon: 'schedule',       label: 'Duration',    value: duration || 'TBD' },
+              { icon: 'hourglass_top',  label: selectedEvent.status === 'Upcoming' ? 'Starts In' : selectedEvent.status === 'Active' ? 'Ongoing' : 'Ended', value: selectedEvent.status === 'Active' ? 'Live Now' : countdown || selectedEvent.status },
+              { icon: 'category',       label: 'Event Type',  value: eventType },
+              { icon: 'people',         label: 'Format',      value: format.charAt(0).toUpperCase() + format.slice(1) },
+              { icon: 'groups',         label: 'Participants', value: `${registeredParticipants.length}${maxP ? ' / ' + maxP : ''} registered${pending > 0 ? `, ${pending} pending` : ''}` },
+              { icon: 'gavel',          label: 'Judges',      value: `${judges.length}${maxJ ? ' / ' + maxJ : ''} assigned, ${acceptedJudges.length} confirmed` },
+            ].map((row, i, arr) => (
+              <div key={row.label} style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 0', borderBottom: i < arr.length - 1 ? `1px solid ${colors.borderSoft}` : 'none' }}>
+                <div style={{ width: '34px', height: '34px', borderRadius: '10px', background: colors.accentBg, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                  <span className="material-symbols-rounded" style={{ fontSize: '17px', color: colors.accent }}>{row.icon}</span>
                 </div>
-                <div style={{ flex: 1 }}>
-                  <p style={{ fontSize: '14.5px', fontWeight: 700, color: colors.navy, marginBottom: '2px' }}>{log.label}</p>
-                  <p style={{ fontSize: '12px', color: colors.inkMuted }}>By {log.user} · <span style={{ color: colors.accent, fontWeight: 600 }}>{log.time}</span></p>
+                <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
+                  <span style={{ fontSize: '13px', color: colors.inkMuted, fontWeight: 600 }}>{row.label}</span>
+                  <span style={{ fontSize: '13.5px', fontWeight: 700, color: colors.navy, textAlign: 'right' }}>{row.value}</span>
                 </div>
               </div>
             ))}
           </div>
         </div>
 
+        {/* RIGHT COLUMN */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          <div style={{ background: colors.navy, padding: '32px', borderRadius: '24px', color: '#fff' }}>
-            <h3 style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 800, marginBottom: '8px' }}>Active Roadmap</h3>
-            <p style={{ fontSize: '13px', opacity: 0.6, marginBottom: '24px' }}>Essential tasks to complete configuration.</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+
+          {/* Judge Panel */}
+          <div style={{ background: '#fff', border: `1.5px solid ${colors.borderSoft}`, borderRadius: '24px', overflow: 'hidden' }}>
+            <div style={{ padding: '16px 20px', borderBottom: `1px solid ${colors.borderSoft}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 800, color: colors.navy, fontSize: '15px', margin: 0 }}>Judge Panel</h3>
+              <span style={{ fontSize: '12px', color: colors.inkMuted }}>{acceptedJudges.length}/{judges.length} confirmed</span>
+            </div>
+            {judges.length === 0 ? (
+              <div style={{ padding: '24px', textAlign: 'center' }}>
+                <p style={{ color: colors.inkMuted, fontSize: '13px' }}>No judges assigned yet.</p>
+              </div>
+            ) : (
+              <div style={{ maxHeight: '220px', overflowY: 'auto' }}>
+                {judges.map(j => {
+                  const isAccepted = j.rsvp === 'Accepted' || j.status === 'Accepted';
+                  return (
+                    <div key={j.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 20px', borderBottom: `1px solid ${colors.borderSoft}` }}>
+                      <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: isAccepted ? '#F0FDF4' : '#FFFBEB', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                        <span className="material-symbols-rounded" style={{ fontSize: '17px', color: isAccepted ? '#16A34A' : '#D97706' }}>
+                          {isAccepted ? 'how_to_reg' : 'pending'}
+                        </span>
+                      </div>
+                      <div style={{ flex: 1, overflow: 'hidden' }}>
+                        <div style={{ fontSize: '13.5px', fontWeight: 700, color: colors.navy, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{j.name || j.email}</div>
+                        {j.name && j.email && <div style={{ fontSize: '11px', color: colors.inkMuted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{j.email}</div>}
+                      </div>
+                      <span style={{
+                        fontSize: '10px', fontWeight: 800, padding: '3px 8px', borderRadius: '100px', flexShrink: 0,
+                        background: isAccepted ? '#DCFCE7' : '#FEF3C7',
+                        color: isAccepted ? '#166534' : '#92400E',
+                      }}>
+                        {isAccepted ? 'Confirmed' : 'Pending'}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Roadmap */}
+          <div style={{ background: colors.navy, padding: '28px', borderRadius: '24px', color: '#fff' }}>
+            <h3 style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 800, marginBottom: '6px', fontSize: '15px' }}>Setup Checklist</h3>
+            <p style={{ fontSize: '12px', opacity: 0.55, marginBottom: '20px' }}>Complete these before going live.</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               {[
-                { l: 'Configure Rubrics', m: totalWeight === 100 },
-                { l: 'Invite Expert Judges', m: judges.length > 0 },
-                { l: 'Admit Participants', m: participants.length > 0 }
+                { l: 'Configure rubric weights to 100%', m: totalWeight === 100, nav: '/organizer/rubrics' },
+                { l: 'Invite at least one judge', m: judges.length > 0, nav: '/organizer/judges' },
+                { l: 'Register participants', m: registeredParticipants.length > 0, nav: '/organizer/participants' },
+                { l: 'All judges confirmed', m: judges.length > 0 && pendingJudges.length === 0, nav: '/organizer/judges' },
+                { l: 'Event is live', m: selectedEvent.status === 'Active', nav: null },
               ].map((task, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: task.m ? colors.accent : 'rgba(255,255,255,0.1)', display: 'grid', placeItems: 'center' }}>
-                    {task.m && <span className="material-symbols-rounded" style={{ fontSize: '14px', color: colors.navy }}>check</span>}
+                <div
+                  key={i}
+                  style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: task.nav ? 'pointer' : 'default', opacity: task.m ? 1 : 0.5 }}
+                  onClick={() => task.nav && navigate(task.nav)}
+                >
+                  <div style={{ width: '20px', height: '20px', borderRadius: '50%', flexShrink: 0, background: task.m ? colors.accent : 'rgba(255,255,255,0.12)', display: 'grid', placeItems: 'center' }}>
+                    {task.m && <span className="material-symbols-rounded" style={{ fontSize: '13px', color: '#fff' }}>check</span>}
                   </div>
-                  <span style={{ fontSize: '14px', fontWeight: 600, opacity: task.m ? 1 : 0.4 }}>{task.l}</span>
+                  <span style={{ fontSize: '13.5px', fontWeight: 600, flex: 1 }}>{task.l}</span>
+                  {!task.m && task.nav && <span className="material-symbols-rounded" style={{ fontSize: '15px', opacity: 0.4 }}>chevron_right</span>}
                 </div>
               ))}
             </div>
           </div>
 
-          </div>
         </div>
+      </div>
 
       {/* GO LIVE CONFIRMATION MODAL */}
       {showGoLiveModal && (
@@ -419,53 +470,6 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* SHARE MODAL */}
-      {showShareModal && (
-        <div style={styles.modalOverlay} onClick={() => setShowShareModal(false)}>
-          <div style={styles.modalContainer} onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
-              <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: colors.accentBg, display: 'grid', placeItems: 'center' }}>
-                <span className="material-symbols-rounded" style={{ fontSize: '24px', color: colors.accent }}>share</span>
-              </div>
-              <button onClick={() => setShowShareModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.inkMuted, padding: '4px', display: 'grid', placeItems: 'center', borderRadius: '8px' }}>
-                <span className="material-symbols-rounded">close</span>
-              </button>
-            </div>
-            <h2 style={styles.modalTitle}>Share Event</h2>
-            <p style={{ fontSize: '14px', color: colors.inkSoft, marginBottom: '20px' }}>Share the public leaderboard link with participants and your audience.</p>
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', background: colors.pageBg, border: `1.5px solid ${colors.borderSoft}`, borderRadius: '14px', padding: '12px 16px', marginBottom: '20px' }}>
-              <span className="material-symbols-rounded" style={{ color: colors.inkMuted, fontSize: '18px', flexShrink: 0 }}>link</span>
-              <span style={{ fontSize: '13px', color: colors.inkMid, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>
-                {`${window.location.origin}/leaderboard/${selectedEvent.id}`}
-              </span>
-            </div>
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <button
-                style={{ ...styles.btn(activeBtnHover === 'copy-link', true), flex: 1, background: shareCopied ? '#16A34A' : colors.navy }}
-                onClick={() => {
-                  navigator.clipboard.writeText(`${window.location.origin}/leaderboard/${selectedEvent.id}`).catch(() => {});
-                  setShareCopied(true);
-                  setTimeout(() => setShareCopied(false), 3000);
-                  showToast('Link copied to clipboard!', 'success');
-                }}
-                onMouseEnter={() => setActiveBtnHover('copy-link')}
-                onMouseLeave={() => setActiveBtnHover(null)}
-              >
-                <span className="material-symbols-rounded">{shareCopied ? 'check_circle' : 'content_copy'}</span>
-                {shareCopied ? 'Copied!' : 'Copy Link'}
-              </button>
-              <button
-                style={{ ...styles.btn(activeBtnHover === 'open-link'), flex: 1 }}
-                onClick={() => window.open(`/leaderboard/${selectedEvent.id}`, '_blank')}
-                onMouseEnter={() => setActiveBtnHover('open-link')}
-                onMouseLeave={() => setActiveBtnHover(null)}
-              >
-                <span className="material-symbols-rounded">open_in_new</span> Open
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <style>{`@keyframes modalUp { from { opacity: 0; transform: translateY(16px) scale(0.97); } to { opacity: 1; transform: none; } }`}</style>
     </div>

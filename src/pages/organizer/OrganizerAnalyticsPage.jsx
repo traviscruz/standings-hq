@@ -1,229 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useEventContext } from './OrganizerLayout';
+import { formatDate } from '../../utils/dateUtils';
 import { colors } from '../../styles/colors';
 
 export default function OrganizerAnalyticsPage() {
-  const { selectedEvent, getParticipants, getJudges, getRubrics, showToast } = useEventContext();
+  const { selectedEvent, getParticipants, getJudges, getRubrics, rubricConfig, showToast } = useEventContext();
   const [hoveredCard, setHoveredCard] = useState(null);
   const [activeBtnHover, setActiveBtnHover] = useState(null);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
-
-  const handleExportAudit = () => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      showToast('Could not open print window. Please check popup blocker.', 'error');
-      return;
-    }
-
-    const eventName = selectedEvent?.name || 'Current Event';
-    const title = `${eventName} - Data Intelligence Audit Report`;
-    const date = new Date().toLocaleDateString();
-
-    const scoredCount = participants.filter(p => p.score != null).length;
-    const avgVal = parseFloat(avgScore) || 88.5;
-
-    const htmlContent = `
-      <html>
-        <head>
-          <title>${title}</title>
-          <style>
-            @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@700;800;900&family=Inter:wght@400;600;700;800&display=swap');
-            body {
-              font-family: 'Inter', -apple-system, sans-serif;
-              color: #0f172a;
-              padding: 40px;
-              margin: 0;
-            }
-            .header {
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              border-bottom: 2px solid #e2e8f0;
-              padding-bottom: 20px;
-              margin-bottom: 30px;
-            }
-            .brand {
-              font-size: 20px;
-              font-weight: 800;
-              color: #0f172a;
-              font-family: 'DM Sans', sans-serif;
-            }
-            .brand span {
-              color: #3b82f6;
-            }
-            .title {
-              font-size: 22px;
-              font-weight: 800;
-              margin: 0 0 8px 0;
-              font-family: 'DM Sans', sans-serif;
-            }
-            .meta {
-              font-size: 13px;
-              color: #64748b;
-            }
-            .kpis {
-              display: grid;
-              grid-template-columns: repeat(4, 1fr);
-              gap: 16px;
-              margin-bottom: 30px;
-            }
-            .kpi-card {
-              border: 1px solid #e2e8f0;
-              border-radius: 12px;
-              padding: 16px;
-              background: #f8fafc;
-            }
-            .kpi-label {
-              font-size: 11px;
-              font-weight: 700;
-              text-transform: uppercase;
-              color: #64748b;
-              margin-bottom: 6px;
-            }
-            .kpi-value {
-              font-size: 18px;
-              font-weight: 800;
-            }
-            .section {
-              margin-bottom: 32px;
-            }
-            .section-title {
-              font-size: 16px;
-              font-weight: 700;
-              color: #0f172a;
-              margin-bottom: 16px;
-              font-family: 'DM Sans', sans-serif;
-              border-left: 4px solid #3b82f6;
-              padding-left: 8px;
-            }
-            table {
-              width: 100%;
-              border-collapse: collapse;
-            }
-            th {
-              background: #f8fafc;
-              padding: 10px 16px;
-              font-size: 11px;
-              font-weight: 700;
-              text-transform: uppercase;
-              color: #475569;
-              border-bottom: 2px solid #cbd5e1;
-              text-align: left;
-            }
-            td {
-              padding: 12px 16px;
-              border-bottom: 1px solid #e2e8f0;
-              font-size: 13.5px;
-            }
-            @media print {
-              body { padding: 20px; }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <div>
-              <h1 class="title">${title}</h1>
-              <div class="meta">Generated on ${date} • StandingsHQ System Verification Audit</div>
-            </div>
-            <div class="brand">Standings<span>HQ</span></div>
-          </div>
-          
-          <div class="kpis">
-            <div class="kpi-card">
-              <div class="kpi-label">Competitors</div>
-              <div class="kpi-value">${participants.length}</div>
-            </div>
-            <div class="kpi-card">
-              <div class="kpi-label">Active Judges</div>
-              <div class="kpi-value">${judges.length}</div>
-            </div>
-            <div class="kpi-card">
-              <div class="kpi-label">Mean Event Score</div>
-              <div class="kpi-value">${avgVal.toFixed(1)}</div>
-            </div>
-            <div class="kpi-card">
-              <div class="kpi-label">Audit Verification</div>
-              <div class="kpi-value" style="color: #16a34a;">VERIFIED ✓</div>
-            </div>
-          </div>
-
-          <div class="section">
-            <div class="section-title">Criteria Scoring Analysis</div>
-            <table>
-              <thead>
-                <tr>
-                  <th style="width: 50px;">#</th>
-                  <th>Criterion Segment Name</th>
-                  <th style="text-align: right; width: 150px;">Average Score (0-100)</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${criteriaStats.map((c, i) => `
-                  <tr>
-                    <td>${i + 1}</td>
-                    <td style="font-weight: 700;">${c.name}</td>
-                    <td style="text-align: right; font-weight: 800;">${parseFloat(c.value).toFixed(1)}%</td>
-                    <td style="color: #16a34a; font-weight: 600;">Within Range</td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          </div>
-
-          <div class="section">
-            <div class="section-title">Judge Scoring Tendencies</div>
-            <table>
-              <thead>
-                <tr>
-                  <th style="width: 50px;">#</th>
-                  <th>Judge Name</th>
-                  <th style="text-align: right; width: 150px;">Average Score Awarded</th>
-                  <th>Scoring Deviation</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${judgeStats.map((j, i) => {
-                  const dev = (j.avg - avgVal).toFixed(1);
-                  const devSign = dev >= 0 ? `+${dev}` : dev;
-                  return `
-                    <tr>
-                      <td>${i + 1}</td>
-                      <td style="font-weight: 700;">Judge ${j.name}</td>
-                      <td style="text-align: right; font-weight: 800;">${parseFloat(j.avg).toFixed(1)}</td>
-                      <td style="color: ${Math.abs(dev) > 3 ? '#d97706' : '#16a34a'}; font-weight: 600;">
-                        ${devSign} pts (${Math.abs(dev) > 3 ? 'Slightly Generous' : 'Standard Norm'})
-                      </td>
-                    </tr>
-                  `;
-                }).join('')}
-              </tbody>
-            </table>
-          </div>
-
-          <div class="section" style="border: 1px solid #cbd5e1; padding: 20px; border-radius: 12px; background: #fafafa; font-size: 12px; color: #475569; page-break-inside: avoid;">
-            <strong style="display: block; margin-bottom: 6px; color: #0f172a; font-size: 13px;">Security & Validation Hash Signature</strong>
-            The data analyzed above has been dynamically cross-verified against secure ledger logs.
-            <div style="font-family: monospace; background: #e2e8f0; padding: 10px; border-radius: 6px; margin-top: 8px; font-size: 11px; word-break: break-all; color: #334155;">
-              SHA256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855-${Date.now()}
-            </div>
-          </div>
-
-          <script>
-            window.onload = function() {
-              window.print();
-              setTimeout(function() { window.close(); }, 500);
-            };
-          </script>
-        </body>
-      </html>
-    `;
-
-    printWindow.document.write(htmlContent);
-    printWindow.document.close();
-    showToast('Data Intelligence Audit PDF generated!', 'success');
-  };
 
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
@@ -236,312 +20,396 @@ export default function OrganizerAnalyticsPage() {
   const judges = getJudges();
   const rubrics = getRubrics();
 
-  const avgScore = participants.length > 0 ? (participants.reduce((a, b) => a + (b.score || 0), 0) / participants.length).toFixed(1) : '88.5';
-  
-  // Memoized mock data so values don't change on re-render (e.g. during hover)
-  const criteriaStats = React.useMemo(() => {
-    return rubrics.length > 0 ? rubrics.map((r, i) => ({
-      name: r.name,
-      value: 70 + (i * 5) + Math.random() * 10,
-      color: colors.accent
-    })) : [
-      { name: 'Technical Execution', value: 85 },
-      { name: 'Artistic Presentation', value: 78 },
-      { name: 'Complexity', value: 92 },
-      { name: 'Timing', value: 88 }
-    ];
-  }, [rubrics]);
+  // ── Derived data ──
+  const registered   = participants.filter(p => p.status === 'Registered');
+  const pending      = participants.filter(p => p.status === 'Pending');
+  const scored       = registered.filter(p => p.score != null);
+  const unscored     = registered.filter(p => p.score == null);
+  const confirmedJ   = judges.filter(j => j.rsvp === 'Accepted' || j.status === 'Accepted');
+  const pendingJ     = judges.filter(j => j.rsvp !== 'Accepted' && j.status !== 'Accepted');
+  const totalWeight  = rubrics.reduce((s, r) => s + (Number(r.weight) || 0), 0);
 
-  const judgeStats = React.useMemo(() => {
-    return judges.length > 0 ? judges.map((j, i) => ({
-      name: j.name.split(' ')[0],
-      avg: 85 + Math.random() * 8,
-      color: i % 2 === 0 ? colors.navy : colors.navySoft
-    })) : [
-      { name: 'Sarah', avg: 89, color: colors.navy },
-      { name: 'Marian', avg: 84, color: colors.navySoft },
-      { name: 'Dingdong', avg: 91, color: colors.navy }
-    ];
-  }, [judges]);
+  const scores       = scored.map(p => Number(p.score));
+  const avgScore     = scores.length ? (scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+  const highScore    = scores.length ? Math.max(...scores) : null;
+  const lowScore     = scores.length ? Math.min(...scores) : null;
 
-  const styles = {
-    pageContainer: {
-      animation: 'slideUp 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards',
-    },
-    pageHeader: {
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: isMobile ? 'stretch' : 'flex-start',
-      flexDirection: isMobile ? 'column' : 'row',
-      gap: '24px',
-      marginBottom: '40px',
-    },
-    pageTitle: {
-      fontSize: isMobile ? '28px' : '36px',
-      fontWeight: '900',
-      color: colors.navy,
-      letterSpacing: '-0.04em',
-      fontFamily: "'DM Sans', sans-serif",
-      margin: '0 0 12px 0',
-    },
-    btn: (hovered, primary = false) => ({
-      display: 'flex',
-      alignItems: 'center',
-      gap: '10px',
-      padding: '12px 24px',
-      borderRadius: '14px',
-      fontSize: '14.5px',
-      fontWeight: '700',
-      cursor: 'pointer',
-      transition: 'all 0.25s cubic-bezier(0.18, 0.89, 0.32, 1.28)',
-      background: primary ? (hovered ? colors.navySoft : colors.navy) : (hovered ? colors.pageBg : '#fff'),
-      color: primary ? '#fff' : (hovered ? colors.navy : colors.inkSoft),
-      border: primary ? 'none' : `1.5px solid ${hovered ? colors.navy : colors.borderSoft}`,
-      boxShadow: hovered ? '0 8px 24px -6px rgba(15, 31, 61, 0.2)' : 'none',
-      transform: hovered ? 'translateY(-2px)' : 'none',
-    }),
-    widgetCard: (id, span, gradient = 'none') => ({
-      background: hoveredCard === id ? '#fff' : (gradient !== 'none' ? gradient : '#fff'),
-      border: `1.5px solid ${hoveredCard === id ? colors.accent : colors.borderSoft}`,
-      borderRadius: '24px',
-      padding: '28px',
-      boxShadow: hoveredCard === id ? '0 30px 60px -12px rgba(15, 23, 42, 0.15)' : '0 1px 3px rgba(0,0,0,0.02)',
-      transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-      gridColumn: isMobile ? 'span 1' : `span ${span}`,
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '16px',
-      position: 'relative',
-      overflow: 'hidden',
-      transform: hoveredCard === id ? 'translateY(-6px)' : 'none',
-    }),
-    iconWrapper: (bg, color) => ({
-      width: '44px',
-      height: '44px',
-      borderRadius: '14px',
-      background: bg,
-      color: color,
-      display: 'grid',
-      placeItems: 'center',
-      marginBottom: '4px',
-      boxShadow: '0 4px 10px rgba(0,0,0,0.05)',
-    }),
-    chartLabel: {
-      fontSize: '11px',
-      fontWeight: '900',
-      textTransform: 'uppercase',
-      color: colors.inkMuted,
-      letterSpacing: '0.04em',
-    }
+  const topPerformers = [...scored]
+    .sort((a, b) => Number(b.score) - Number(a.score))
+    .slice(0, 5);
+
+  // Score distribution buckets
+  const buckets = [
+    { label: '0–20',   min: 0,  max: 20  },
+    { label: '21–40',  min: 21, max: 40  },
+    { label: '41–60',  min: 41, max: 60  },
+    { label: '61–80',  min: 61, max: 80  },
+    { label: '81–100', min: 81, max: 100 },
+  ].map(b => ({
+    ...b,
+    count: scores.filter(s => s >= b.min && s <= b.max).length,
+  }));
+  const maxBucket = Math.max(...buckets.map(b => b.count), 1);
+
+  // ── Export report ──
+  const handleExport = () => {
+    const win = window.open('', '_blank');
+    if (!win) { showToast('Popup blocked. Please allow popups.', 'error'); return; }
+
+    const rankList = [...scored].sort((a, b) => Number(b.score) - Number(a.score));
+
+    win.document.write(`
+      <html><head><title>${selectedEvent.name} – Analytics Report</title>
+      <style>
+        body { font-family: -apple-system, sans-serif; color: #0f172a; padding: 40px; margin: 0; }
+        h1 { font-size: 22px; font-weight: 800; margin: 0 0 4px; }
+        .meta { font-size: 13px; color: #64748b; margin-bottom: 28px; }
+        .brand { font-size: 18px; font-weight: 800; }
+        .brand span { color: #3b82f6; }
+        .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #e2e8f0; padding-bottom: 16px; margin-bottom: 24px; }
+        .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 28px; }
+        .kpi { border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; background: #f8fafc; }
+        .kpi-label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 4px; }
+        .kpi-value { font-size: 20px; font-weight: 800; }
+        h2 { font-size: 15px; font-weight: 700; margin: 24px 0 12px; border-left: 3px solid #3b82f6; padding-left: 8px; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th { background: #f1f5f9; padding: 8px 12px; text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; color: #475569; border-bottom: 2px solid #cbd5e1; }
+        td { padding: 10px 12px; border-bottom: 1px solid #e2e8f0; }
+      </style></head><body>
+      <div class="header">
+        <div>
+          <h1>${selectedEvent.name} – Analytics Report</h1>
+          <div class="meta">Generated ${new Date().toLocaleString()} · Status: ${selectedEvent.status}</div>
+        </div>
+        <div class="brand">Standings<span>HQ</span></div>
+      </div>
+      <div class="kpis">
+        <div class="kpi"><div class="kpi-label">Participants</div><div class="kpi-value">${registered.length}</div></div>
+        <div class="kpi"><div class="kpi-label">Scored</div><div class="kpi-value">${scored.length}</div></div>
+        <div class="kpi"><div class="kpi-label">Avg Score</div><div class="kpi-value">${avgScore != null ? avgScore.toFixed(1) : '—'}</div></div>
+        <div class="kpi"><div class="kpi-label">Judges</div><div class="kpi-value">${judges.length} (${confirmedJ.length} confirmed)</div></div>
+      </div>
+      <h2>Participant Rankings</h2>
+      <table>
+        <thead><tr><th>#</th><th>Name</th>${rubricConfig?.format === 'group' || rubricConfig?.format === 'team' ? '<th>Team</th>' : ''}<th>Score</th><th>Status</th></tr></thead>
+        <tbody>
+          ${registered.map((p, i) => {
+            const rank = rankList.findIndex(r => r.id === p.id);
+            return `<tr>
+              <td>${rank >= 0 ? rank + 1 : '—'}</td>
+              <td style="font-weight:700">${p.name}</td>
+              ${rubricConfig?.format === 'group' || rubricConfig?.format === 'team' ? `<td>${p.team || '—'}</td>` : ''}
+              <td style="font-weight:800">${p.score != null ? Number(p.score).toFixed(1) : '—'}</td>
+              <td>${p.score != null ? 'Scored' : 'Pending'}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+      <h2>Rubric Configuration</h2>
+      <table>
+        <thead><tr><th>Criterion</th><th>Weight</th></tr></thead>
+        <tbody>${rubrics.map(r => `<tr><td style="font-weight:700">${r.name || r.label}</td><td>${r.weight}%</td></tr>`).join('')}</tbody>
+      </table>
+      <h2>Judge Panel</h2>
+      <table>
+        <thead><tr><th>Name</th><th>Email</th><th>Status</th></tr></thead>
+        <tbody>${judges.map(j => `<tr><td style="font-weight:700">${j.name || '—'}</td><td>${j.email || '—'}</td><td>${j.rsvp === 'Accepted' || j.status === 'Accepted' ? 'Confirmed' : 'Pending'}</td></tr>`).join('')}</tbody>
+      </table>
+      <script>window.onload=()=>{ window.print(); setTimeout(()=>window.close(),500); }</script>
+      </body></html>
+    `);
+    win.document.close();
+    showToast('Report generated!', 'success');
   };
 
+  // ── Styles ──
+  const card = (id, extra = {}) => ({
+    background: '#fff',
+    border: `1.5px solid ${hoveredCard === id ? colors.accent : colors.borderSoft}`,
+    borderRadius: '20px',
+    padding: '24px',
+    boxShadow: hoveredCard === id ? '0 20px 40px -12px rgba(15,23,42,0.12)' : '0 1px 3px rgba(0,0,0,0.02)',
+    transition: 'all 0.3s ease',
+    transform: hoveredCard === id ? 'translateY(-4px)' : 'none',
+    ...extra,
+  });
+
+  const iconWrap = (bg, color) => ({
+    width: '40px', height: '40px', borderRadius: '12px',
+    background: bg, color, display: 'grid', placeItems: 'center', flexShrink: 0,
+  });
+
+  const btn = (hovered, primary = false) => ({
+    display: 'inline-flex', alignItems: 'center', gap: '8px',
+    padding: '11px 22px', borderRadius: '12px', fontSize: '14px', fontWeight: '700',
+    cursor: 'pointer', transition: 'all 0.2s',
+    background: primary ? (hovered ? colors.navySoft : colors.navy) : (hovered ? colors.pageBg : '#fff'),
+    color: primary ? '#fff' : (hovered ? colors.navy : colors.inkSoft),
+    border: primary ? 'none' : `1.5px solid ${hovered ? colors.navy : colors.borderSoft}`,
+    boxShadow: hovered ? '0 6px 20px -4px rgba(15,31,61,0.2)' : 'none',
+    transform: hovered ? 'translateY(-1px)' : 'none',
+  });
+
+  const kpis = [
+    {
+      id: 'kpi-1', icon: 'groups', bg: colors.accentBg, color: colors.accent,
+      label: rubricConfig?.format === 'group' ? 'Teams' : 'Participants',
+      value: registered.length,
+      sub: pending.length > 0 ? `${pending.length} pending` : 'All registered',
+      subColor: pending.length > 0 ? '#D97706' : colors.success,
+      grad: `linear-gradient(135deg,#fff 40%,${colors.accentBg} 100%)`,
+    },
+    {
+      id: 'kpi-2', icon: 'gavel', bg: '#F0FDF4', color: '#16A34A',
+      label: 'Judges',
+      value: judges.length,
+      sub: `${confirmedJ.length} confirmed`,
+      subColor: confirmedJ.length === judges.length && judges.length > 0 ? colors.success : '#D97706',
+      grad: 'linear-gradient(135deg,#fff 40%,#F0FDF4 100%)',
+    },
+    {
+      id: 'kpi-3', icon: 'edit_note', bg: '#FFF7ED', color: '#EA580C',
+      label: 'Scoring Progress',
+      value: `${scored.length}/${registered.length}`,
+      sub: registered.length > 0 ? `${Math.round((scored.length / registered.length) * 100)}% complete` : 'No participants',
+      subColor: colors.inkMuted,
+      grad: 'linear-gradient(135deg,#fff 40%,#FFF7ED 100%)',
+      bar: registered.length > 0 ? scored.length / registered.length : 0,
+    },
+    {
+      id: 'kpi-4', icon: 'analytics', bg: '#EEF2FF', color: '#4F46E5',
+      label: 'Rubric Balance',
+      value: `${totalWeight}%`,
+      sub: totalWeight === 100 ? 'Balanced' : totalWeight > 100 ? 'Over 100%' : 'Under 100%',
+      subColor: totalWeight === 100 ? colors.success : colors.error,
+      grad: 'linear-gradient(135deg,#fff 40%,#EEF2FF 100%)',
+    },
+  ];
+
   return (
-    <div style={styles.pageContainer}>
-      <header style={styles.pageHeader}>
+    <div className="slide-up-anim">
+      {/* Header */}
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'stretch' : 'flex-start', flexDirection: isMobile ? 'column' : 'row', gap: '20px', marginBottom: '40px' }}>
         <div>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '6px 14px', background: 'rgba(59, 130, 246, 0.08)', borderRadius: '100px', fontSize: '11px', fontWeight: '800', color: colors.navy, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '16px' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '6px 14px', background: 'rgba(59,130,246,0.08)', borderRadius: '100px', fontSize: '11px', fontWeight: '800', color: colors.navy, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '14px' }}>
             <span className="material-symbols-rounded" style={{ fontSize: '14px', color: colors.accent }}>analytics</span>
-            Insight Hub
+            Event Analytics
           </div>
-          <h1 style={styles.pageTitle}>Data Intelligence</h1>
-          <p style={{ color: colors.inkSoft, fontSize: '16px', maxWidth: '600px' }}>
-            Comprehensive performance metrics and scoring distribution analysis for the current event.
+          <h1 style={{ fontFamily: "'DM Sans',sans-serif", fontSize: isMobile ? '28px' : '34px', fontWeight: '900', color: colors.navy, letterSpacing: '-0.04em', margin: '0 0 10px' }}>
+            {selectedEvent.name}
+          </h1>
+          <p style={{ color: colors.inkSoft, fontSize: '15px', margin: 0 }}>
+            {selectedEvent.startDate ? formatDate(selectedEvent.startDate) : 'Date TBD'} · {selectedEvent.status}
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '12px' }}>
-          <button 
-            style={styles.btn(activeBtnHover === 'export', true)} 
-            onMouseEnter={() => setActiveBtnHover('export')} 
-            onMouseLeave={() => setActiveBtnHover(null)}
-            onClick={() => showToast('Preparing your audit export...', 'info')}
-          >
-            <span className="material-symbols-rounded">download</span>
-            Export Audit
-          </button>
-        </div>
+        <button
+          style={btn(activeBtnHover === 'export', true)}
+          onMouseEnter={() => setActiveBtnHover('export')}
+          onMouseLeave={() => setActiveBtnHover(null)}
+          onClick={handleExport}
+        >
+          <span className="material-symbols-rounded">download</span>
+          Export Report
+        </button>
       </header>
 
-      {/* KPI GRID */}
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(12, 1fr)', gap: '24px', marginBottom: '32px' }}>
-        <div style={styles.widgetCard('kpi-1', 3, `linear-gradient(135deg, #fff 40%, ${colors.accentBg} 100%)`)} onMouseEnter={() => setHoveredCard('kpi-1')} onMouseLeave={() => setHoveredCard(null)}>
-          <div style={styles.iconWrapper(colors.accentBg, colors.accent)}>
-            <span className="material-symbols-rounded">monitoring</span>
+      {/* KPI Row */}
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4,1fr)', gap: '20px', marginBottom: '28px' }}>
+        {kpis.map(k => (
+          <div key={k.id} style={{ ...card(k.id, { background: hoveredCard === k.id ? '#fff' : k.grad }) }}
+            onMouseEnter={() => setHoveredCard(k.id)} onMouseLeave={() => setHoveredCard(null)}>
+            <div style={iconWrap(k.bg, k.color)}>
+              <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>{k.icon}</span>
+            </div>
+            <div style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', color: colors.inkMuted, marginTop: '4px' }}>{k.label}</div>
+            <div style={{ fontSize: '30px', fontWeight: 900, color: colors.navy, letterSpacing: '-0.03em' }}>{k.value}</div>
+            {k.bar != null && (
+              <div style={{ height: '4px', background: colors.pageBg, borderRadius: '100px', overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${k.bar * 100}%`, background: '#EA580C', borderRadius: '100px' }} />
+              </div>
+            )}
+            <div style={{ fontSize: '12.5px', fontWeight: 700, color: k.subColor }}>{k.sub}</div>
           </div>
-          <div style={styles.chartLabel}>Overall Average</div>
-          <div style={{ fontSize: '32px', fontWeight: 900, color: colors.navy }}>{avgScore}</div>
-          <div style={{ fontSize: '13px', color: colors.success, fontWeight: 700 }}>+2.4% vs last</div>
-        </div>
-
-        <div style={styles.widgetCard('kpi-2', 3, 'linear-gradient(135deg, #fff 40%, #EEF2FF 100%)')} onMouseEnter={() => setHoveredCard('kpi-2')} onMouseLeave={() => setHoveredCard(null)}>
-          <div style={styles.iconWrapper('#EEF2FF', '#6366F1')}>
-            <span className="material-symbols-rounded">electric_bolt</span>
-          </div>
-          <div style={styles.chartLabel}>Velocity</div>
-          <div style={{ fontSize: '32px', fontWeight: 900, color: colors.navy }}>4.2m</div>
-          <div style={{ fontSize: '13px', color: colors.success, fontWeight: 700 }}>12% faster</div>
-        </div>
-
-        <div style={styles.widgetCard('kpi-3', 3, 'linear-gradient(135deg, #fff 40%, #F0FDF4 100%)')} onMouseEnter={() => setHoveredCard('kpi-3')} onMouseLeave={() => setHoveredCard(null)}>
-          <div style={styles.iconWrapper('#F0FDF4', colors.success)}>
-            <span className="material-symbols-rounded">verified_user</span>
-          </div>
-          <div style={styles.chartLabel}>Consensus</div>
-          <div style={{ fontSize: '32px', fontWeight: 900, color: colors.navy }}>94%</div>
-          <div style={{ fontSize: '13px', color: colors.success, fontWeight: 700 }}>Highly Reliable</div>
-        </div>
-
-        <div style={styles.widgetCard('kpi-4', 3, 'linear-gradient(135deg, #fff 40%, #FFF7ED 100%)')} onMouseEnter={() => setHoveredCard('kpi-4')} onMouseLeave={() => setHoveredCard(null)}>
-          <div style={styles.iconWrapper('#FFF7ED', '#EA580C')}>
-            <span className="material-symbols-rounded">groups</span>
-          </div>
-          <div style={styles.chartLabel}>Participation</div>
-          <div style={{ fontSize: '32px', fontWeight: 900, color: colors.navy }}>{participants.length}</div>
-          <div style={{ fontSize: '13px', color: colors.success, fontWeight: 700 }}>+15% join rate</div>
-        </div>
+        ))}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(12, 1fr)', gap: '32px' }}>
-        {/* Left Main Section (Span 8) */}
-        <div style={{ gridColumn: isMobile ? 'span 1' : 'span 8', display: 'flex', flexDirection: 'column', gap: '32px' }}>
-          
-          {/* Scoring Strength */}
-          <div style={{ ...styles.widgetCard('chart-1', 12), gap: '24px' }} onMouseEnter={() => setHoveredCard('chart-1')} onMouseLeave={() => setHoveredCard(null)}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span className="material-symbols-rounded" style={{ color: colors.accent, fontSize: '20px' }}>equalizer</span>
-              <span style={{ fontWeight: 800, color: colors.navy, fontSize: '16px' }}>Scoring Strength by Criteria</span>
+      {/* Main grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 340px', gap: '24px' }}>
+
+        {/* Left column */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+          {/* Score Distribution */}
+          <div style={card('dist')} onMouseEnter={() => setHoveredCard('dist')} onMouseLeave={() => setHoveredCard(null)}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+              <div style={iconWrap(colors.accentBg, colors.accent)}>
+                <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>bar_chart</span>
+              </div>
+              <div>
+                <div style={{ fontWeight: 800, color: colors.navy, fontSize: '15px' }}>Score Distribution</div>
+                <div style={{ fontSize: '12px', color: colors.inkMuted }}>
+                  {scored.length > 0 ? `${scored.length} scored · Avg ${avgScore.toFixed(1)} · High ${highScore.toFixed(1)} · Low ${lowScore.toFixed(1)}` : 'No scores recorded yet'}
+                </div>
+              </div>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                {criteriaStats.map((stat, i) => (
-                  <div key={i}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                      <span style={{ fontSize: '13px', fontWeight: '700', color: colors.navy }}>{stat.name}</span>
-                      <span style={{ fontSize: '13px', fontWeight: '900', color: colors.accent }}>{stat.value.toFixed(0)}%</span>
-                    </div>
-                    <div style={{ height: '12px', background: colors.pageBg, borderRadius: '100px', overflow: 'hidden' }}>
-                      <div style={{ 
-                        height: '100%', 
-                        width: `${stat.value}%`, 
-                        background: hoveredCard === 'chart-1' ? `linear-gradient(90deg, ${colors.accent} 0%, ${colors.accentDeep} 100%)` : colors.accent,
-                        borderRadius: '100px',
-                        transition: 'width 1s cubic-bezier(0.18, 0.89, 0.32, 1.28)',
-                      }} />
-                    </div>
+            {scored.length === 0 ? (
+              <div style={{ padding: '40px', textAlign: 'center' }}>
+                <span className="material-symbols-rounded" style={{ fontSize: '40px', color: colors.border, display: 'block', marginBottom: '8px' }}>hourglass_empty</span>
+                <p style={{ color: colors.inkMuted, fontSize: '13px' }}>Scores will appear here once judging begins.</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: '12px', height: '140px' }}>
+                {buckets.map(b => (
+                  <div key={b.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', height: '100%', justifyContent: 'flex-end' }}>
+                    <div style={{ fontSize: '12px', fontWeight: 800, color: colors.navy }}>{b.count > 0 ? b.count : ''}</div>
+                    <div style={{ width: '100%', background: b.count > 0 ? colors.accent : colors.pageBg, borderRadius: '8px 8px 4px 4px', height: `${(b.count / maxBucket) * 100}%`, minHeight: b.count > 0 ? '8px' : '4px', transition: 'height 0.5s ease' }} />
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: colors.inkMuted, textAlign: 'center' }}>{b.label}</div>
                   </div>
                 ))}
-            </div>
+              </div>
+            )}
           </div>
 
-          {/* Demographic performance list (Extended) */}
-          <div style={{ ...styles.widgetCard('chart-extra', 12), padding: 0, overflow: 'hidden' }} onMouseEnter={() => setHoveredCard('chart-extra')} onMouseLeave={() => setHoveredCard(null)}>
-             <div style={{ padding: '24px', borderBottom: `1px solid ${colors.borderSoft}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#FAFBFC' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span className="material-symbols-rounded" style={{ color: colors.success, fontSize: '20px' }}>map</span>
-                  <span style={{ fontWeight: 800, color: colors.navy, fontSize: '16px' }}>Top Performing Regions</span>
+          {/* Rubric Weights */}
+          <div style={card('rubric')} onMouseEnter={() => setHoveredCard('rubric')} onMouseLeave={() => setHoveredCard(null)}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={iconWrap('#EEF2FF', '#4F46E5')}>
+                  <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>balance</span>
                 </div>
-                <button style={{ background: 'none', border: 'none', color: colors.accent, fontWeight: 700, fontSize: '12px', cursor: 'pointer' }}>View Heatmap</button>
-             </div>
-             <div style={{ padding: '12px 24px 24px' }}>
-                {[
-                  { n: 'Quezon City South', v: 92.4, t: '+5.2%' },
-                  { n: 'Manila Bay Area', v: 88.1, t: '+1.8%' },
-                  { n: 'Caloocan North', v: 84.5, t: '-0.4%' },
-                  { n: 'Makati Business Dist', v: 81.0, t: '+2.5%' },
-                ].map((r, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '20px', padding: '16px 0', borderBottom: i < 3 ? `1px solid ${colors.borderSoft}` : 'none' }}>
-                    <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: colors.pageBg, display: 'grid', placeItems: 'center', fontWeight: '800', color: colors.navy, fontSize: '12px' }}>{i+1}</div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '14px', fontWeight: '700', color: colors.navy }}>{r.n}</div>
-                      <div style={{ fontSize: '12px', color: colors.inkMuted }}>Historical Rating</div>
+                <div>
+                  <div style={{ fontWeight: 800, color: colors.navy, fontSize: '15px' }}>Rubric Breakdown</div>
+                  <div style={{ fontSize: '12px', color: colors.inkMuted }}>{rubrics.length} criteria · Total weight: {totalWeight}%</div>
+                </div>
+              </div>
+              <span style={{ fontSize: '12px', fontWeight: 700, padding: '4px 10px', borderRadius: '100px', background: totalWeight === 100 ? '#DCFCE7' : '#FEF3C7', color: totalWeight === 100 ? '#166534' : '#92400E' }}>
+                {totalWeight === 100 ? 'Balanced' : 'Imbalanced'}
+              </span>
+            </div>
+            {rubrics.length === 0 ? (
+              <p style={{ color: colors.inkMuted, fontSize: '13px', textAlign: 'center', padding: '24px 0' }}>No rubric configured yet.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {rubrics.map((r, i) => (
+                  <div key={r.id || i}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                      <span style={{ fontSize: '13.5px', fontWeight: 700, color: colors.navy }}>{r.name || r.label}</span>
+                      <span style={{ fontSize: '13px', fontWeight: 800, color: '#4F46E5' }}>{r.weight}%</span>
                     </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: '15px', fontWeight: '900', color: colors.navy }}>{r.v}</div>
-                      <div style={{ fontSize: '11px', color: r.t.startsWith('+') ? colors.success : colors.error, fontWeight: 700 }}>{r.t}</div>
+                    <div style={{ height: '8px', background: colors.pageBg, borderRadius: '100px', overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${r.weight}%`, background: '#4F46E5', borderRadius: '100px', opacity: 0.75 + (i * 0.05) }} />
                     </div>
                   </div>
                 ))}
-             </div>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Right Sidebar Section (Span 4) */}
-        <div style={{ gridColumn: isMobile ? 'span 1' : 'span 4', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          
-          {/* Submission Pie Widget */}
-          <div style={{ ...styles.widgetCard('chart-2', 12), alignItems: 'center', padding: '32px 24px' }} onMouseEnter={() => setHoveredCard('chart-2')} onMouseLeave={() => setHoveredCard(null)}>
-              <div style={styles.chartLabel}>Current Submission State</div>
-              <div style={{ position: 'relative', width: '160px', height: '160px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '12px 0' }}>
-                  <svg width="150" height="150" viewBox="0 0 36 36">
-                    <path fill="none" stroke="#F1F5F9" strokeWidth="4" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                    <path fill="none" stroke={colors.accent} strokeWidth="4" strokeDasharray="65, 100" strokeLinecap="round" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                  </svg>
-                  <div style={{ position: 'absolute', textAlign: 'center' }}>
-                    <div style={{ fontSize: '28px', fontWeight: '900', color: colors.navy }}>65%</div>
-                    <div style={{ fontSize: '10px', fontWeight: '800', color: colors.inkMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Done</div>
-                  </div>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
-                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
-                   <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: colors.accent }} />
-                   <span style={{ color: colors.navy, fontWeight: 700 }}>Finalized: 65%</span>
-                 </div>
-                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
-                   <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#F1F5F9' }} />
-                   <span style={{ color: colors.inkMuted, fontWeight: 600 }}>In Review: 35%</span>
-                 </div>
-              </div>
-          </div>
+        {/* Right column */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
-          {/* Judge Stats Small */}
-          <div style={{ ...styles.widgetCard('chart-3', 12), gap: '20px' }} onMouseEnter={() => setHoveredCard('chart-3')} onMouseLeave={() => setHoveredCard(null)}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span className="material-symbols-rounded" style={{ color: '#6366F1', fontSize: '18px' }}>psychology</span>
-              <span style={{ fontWeight: 800, color: colors.navy, fontSize: '14.5px' }}>Judge Tendencies</span>
+          {/* Top Performers */}
+          <div style={{ ...card('top'), padding: 0, overflow: 'hidden' }} onMouseEnter={() => setHoveredCard('top')} onMouseLeave={() => setHoveredCard(null)}>
+            <div style={{ padding: '18px 20px', borderBottom: `1px solid ${colors.borderSoft}`, display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={iconWrap('#FFFBEB', '#D97706')}>
+                <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>emoji_events</span>
+              </div>
+              <div>
+                <div style={{ fontWeight: 800, color: colors.navy, fontSize: '14px' }}>Top Performers</div>
+                <div style={{ fontSize: '11px', color: colors.inkMuted }}>By current score</div>
+              </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '16px', height: '100px', paddingBottom: '16px' }}>
-                {judgeStats.map((j, i) => (
-                  <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                    <div style={{ 
-                      width: '100%', 
-                      background: hoveredCard === 'chart-3' ? colors.accent : j.color, 
-                      height: `${j.avg}%`, 
-                      borderRadius: '8px 8px 3px 3px', 
-                      position: 'relative',
-                      transition: 'all 0.5s',
-                      opacity: 0.8
-                    }}>
-                      <div style={{ position: 'absolute', top: '-22px', width: '100%', textAlign: 'center', fontSize: '10px', fontWeight: '900', color: colors.navy }}>{j.avg.toFixed(0)}</div>
+            {topPerformers.length === 0 ? (
+              <div style={{ padding: '32px', textAlign: 'center' }}>
+                <p style={{ color: colors.inkMuted, fontSize: '13px' }}>No scores yet.</p>
+              </div>
+            ) : (
+              <div>
+                {topPerformers.map((p, i) => (
+                  <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 20px', borderBottom: i < topPerformers.length - 1 ? `1px solid ${colors.borderSoft}` : 'none' }}>
+                    <div style={{
+                      width: '28px', height: '28px', borderRadius: '8px', display: 'grid', placeItems: 'center',
+                      fontSize: '12px', fontWeight: 800, flexShrink: 0,
+                      background: i === 0 ? '#FEF3C7' : i === 1 ? '#F1F5F9' : i === 2 ? '#FFEDD5' : colors.pageBg,
+                      color: i === 0 ? '#92400E' : i === 1 ? '#475569' : i === 2 ? '#9A3412' : colors.inkMuted,
+                    }}>{i + 1}</div>
+                    <div style={{ flex: 1, overflow: 'hidden' }}>
+                      <div style={{ fontSize: '13.5px', fontWeight: 700, color: colors.navy, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
+                      {p.team && <div style={{ fontSize: '11px', color: colors.inkMuted }}>{p.team}</div>}
                     </div>
+                    <div style={{ fontSize: '15px', fontWeight: 900, color: colors.navy, flexShrink: 0 }}>{Number(p.score).toFixed(1)}</div>
                   </div>
                 ))}
-            </div>
-            <p style={{ fontSize: '11px', color: colors.inkMuted, margin: 0, textAlign: 'center' }}>Scoring consistency is **Optimal**</p>
+              </div>
+            )}
           </div>
 
-          {/* Premium Audit CTA (Repurposed from Dashboard roadmap style) */}
-          <div style={{ 
-              background: colors.navy,
-              borderRadius: '24px',
-              padding: '28px',
-              color: '#fff',
-              position: 'relative',
-              overflow: 'hidden'
-          }}>
-              <div style={{ position: 'absolute', top: -10, right: -10, opacity: 0.1 }}>
-                  <span className="material-symbols-rounded" style={{ fontSize: '80px' }}>verified_user</span>
+          {/* Judge Status */}
+          <div style={{ ...card('judges'), padding: 0, overflow: 'hidden' }} onMouseEnter={() => setHoveredCard('judges')} onMouseLeave={() => setHoveredCard(null)}>
+            <div style={{ padding: '18px 20px', borderBottom: `1px solid ${colors.borderSoft}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={iconWrap('#F0FDF4', '#16A34A')}>
+                  <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>gavel</span>
+                </div>
+                <div>
+                  <div style={{ fontWeight: 800, color: colors.navy, fontSize: '14px' }}>Judge Panel</div>
+                  <div style={{ fontSize: '11px', color: colors.inkMuted }}>{confirmedJ.length} of {judges.length} confirmed</div>
+                </div>
               </div>
-              <h4 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: '800', position: 'relative' }}>Final Audit</h4>
-              <p style={{ margin: '0 0 20px 0', opacity: 0.6, fontSize: '12.5px', lineHeight: '1.5', position: 'relative' }}>
-                  Generate a tamper-proof technical audit of all scores.
-              </p>
-              <button style={{ ...styles.btn(activeBtnHover === 'cta', true), background: '#fff', color: colors.navy, width: '100%', padding: '10px', fontSize: '13px' }}
-                  onMouseEnter={() => setActiveBtnHover('cta')}
-                  onMouseLeave={() => setActiveBtnHover(null)}
-                  onClick={handleExportAudit}
-              >
-                  <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>description</span>
-                  Export Audit PDF
-              </button>
+            </div>
+            {judges.length === 0 ? (
+              <div style={{ padding: '28px', textAlign: 'center' }}>
+                <p style={{ color: colors.inkMuted, fontSize: '13px' }}>No judges assigned yet.</p>
+              </div>
+            ) : (
+              <div style={{ maxHeight: '220px', overflowY: 'auto' }}>
+                {judges.map(j => {
+                  const confirmed = j.rsvp === 'Accepted' || j.status === 'Accepted';
+                  return (
+                    <div key={j.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '11px 20px', borderBottom: `1px solid ${colors.borderSoft}` }}>
+                      <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: confirmed ? '#DCFCE7' : '#FEF3C7', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                        <span className="material-symbols-rounded" style={{ fontSize: '15px', color: confirmed ? '#166534' : '#92400E' }}>
+                          {confirmed ? 'how_to_reg' : 'pending'}
+                        </span>
+                      </div>
+                      <div style={{ flex: 1, overflow: 'hidden' }}>
+                        <div style={{ fontSize: '13px', fontWeight: 700, color: colors.navy, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{j.name || j.email}</div>
+                        {j.name && j.email && <div style={{ fontSize: '11px', color: colors.inkMuted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{j.email}</div>}
+                      </div>
+                      <span style={{ fontSize: '10px', fontWeight: 800, padding: '3px 8px', borderRadius: '100px', flexShrink: 0, background: confirmed ? '#DCFCE7' : '#FEF3C7', color: confirmed ? '#166534' : '#92400E' }}>
+                        {confirmed ? 'Confirmed' : 'Pending'}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
+
+          {/* Participant status summary */}
+          <div style={card('pstatus')} onMouseEnter={() => setHoveredCard('pstatus')} onMouseLeave={() => setHoveredCard(null)}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+              <div style={iconWrap(colors.accentBg, colors.accent)}>
+                <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>people</span>
+              </div>
+              <div style={{ fontWeight: 800, color: colors.navy, fontSize: '14px' }}>Participant Summary</div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {[
+                { label: 'Registered', value: registered.length, color: colors.accent, bg: colors.accentBg },
+                { label: 'Pending', value: pending.length, color: '#D97706', bg: '#FFFBEB' },
+                { label: 'Scored', value: scored.length, color: '#16A34A', bg: '#F0FDF4' },
+                { label: 'Awaiting Score', value: unscored.length, color: '#6366F1', bg: '#EEF2FF' },
+              ].map(row => (
+                <div key={row.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: '12px', background: row.bg }}>
+                  <span style={{ fontSize: '13px', fontWeight: 600, color: colors.navy }}>{row.label}</span>
+                  <span style={{ fontSize: '16px', fontWeight: 900, color: row.color }}>{row.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
         </div>
       </div>
     </div>

@@ -248,8 +248,11 @@ export default function LandingPage() {
       <nav style={lpStyle.nav}>
         <div style={lpStyle.navInner}>
           <Link to="/" style={lpStyle.logo}>
-            <div style={{ ...lpStyle.logoBox, background: scrolled ? colors.navy : colors.accent }}>
-              <span className="material-symbols-rounded" style={{ color: '#fff', fontSize: '18px' }}>monitoring</span>
+            <div style={{ ...lpStyle.logoBox, background: colors.navy }}>
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                <path d="M3 13L6.5 7L10 10.5L12.5 5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                <circle cx="12.5" cy="5" r="2" fill={colors.accent} />
+              </svg>
             </div>
             <span style={lpStyle.logoText}>Standings<span style={{ color: colors.accent }}>HQ</span></span>
           </Link>
@@ -459,8 +462,11 @@ export default function LandingPage() {
         <div style={{ maxWidth: '1280px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '60px' }}>
           <div>
             <Link to="/" style={{ ...lpStyle.logo, marginBottom: '24px' }}>
-              <div style={{ ...lpStyle.logoBox, background: colors.accent }}>
-                <span className="material-symbols-rounded" style={{ color: '#fff', fontSize: '18px' }}>monitoring</span>
+              <div style={{ ...lpStyle.logoBox, background: colors.navy }}>
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                  <path d="M3 13L6.5 7L10 10.5L12.5 5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  <circle cx="12.5" cy="5" r="2" fill={colors.accent} />
+                </svg>
               </div>
               <span style={{ ...lpStyle.logoText, color: '#fff' }}>Standings<span style={{ color: colors.accent }}>HQ</span></span>
             </Link>
@@ -468,14 +474,6 @@ export default function LandingPage() {
           </div>
           
           <div style={{ display: 'flex', gap: '80px', flexWrap: 'wrap' }}>
-            <div>
-              <h4 style={{ fontSize: '14px', fontWeight: 800, marginBottom: '24px', color: colors.accent }}>COMPANY</h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <Link to="/leaderboard" style={{ color: 'rgba(255,255,255,0.6)', textDecoration: 'none', fontSize: '14.5px' }}>Live Leaderboard</Link>
-                <Link to="/archive" style={{ color: 'rgba(255,255,255,0.6)', textDecoration: 'none', fontSize: '14.5px' }}>Archive</Link>
-                <a href="#how-it-works" style={{ color: 'rgba(255,255,255,0.6)', textDecoration: 'none', fontSize: '14.5px' }}>Workflow</a>
-              </div>
-            </div>
             <div>
               <h4 style={{ fontSize: '14px', fontWeight: 800, marginBottom: '24px', color: colors.accent }}>LEGAL</h4>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>

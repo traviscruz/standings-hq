@@ -372,7 +372,7 @@ export default function JudgeDashboard() {
               <span className="material-symbols-rounded" style={{ color: colors.accent }}>person_check</span>
               <span style={{ fontFamily: "'DM Sans', system-ui, sans-serif", fontWeight: 700, fontSize: '16px', color: colors.navy }}>Contestants</span>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxHeight: '320px', overflowY: 'auto', paddingRight: '4px' }}>
               {participants.map(p => {
                 const scored = hasScored(p.id);
                 return (

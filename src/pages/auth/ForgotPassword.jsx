@@ -337,7 +337,10 @@ export default function ForgotPassword() {
           </Link>
           <div style={styles.logo}>
             <div style={styles.logoBox}>
-              <span className="material-symbols-rounded" style={{ color: '#fff', fontSize: '16px' }}>monitoring</span>
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                <path d="M3 13L6.5 7L10 10.5L12.5 5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                <circle cx="12.5" cy="5" r="2" fill={colors.accent} />
+              </svg>
             </div>
             <span style={styles.logoText}>Standings<span style={{ color: colors.accent }}>HQ</span></span>
           </div>
