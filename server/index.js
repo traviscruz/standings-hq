@@ -9,6 +9,14 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
+// Prevent all API responses from being cached by the browser
+app.use('/api', (req, res, next) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+  next();
+});
+
 // Import Routes
 const authRoutes = require('./routes/auth');
 const eventRoutes = require('./routes/events');
@@ -18,6 +26,7 @@ const judgeRoutes = require('./routes/judges');
 const userRoutes = require('./routes/users');
 const scoreRoutes = require('./routes/scores');
 const certificateRoutes = require('./routes/certificates');
+const sportsRoutes = require('./routes/sports');
 
 // Use Routes
 app.use('/api/auth', authRoutes);
@@ -28,6 +37,7 @@ app.use('/api/judges', judgeRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/scores', scoreRoutes);
 app.use('/api/certificates', certificateRoutes);
+app.use('/api/sports', sportsRoutes);
 
 // Health Check
 app.get('/', (req, res) => {

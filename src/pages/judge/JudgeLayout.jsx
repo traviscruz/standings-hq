@@ -42,7 +42,7 @@ export default function JudgeLayout() {
       return;
     }
     if (!silent) setEventsLoading(true);
-    fetch(`${API_BASE}/judges/my-events?email=${userEmail}`)
+    fetch(`${API_BASE}/judges/my-events?email=${userEmail}`, { cache: 'no-store' })
       .then(res => res.json())
       .then(data => {
         if (data.success && data.data.length > 0) {
@@ -70,7 +70,7 @@ export default function JudgeLayout() {
 
     const pollData = () => {
       // 1. Fetch invitations
-      fetch(`${API_BASE}/judges/my-invitations?email=${userEmail}`)
+      fetch(`${API_BASE}/judges/my-invitations?email=${userEmail}`, { cache: 'no-store' })
         .then(res => res.json())
         .then(data => {
           if (data.success) {
@@ -121,7 +121,7 @@ export default function JudgeLayout() {
     }
 
     // 1. Fetch participants
-    fetch(`${API_BASE}/participants?event_id=${selectedEventId}`)
+    fetch(`${API_BASE}/participants?event_id=${selectedEventId}`, { cache: 'no-store' })
       .then(res => res.json())
       .then(data => {
         if (data.success) {
@@ -208,7 +208,7 @@ export default function JudgeLayout() {
   useEffect(() => {
     if (!selectedEventId || !selectedEvent?.eventJudgeId) return;
 
-    fetch(`${API_BASE}/scores?event_id=${selectedEventId}&judge_id=${selectedEvent.eventJudgeId}`)
+    fetch(`${API_BASE}/scores?event_id=${selectedEventId}&judge_id=${selectedEvent.eventJudgeId}`, { cache: 'no-store' })
       .then(res => res.json())
       .then(data => {
         if (data.success) {
@@ -845,6 +845,21 @@ export default function JudgeLayout() {
               <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>rule</span>
               <span>Criteria Specs</span>
             </NavLink>
+
+            {(selectedEvent?.competition_category === 'sports' || selectedEvent?.type === 'Sports') && (
+              <>
+                <div style={sectionTitleStyle}>Sports</div>
+                <NavLink
+                  to="/judge/sports-matches"
+                  style={({ isActive }) => getSidebarLinkStyle(isActive, 'sports-matches')}
+                  onMouseEnter={() => setHoveredLink('sports-matches')}
+                  onMouseLeave={() => setHoveredLink(null)}
+                >
+                  <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>sports</span>
+                  <span>Sports Scoring</span>
+                </NavLink>
+              </>
+            )}
           </nav>
 
           <div style={footerStyle}>
@@ -869,7 +884,7 @@ export default function JudgeLayout() {
         </aside>
 
         <main style={mainStyle}>
-          {(!selectedEventId && location.pathname !== '/judge/invites' && location.pathname !== '/judge/profile') ? (
+          {(!selectedEventId && location.pathname !== '/judge/invites' && location.pathname !== '/judge/profile' && !location.pathname.startsWith('/judge/sports')) ? (
             <div style={{
               display: 'flex',
               flexDirection: 'column',

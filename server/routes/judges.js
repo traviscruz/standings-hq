@@ -44,7 +44,7 @@ router.get('/my-events', async (req, res) => {
 
     const { data, error } = await supabase
       .from('event_judges')
-      .select('*, event:events(id, name, type, description, start_date, start_time, end_date, end_time, location, status, visibility, profiles(first_name, last_name))')
+      .select('*, event:events(id, name, type, description, start_date, start_time, end_date, end_time, location, status, visibility, competition_category, sport_config, profiles(first_name, last_name))')
       .ilike('email', email)
       .in('status', ['Accepted', 'accepted'])
       .order('created_at', { ascending: false });
@@ -65,6 +65,8 @@ router.get('/my-events', async (req, res) => {
         expertise: inv.expertise || '',
         status: inv.event.status || 'upcoming',
         description: inv.event.description || '',
+        competition_category: inv.event.competition_category || null,
+        sport_config: inv.event.sport_config || null,
       }));
 
     res.json({ success: true, data: formatted });

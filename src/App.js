@@ -29,6 +29,15 @@ import PublishPage from './pages/organizer/PublishPage';
 import EventSettingsPage from './pages/organizer/EventSettingsPage';
 import OrganizerAnalyticsPage from './pages/organizer/OrganizerAnalyticsPage';
 
+// Sports Pages (Organizer)
+import SportsConfigPage from './pages/organizer/sports/SportsConfigPage';
+import SportsBracketsPage from './pages/organizer/sports/SportsBracketsPage';
+import SportsScorePage from './pages/organizer/sports/SportsScorePage';
+
+// Sports Pages (Judge)
+import SportsMatchListPage from './pages/judge/SportsMatchListPage';
+import SportsScoringPage from './pages/judge/SportsScoringPage';
+
 // Judge Pages
 import JudgeLayout from './pages/judge/JudgeLayout';
 import JudgeDashboard from './pages/judge/JudgeDashboard';
@@ -84,6 +93,11 @@ function App() {
           <Route path="publish" element={<PublishPage />} />
           <Route path="analytics" element={<OrganizerAnalyticsPage />} />
           <Route path="profile" element={<ProfilePage />} />
+
+          {/* Sports Routes */}
+          <Route path="sports/config" element={<SportsConfigPage />} />
+          <Route path="sports/brackets" element={<SportsBracketsPage />} />
+          <Route path="sports/score/:bracketId" element={<SportsScorePage />} />
         </Route>
 
         {/* Judge Routes */}
@@ -97,6 +111,8 @@ function App() {
           <Route path="rubric" element={<RubricReviewPage />} />
           <Route path="invites" element={<InvitePage />} />
           <Route path="profile" element={<ProfilePage />} />
+          <Route path="sports-matches" element={<SportsMatchListPage />} />
+          <Route path="sports-scoring/:bracketId" element={<SportsScoringPage />} />
         </Route>
 
         {/* Participant Routes */}

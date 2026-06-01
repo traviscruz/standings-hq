@@ -93,9 +93,9 @@ export default function ParticipantLayout() {
     const pollData = async () => {
       try {
         const [invRes, eventsRes, certsRes] = await Promise.all([
-          fetch(`${API_BASE}/participants/my-invitations?email=${userEmail}`),
-          fetch(`${API_BASE}/participants/my-events?email=${userEmail}`),
-          fetch(`${API_BASE}/certificates/participant?email=${userEmail}`)
+          fetch(`${API_BASE}/participants/my-invitations?email=${userEmail}`, { cache: 'no-store' }),
+          fetch(`${API_BASE}/participants/my-events?email=${userEmail}`, { cache: 'no-store' }),
+          fetch(`${API_BASE}/certificates/participant?email=${userEmail}`, { cache: 'no-store' })
         ]);
 
         const invData = await invRes.json();

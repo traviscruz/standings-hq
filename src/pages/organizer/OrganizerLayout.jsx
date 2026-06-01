@@ -181,7 +181,7 @@ export default function OrganizerLayout() {
       ? `${API_BASE}/events?organizer_id=${organizerId}`
       : `${API_BASE}/events`;
 
-    fetch(url)
+    fetch(url, { cache: 'no-store' })
       .then(r => r.json())
       .then(json => {
         if (json.success) {
@@ -230,7 +230,7 @@ export default function OrganizerLayout() {
     fetchRubric();
 
     const pollEventData = () => {
-      fetch(`${API_BASE}/participants?event_id=${selectedEventId}`)
+      fetch(`${API_BASE}/participants?event_id=${selectedEventId}`, { cache: 'no-store' })
         .then(res => res.json())
         .then(data => {
           if (data.success) {
@@ -245,7 +245,7 @@ export default function OrganizerLayout() {
         })
         .catch(console.error);
 
-      fetch(`${API_BASE}/judges?event_id=${selectedEventId}`)
+      fetch(`${API_BASE}/judges?event_id=${selectedEventId}`, { cache: 'no-store' })
         .then(res => res.json())
         .then(data => {
           if (data.success) {
@@ -316,10 +316,17 @@ export default function OrganizerLayout() {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(dbChanges),
+        cache: 'no-store',
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
         throw new Error(data.error || 'Failed to update event.');
+      }
+      // Replace with actual server response so all DB fields (e.g. sport_config) are current
+      if (data.data) {
+        setEventsList(prev => prev.map(e =>
+          e.id === eventId ? normalizeEvent({ ...e, ...data.data }) : e
+        ));
       }
     } catch (err) {
       console.error('[updateEvent]', err.message);
@@ -882,15 +889,42 @@ export default function OrganizerLayout() {
               <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>settings</span>
               Event Settings
             </NavLink>
-            <NavLink
-              to="/organizer/rubrics"
-              style={({ isActive }) => styles.sidebarLink(isActive, 'rubrics', !isSubscribed)}
-              onMouseEnter={() => setHoveredLink('rubrics')}
-              onMouseLeave={() => setHoveredLink(null)}
-            >
-              <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>rule</span>
-              Rubrics & Scoring
-            </NavLink>
+
+            {/* Show Rubrics OR Sports depending on event type */}
+            {selectedEvent?.type !== 'Sports' && (
+              <NavLink
+                to="/organizer/rubrics"
+                style={({ isActive }) => styles.sidebarLink(isActive, 'rubrics', !isSubscribed)}
+                onMouseEnter={() => setHoveredLink('rubrics')}
+                onMouseLeave={() => setHoveredLink(null)}
+              >
+                <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>rule</span>
+                Rubrics & Scoring
+              </NavLink>
+            )}
+            {selectedEvent?.type === 'Sports' && (
+              <>
+                <NavLink
+                  to="/organizer/sports/config"
+                  style={({ isActive }) => styles.sidebarLink(isActive, 'sports-config', !isSubscribed)}
+                  onMouseEnter={() => setHoveredLink('sports-config')}
+                  onMouseLeave={() => setHoveredLink(null)}
+                >
+                  <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>sports</span>
+                  Sport Setup
+                  {selectedEvent?.sport_config && <span style={{ marginLeft: 'auto', width: '8px', height: '8px', borderRadius: '50%', background: colors.success, flexShrink: 0 }} />}
+                </NavLink>
+                <NavLink
+                  to="/organizer/sports/brackets"
+                  style={({ isActive }) => styles.sidebarLink(isActive, 'sports-brackets', !isSubscribed)}
+                  onMouseEnter={() => setHoveredLink('sports-brackets')}
+                  onMouseLeave={() => setHoveredLink(null)}
+                >
+                  <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>bracket</span>
+                  Brackets
+                </NavLink>
+              </>
+            )}
 
             <div style={styles.navSectionTitle}>People & Scoring</div>
             <NavLink
@@ -909,7 +943,7 @@ export default function OrganizerLayout() {
               onMouseLeave={() => setHoveredLink(null)}
             >
               <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>gavel</span>
-              Judges {(jCount > 0 || maxJ) && <span style={styles.sidebarBadge}>{jCount}{maxJ ? `/${maxJ}` : ''}</span>}
+              {selectedEvent?.type === 'Sports' ? 'Scorer' : 'Judges'} {(jCount > 0 || maxJ) && <span style={styles.sidebarBadge}>{jCount}{maxJ ? `/${maxJ}` : ''}</span>}
             </NavLink>
 
             <div style={styles.navSectionTitle}>Post-Event</div>
