@@ -61,6 +61,7 @@ router.post('/', async (req, res) => {
       latitude,
       longitude,
       visibility,
+      competition_mode,
     } = req.body;
 
     // Basic validation
@@ -86,6 +87,7 @@ router.post('/', async (req, res) => {
         latitude: latitude || null,
         longitude: longitude || null,
         visibility: visibility || 'Public',
+        competition_mode: competition_mode || 'standard',
         status: 'upcoming',
       }])
       .select()

@@ -4,7 +4,7 @@ import { useJudgeContext } from './JudgeLayout';
 import { colors } from '../../styles/colors';
 
 export default function JudgeDashboard() {
-  const { event, participants, segments, scores, submittedSegments } = useJudgeContext();
+  const { event, participants, segments, scores, submittedSegments, isGameEvent } = useJudgeContext();
     const userName = localStorage.getItem('full_name') || 'Judge';
     const userRole = localStorage.getItem('role') || 'Judge';
     const userHandle = localStorage.getItem('username') || '';
@@ -230,7 +230,7 @@ export default function JudgeDashboard() {
         </div>
         <button 
           style={primaryBtnStyle} 
-          onClick={() => navigate('/judge/scoring')}
+          onClick={() => navigate(isGameEvent ? '/judge/game-scoring' : '/judge/scoring')}
           onMouseEnter={() => setIsPrimaryBtnHovered(true)}
           onMouseLeave={() => setIsPrimaryBtnHovered(false)}
         >
@@ -307,48 +307,62 @@ export default function JudgeDashboard() {
       <div style={dashboardGridStyle}>
         {/* Left: Component Checklist */}
         <div style={getColSpanStyle(8)}>
-          <div style={formSectionStyle}>
-            <div style={formSectionHeadStyle}>
-              <span className="material-symbols-rounded" style={{ fontSize: '18px', color: colors.inkMuted }}>playlist_add_check</span>
-              Scoring Segments Checklist
+          {isGameEvent ? (
+            <div style={formSectionStyle}>
+              <div style={formSectionHeadStyle}>
+                <span className="material-symbols-rounded" style={{ fontSize: '18px', color: colors.inkMuted }}>sports_martial_arts</span>
+                Game Matches
+              </div>
+              <div style={{ padding: '40px', textAlign: 'center', color: colors.inkMuted }}>
+                <span className="material-symbols-rounded" style={{ fontSize: '48px', color: colors.borderSoft, marginBottom: '16px' }}>sports_esports</span>
+                <p style={{ fontSize: '15px', fontWeight: '600', color: colors.navy }}>Tournament is Active</p>
+                <p style={{ fontSize: '13px' }}>Click 'Open Score Sheet' to record match results.</p>
+              </div>
             </div>
-            <div style={{ padding: '8px 0' }}>
-              {segments.map(seg => {
-                const status = getSegmentStatus(seg.id);
-                const isHovered = hoveredSegment === seg.id;
-                return (
-                  <div 
-                    key={seg.id} 
-                    style={{ 
-                        display: 'flex', 
-                        gap: '20px', 
-                        padding: '20px 32px', 
-                        borderBottom: `1px solid ${colors.borderSoft}`, 
-                        alignItems: 'center', 
-                        cursor: 'pointer',
-                        transition: 'all 0.2s',
-                        background: isHovered ? 'rgba(248, 250, 252, 0.8)' : 'transparent',
-                    }} 
-                    onClick={() => navigate('/judge/scoring')}
-                    onMouseEnter={() => setHoveredSegment(seg.id)}
-                    onMouseLeave={() => setHoveredSegment(null)}
-                  >
-                    <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: seg.colorBg, color: seg.color, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-                      <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>{seg.icon}</span>
+          ) : (
+            <div style={formSectionStyle}>
+              <div style={formSectionHeadStyle}>
+                <span className="material-symbols-rounded" style={{ fontSize: '18px', color: colors.inkMuted }}>playlist_add_check</span>
+                Scoring Segments Checklist
+              </div>
+              <div style={{ padding: '8px 0' }}>
+                {segments?.map(seg => {
+                  const status = getSegmentStatus(seg.id);
+                  const isHovered = hoveredSegment === seg.id;
+                  return (
+                    <div 
+                      key={seg.id} 
+                      style={{ 
+                          display: 'flex', 
+                          gap: '20px', 
+                          padding: '20px 32px', 
+                          borderBottom: `1px solid ${colors.borderSoft}`, 
+                          alignItems: 'center', 
+                          cursor: 'pointer',
+                          transition: 'all 0.2s',
+                          background: isHovered ? 'rgba(248, 250, 252, 0.8)' : 'transparent',
+                      }} 
+                      onClick={() => navigate('/judge/scoring')}
+                      onMouseEnter={() => setHoveredSegment(seg.id)}
+                      onMouseLeave={() => setHoveredSegment(null)}
+                    >
+                      <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: seg.colorBg, color: seg.color, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                        <span className="material-symbols-rounded" style={{ fontSize: '24px' }}>{seg.icon}</span>
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <p style={{ fontSize: '15px', fontWeight: 700, color: colors.navy, marginBottom: '4px' }}>{seg.label}</p>
+                        <p style={{ fontSize: '13px', color: colors.inkMuted }}>{seg.criteria?.length || 0} Criteria · Max {seg.criteria?.reduce((a, c) => a + c.maxScore, 0) || 0} points</p>
+                      </div>
+                      <div style={{ pointerEvents: 'none' }}>
+                        {statusBadgeStyle(status)}
+                      </div>
+                      <span className="material-symbols-rounded" style={{ color: colors.border, fontSize: '20px', transform: isHovered ? 'translateX(4px)' : 'none', transition: 'transform 0.22s' }}>chevron_right</span>
                     </div>
-                    <div style={{ flex: 1 }}>
-                      <p style={{ fontSize: '15px', fontWeight: 700, color: colors.navy, marginBottom: '4px' }}>{seg.label}</p>
-                      <p style={{ fontSize: '13px', color: colors.inkMuted }}>{seg.criteria.length} Criteria · Max {seg.criteria.reduce((a, c) => a + c.maxScore, 0)} points</p>
-                    </div>
-                    <div style={{ pointerEvents: 'none' }}>
-                      {statusBadgeStyle(status)}
-                    </div>
-                    <span className="material-symbols-rounded" style={{ color: colors.border, fontSize: '20px', transform: isHovered ? 'translateX(4px)' : 'none', transition: 'transform 0.22s' }}>chevron_right</span>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Right: Contestant Breakdown */}

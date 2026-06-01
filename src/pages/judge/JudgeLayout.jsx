@@ -25,6 +25,8 @@ export default function JudgeLayout() {
   const [submittedSegments, setSubmittedSegments] = useState({});
   const [invitations, setInvitations] = useState([]);
   const [rubricConfig, setRubricConfig] = useState(null);
+  const [gameSetupConfig, setGameSetupConfig] = useState(null);
+  const [gameSetupLoading, setGameSetupLoading] = useState(true);
 
   // Switcher Dropdown States
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -46,7 +48,10 @@ export default function JudgeLayout() {
       .then(res => res.json())
       .then(data => {
         if (data.success && data.data.length > 0) {
-          setEventsList(data.data);
+          setEventsList(prev => {
+            if (JSON.stringify(prev) === JSON.stringify(data.data)) return prev;
+            return data.data;
+          });
           setSelectedEventId(prev => {
             if (prev && data.data.some(e => e.id === prev)) return prev;
             return data.data[0].id;
@@ -182,6 +187,20 @@ export default function JudgeLayout() {
     };
 
     fetchRubrics();
+
+    // Fetch game setup unconditionally to check if a setup exists in database
+    setGameSetupLoading(true);
+    fetch(`${API_BASE}/game/setup?event_id=${selectedEventId}`)
+      .then(r => r.json())
+      .then(json => {
+        if (json.success && json.data) {
+          setGameSetupConfig(json.data.config || null);
+        } else {
+          setGameSetupConfig(null);
+        }
+      })
+      .catch(() => setGameSetupConfig(null))
+      .finally(() => setGameSetupLoading(false));
   }, [selectedEventId, supabase]);
 
   // Scores Initialization Effect
@@ -204,23 +223,43 @@ export default function JudgeLayout() {
     });
   }, [participants, segments]);
 
-  // Fetch existing scores & submissions from backend
+  // Auto-redirect effect when competition mode changes
+  useEffect(() => {
+    if (!selectedEventId || gameSetupLoading) return;
+    const isGame = !!gameSetupConfig;
+    const path = location.pathname;
+
+    if (isGame && (path === '/judge/scoring' || path === '/judge/rubric')) {
+      navigate('/judge/game-scoring');
+    } else if (!isGame && path === '/judge/game-scoring') {
+      navigate('/judge/scoring');
+    }
+  }, [selectedEventId, location.pathname, gameSetupConfig, gameSetupLoading, navigate]);
+
+
+  // Fetch existing scores & submissions from backend with 5-second polling
   useEffect(() => {
     if (!selectedEventId || !selectedEvent?.eventJudgeId) return;
 
-    fetch(`${API_BASE}/scores?event_id=${selectedEventId}&judge_id=${selectedEvent.eventJudgeId}`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          if (data.scores) {
-            setScores(data.scores);
+    const fetchScores = () => {
+      fetch(`${API_BASE}/scores?event_id=${selectedEventId}&judge_id=${selectedEvent.eventJudgeId}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            if (data.scores) {
+              setScores(data.scores);
+            }
+            if (data.submittedSegments) {
+              setSubmittedSegments(data.submittedSegments);
+            }
           }
-          if (data.submittedSegments) {
-            setSubmittedSegments(data.submittedSegments);
-          }
-        }
-      })
-      .catch(err => console.error('Error fetching scores:', err));
+        })
+        .catch(err => console.error('Error fetching scores:', err));
+    };
+
+    fetchScores();
+    const interval = setInterval(fetchScores, 5000);
+    return () => clearInterval(interval);
   }, [selectedEventId, selectedEvent?.eventJudgeId]);
 
   // Click outside to close dropdown
@@ -289,15 +328,15 @@ export default function JudgeLayout() {
         score: value === '' ? null : parseFloat(value)
       })
     })
-    .catch(err => console.error('Error saving score:', err));
+      .catch(err => console.error('Error saving score:', err));
   };
 
   const submitSegment = (segmentId) => {
     const prevSubmitted = { ...submittedSegments };
-    
+
     // 1. Update UI state optimistically
     setSubmittedSegments(prev => ({ ...prev, [segmentId]: true }));
-    
+
     // 2. Submit to backend
     if (!selectedEventId || !selectedEvent?.eventJudgeId) return;
     fetch(`${API_BASE}/scores/submit`, {
@@ -309,42 +348,42 @@ export default function JudgeLayout() {
         segment_id: segmentId
       })
     })
-    .then(res => res.json())
-    .then(data => {
-      if (data.success) {
-        showToast(`Scores for "${segments.find(s => s.id === segmentId)?.label}" locked and submitted.`, 'success', () => {
-          // Revert (Undo) submission on the backend
-          fetch(`${API_BASE}/scores/revert`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              event_id: selectedEventId,
-              judge_id: selectedEvent.eventJudgeId,
-              segment_id: segmentId
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          showToast(`Scores for "${segments.find(s => s.id === segmentId)?.label}" locked and submitted.`, 'success', () => {
+            // Revert (Undo) submission on the backend
+            fetch(`${API_BASE}/scores/revert`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                event_id: selectedEventId,
+                judge_id: selectedEvent.eventJudgeId,
+                segment_id: segmentId
+              })
             })
-          })
-          .then(r => r.json())
-          .then(d => {
-            if (d.success) {
-              setSubmittedSegments(prevSubmitted);
-              showToast('Submission reverted.', 'info');
-            } else {
-              showToast('Failed to revert submission.', 'error');
-            }
-          })
-          .catch(err => console.error('Error reverting submission:', err));
-        });
-      } else {
-        // Rollback optimistic state
+              .then(r => r.json())
+              .then(d => {
+                if (d.success) {
+                  setSubmittedSegments(prevSubmitted);
+                  showToast('Submission reverted.', 'info');
+                } else {
+                  showToast('Failed to revert submission.', 'error');
+                }
+              })
+              .catch(err => console.error('Error reverting submission:', err));
+          });
+        } else {
+          // Rollback optimistic state
+          setSubmittedSegments(prevSubmitted);
+          showToast(data.error || 'Failed to submit scores.', 'error');
+        }
+      })
+      .catch(err => {
+        console.error('Error submitting segment:', err);
         setSubmittedSegments(prevSubmitted);
-        showToast(data.error || 'Failed to submit scores.', 'error');
-      }
-    })
-    .catch(err => {
-      console.error('Error submitting segment:', err);
-      setSubmittedSegments(prevSubmitted);
-      showToast('Connection error. Failed to submit.', 'error');
-    });
+        showToast('Connection error. Failed to submit.', 'error');
+      });
   };
 
   const handleInvitation = async (id, action) => {
@@ -373,9 +412,9 @@ export default function JudgeLayout() {
       showToast(msg, action === 'accepted' ? 'success' : 'info', async () => {
         // Undo
         await fetch(`${API_BASE}/judges/${id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: 'Pending' })
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'Pending' })
         });
         setInvitations(prevInvs);
         if (action === 'accepted') {
@@ -591,6 +630,8 @@ export default function JudgeLayout() {
       handleInvitation,
       showToast,
       rubricConfig,
+      gameSetupConfig,
+      isGameEvent: !!gameSetupConfig,
     }}>
       <style>
         {`
@@ -827,24 +868,40 @@ export default function JudgeLayout() {
             </NavLink>
 
             <div style={sectionTitleStyle}>Scoring Loop</div>
-            <NavLink
-              to="/judge/scoring"
-              style={({ isActive }) => getSidebarLinkStyle(isActive, 'scoring')}
-              onMouseEnter={() => setHoveredLink('scoring')}
-              onMouseLeave={() => setHoveredLink(null)}
-            >
-              <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>edit_note</span>
-              <span>Scoring Sheet</span>
-            </NavLink>
-            <NavLink
-              to="/judge/rubric"
-              style={({ isActive }) => getSidebarLinkStyle(isActive, 'rubric')}
-              onMouseEnter={() => setHoveredLink('rubric')}
-              onMouseLeave={() => setHoveredLink(null)}
-            >
-              <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>rule</span>
-              <span>Criteria Specs</span>
-            </NavLink>
+            {!!gameSetupConfig ? (
+              <>
+                <NavLink
+                  to="/judge/game-scoring"
+                  style={({ isActive }) => getSidebarLinkStyle(isActive, 'game-scoring')}
+                  onMouseEnter={() => setHoveredLink('game-scoring')}
+                  onMouseLeave={() => setHoveredLink(null)}
+                >
+                  <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>sports_martial_arts</span>
+                  <span>Game Score Sheet</span>
+                </NavLink>
+              </>
+            ) : (
+              <>
+                <NavLink
+                  to="/judge/scoring"
+                  style={({ isActive }) => getSidebarLinkStyle(isActive, 'scoring')}
+                  onMouseEnter={() => setHoveredLink('scoring')}
+                  onMouseLeave={() => setHoveredLink(null)}
+                >
+                  <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>edit_note</span>
+                  <span>Scoring Sheet</span>
+                </NavLink>
+                <NavLink
+                  to="/judge/rubric"
+                  style={({ isActive }) => getSidebarLinkStyle(isActive, 'rubric')}
+                  onMouseEnter={() => setHoveredLink('rubric')}
+                  onMouseLeave={() => setHoveredLink(null)}
+                >
+                  <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>rule</span>
+                  <span>Criteria Specs</span>
+                </NavLink>
+              </>
+            )}
           </nav>
 
           <div style={footerStyle}>

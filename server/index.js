@@ -18,6 +18,8 @@ const judgeRoutes = require('./routes/judges');
 const userRoutes = require('./routes/users');
 const scoreRoutes = require('./routes/scores');
 const certificateRoutes = require('./routes/certificates');
+const claudeRoutes = require('./routes/claude');
+const gameRoutes = require('./routes/game');
 
 // Use Routes
 app.use('/api/auth', authRoutes);
@@ -28,6 +30,8 @@ app.use('/api/judges', judgeRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/scores', scoreRoutes);
 app.use('/api/certificates', certificateRoutes);
+app.use('/api/claude', claudeRoutes);
+app.use('/api/game', gameRoutes);
 
 // Health Check
 app.get('/', (req, res) => {

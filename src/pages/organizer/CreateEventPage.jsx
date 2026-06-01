@@ -53,6 +53,7 @@ export default function CreateEventPage() {
     endDate: null, endTime: new Date(new Date().setHours(17, 0, 0, 0)),
     description: '', visibility: 'Public',
     location: '',
+    competition_mode: 'standard',
   });
 
   const [loading, setLoading] = useState(false);
@@ -153,6 +154,7 @@ export default function CreateEventPage() {
         latitude: markerPos ? markerPos.lat : null,
         longitude: markerPos ? markerPos.lng : null,
         visibility: form.visibility,
+        competition_mode: form.competition_mode || 'standard',
       };
 
       const res = await fetch(`${API_URL}/events`, {
@@ -362,8 +364,34 @@ export default function CreateEventPage() {
                   ))}
                 </div>
               </div>
+              <div style={{ gridColumn: 'span 2', marginTop: '16px', borderTop: `1.5px dashed ${colors.borderSoft}`, paddingTop: '20px' }}>
+                <label style={styles.label}>Competition Mode</label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
+                  {[
+                    { id: 'standard', label: 'Standard Rubric', icon: 'gavel', desc: 'Score participants using customizable multi-criteria rubrics. Perfect for pageants, debates, or talent shows.' },
+                    { id: 'game', label: 'Traditional Games / Tournament', icon: 'sports_esports', desc: 'Run bracket matchups (e.g. Tug of War, Patintero). AI creates round limits, scoring configs, and advances winners.' }
+                  ].map(m => (
+                    <label key={m.id} style={{
+                      display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '8px', padding: '16px 20px',
+                      border: `2px solid ${form.competition_mode === m.id ? colors.accent : colors.borderSoft}`,
+                      borderRadius: '16px', cursor: 'pointer',
+                      background: form.competition_mode === m.id ? colors.accentBg : '#fff', transition: 'all 0.2s',
+                    }}>
+                      <input type="radio" name="competition_mode" value={m.id} checked={form.competition_mode === m.id} onChange={() => set('competition_mode', m.id)} style={{ display: 'none' }} />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span className="material-symbols-rounded" style={{ fontSize: '22px', color: form.competition_mode === m.id ? colors.accent : colors.inkMuted }}>
+                          {m.icon}
+                        </span>
+                        <span style={{ fontSize: '15px', fontWeight: 800, color: form.competition_mode === m.id ? colors.accentDeep : colors.navy }}>{m.label}</span>
+                      </div>
+                      <span style={{ fontSize: '12px', color: colors.inkMid, lineHeight: '1.4' }}>{m.desc}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
+
 
           {/* Schedule */}
           <div style={styles.formSection}>

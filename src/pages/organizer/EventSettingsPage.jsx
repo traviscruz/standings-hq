@@ -39,7 +39,7 @@ export default function EventSettingsPage() {
 
   const [form, setForm] = useState({
     name: '', type: '', startDate: '', startTime: '',
-    endDate: '', endTime: '', description: '', visibility: 'Public', status: 'Upcoming', location: '',
+    endDate: '', endTime: '', description: '', visibility: 'Public', status: 'Upcoming', location: '', competition_mode: 'standard'
   });
   const [errors, setErrors] = useState({});
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
@@ -81,6 +81,7 @@ export default function EventSettingsPage() {
       visibility: selectedEvent.visibility || 'Public',
       status: selectedEvent.status || 'Upcoming',
       location: selectedEvent.location || '',
+      competition_mode: selectedEvent.competition_mode || 'standard',
     });
     setErrors({});
     setSaved(false);
@@ -143,6 +144,7 @@ export default function EventSettingsPage() {
         visibility: form.visibility,
         status: form.status,
         location: form.location,
+        competition_mode: form.competition_mode,
         latitude: markerPos ? markerPos.lat : null,
         longitude: markerPos ? markerPos.lng : null,
       });
@@ -422,6 +424,34 @@ export default function EventSettingsPage() {
                         <span className="material-symbols-rounded" style={{ fontSize: '22px', color: isSelected ? color : colors.inkMuted }}>{icon}</span>
                         <span style={{ fontSize: '12px', fontWeight: 700, color: isSelected ? color : colors.navy, letterSpacing: '0.02em' }}>{value}</span>
                         <span style={{ fontSize: '10px', color: colors.inkMuted, fontWeight: 500 }}>{desc}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Competition Mode */}
+              <div>
+                <label style={styles.label}>Competition Mode</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  {[
+                    { id: 'standard', label: 'Standard Rubric', icon: 'gavel', desc: 'Score participants using customizable multi-criteria rubrics.' },
+                    { id: 'game', label: 'Traditional Games / Tournament', icon: 'sports_esports', desc: 'Run bracket matchups (e.g. Tug of War, Patintero).' }
+                  ].map(m => {
+                    const isSelected = form.competition_mode === m.id;
+                    return (
+                      <label key={m.id} style={{
+                        display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '6px', padding: '12px 16px',
+                        border: `2px solid ${isSelected ? colors.accent : colors.borderSoft}`,
+                        borderRadius: '14px', cursor: 'pointer',
+                        background: isSelected ? colors.accentBg : '#fff', transition: 'all 0.2s',
+                      }}>
+                        <input type="radio" name="competition_mode" value={m.id} checked={isSelected} onChange={() => set('competition_mode', m.id)} style={{ display: 'none' }} />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span className="material-symbols-rounded" style={{ fontSize: '20px', color: isSelected ? colors.accent : colors.inkMuted }}>{m.icon}</span>
+                          <span style={{ fontSize: '14px', fontWeight: 800, color: isSelected ? colors.accentDeep : colors.navy }}>{m.label}</span>
+                        </div>
+                        <span style={{ fontSize: '11.5px', color: colors.inkMid, lineHeight: '1.4' }}>{m.desc}</span>
                       </label>
                     );
                   })}

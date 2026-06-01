@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useJudgeContext } from './JudgeLayout';
 import { colors } from '../../styles/colors';
+import GameScoringPage from './GameScoringPage';
 
 export default function ScoringPage() {
-  const { event, segments, participants, scores, submittedSegments, updateScore, submitSegment, showToast, rubricConfig } = useJudgeContext();
+  const { event, segments, participants, scores, submittedSegments, updateScore, submitSegment, showToast, rubricConfig, isGameEvent } = useJudgeContext();
+
+
   const [activeSegment, setActiveSegment] = useState(null);
   const [confirmingSubmit, setConfirmingSubmit] = useState(false);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
@@ -92,7 +95,12 @@ export default function ScoringPage() {
     }
   };
 
-  // Render a sleek loading spinner if segments are still loading or empty
+  // Game events go straight to GameScoringPage — must be before seg-dependent code
+  if (isGameEvent) {
+    return <GameScoringPage />;
+  }
+
+  // Render a sleek loading spinner if segments are still loading or empty (only for standard mode)
   if (!segments || segments.length === 0 || !seg) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '50vh', gap: '16px' }}>
@@ -303,7 +311,7 @@ export default function ScoringPage() {
   };
 
   return (
-    <>
+    <div className="slide-up-anim" style={{ paddingBottom: '40px' }}>
       <style>
         {`
           @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -709,6 +717,6 @@ export default function ScoringPage() {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

@@ -2,12 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { useJudgeContext } from './JudgeLayout';
 import { useNavigate } from 'react-router-dom';
 import { colors } from '../../styles/colors';
+import GameScoringPage from './GameScoringPage';
 
 export default function RubricReviewPage() {
-  const { segments, event, showToast } = useJudgeContext();
+  const { segments, event, showToast, isGameEvent } = useJudgeContext();
+
+
   const navigate = useNavigate();
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const [hoveredButton, setHoveredButton] = useState(null); // export, scoring
+
 
   const handleExportPDF = () => {
     const printWindow = window.open('', '_blank');
@@ -218,17 +222,22 @@ export default function RubricReviewPage() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Sleek loading guard if segments are still loading or empty
-  if (!segments || segments.length === 0) {
+  if (isGameEvent) {
+    return <GameScoringPage />;
+  }
+
+  // Sleek loading guard if segments are still loading or empty (only for standard mode)
+  if (!isGameEvent && (!segments || segments.length === 0)) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '50vh', gap: '16px' }}>
         <div style={{ width: '48px', height: '48px', borderRadius: '50%', border: `3px solid ${colors.borderSoft}`, borderTopColor: colors.accent, animation: 'spin 1s linear infinite' }} />
         <span style={{ fontSize: '14px', color: colors.inkMuted, fontWeight: '600' }}>Loading criteria specifications...</span>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
 
-  const grandTotal = segments.reduce((a, seg) =>
+  const grandTotal = isGameEvent ? 0 : segments.reduce((a, seg) =>
     a + seg.criteria.reduce((b, c) => b + c.maxScore, 0), 0
   );
 
@@ -329,8 +338,22 @@ export default function RubricReviewPage() {
     color: colors.inkSoft,
   };
 
+  if (isGameEvent) {
+    return (
+      <div style={{ textAlign: 'center', padding: '80px 32px' }}>
+        <div style={{ width: '72px', height: '72px', borderRadius: '20px', background: colors.accentBg, display: 'grid', placeItems: 'center', margin: '0 auto 20px' }}>
+          <span className="material-symbols-rounded" style={{ fontSize: '36px', color: colors.accent }}>sports_esports</span>
+        </div>
+        <h2 style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '24px', fontWeight: 800, color: colors.navy, marginBottom: '10px' }}>Criteria Unavailable</h2>
+        <p style={{ color: colors.inkMid, fontSize: '15px', maxWidth: '480px', margin: '0 auto 24px', lineHeight: '1.6' }}>
+          This event is set up as a Tournament Game. Scoring is handled directly via bracket match results, so standard rubric criteria are not used.
+        </p>
+      </div>
+    );
+  }
+
   return (
-    <div className="slide-up-anim">
+    <div className="slide-up-anim" style={{ paddingBottom: '40px' }}>
       <div style={pageHeaderStyle}>
         <div>
           <h1 style={pageTitleStyle}>Scoring Rubric</h1>

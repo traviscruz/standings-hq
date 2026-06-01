@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useEventContext } from './OrganizerLayout';
 import { colors } from '../../styles/colors';
+import { API_URL } from '../../config';
+import { createClient } from '../../utils/supabase/client';
 
 function formatDate(d) {
   if (!d) return '—';
@@ -26,6 +28,95 @@ export default function ResultsPage() {
   const [activeBtnHover, setActiveBtnHover] = useState(null);
   const [hoveredRow, setHoveredRow] = useState(null);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+
+  const [gameSetup, setGameSetup] = useState(null);
+  const [matches, setMatches] = useState([]);
+  const [hasGameData, setHasGameData] = useState(false);
+
+  const isGameMode = selectedEvent?.competition_mode === 'game';
+
+  // Reset hasGameData when event changes so spinner shows for the new event
+  useEffect(() => {
+    setHasGameData(false);
+  }, [selectedEvent?.id]);
+
+  useEffect(() => {
+    if (!selectedEvent || !isGameMode) return;
+    const fetchGameData = async () => {
+      try {
+        const [setupRes, bracketsRes] = await Promise.all([
+          fetch(`${API_URL}/game/setup?event_id=${selectedEvent.id}`),
+          fetch(`${API_URL}/game/brackets?event_id=${selectedEvent.id}`)
+        ]);
+        const setupJson = await setupRes.json();
+        const bracketsJson = await bracketsRes.json();
+        if (setupJson.success) setGameSetup(setupJson.data);
+        if (bracketsJson.success) setMatches(bracketsJson.data || []);
+      } catch (err) {
+        console.error('Error fetching game results:', err);
+      } finally {
+        setHasGameData(true); // permanently show content after first fetch
+      }
+    };
+    fetchGameData();
+
+    let interval;
+    if (liveToggle) {
+      interval = setInterval(fetchGameData, 5000); // refresh every 5s if live
+    }
+
+    const supabase = createClient();
+    const channel = supabase
+      .channel('results-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'match_brackets',
+          filter: `event_id=eq.${selectedEvent.id}`
+        },
+        () => {
+          fetchGameData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      if (interval) clearInterval(interval);
+      supabase.removeChannel(channel);
+    };
+  }, [selectedEvent, isGameMode, liveToggle]);
+
+  const maxRound = matches.length > 0 ? Math.max(...matches.map(m => m.round)) : 0;
+  const finalMatch = matches.find(m => m.round === maxRound && m.match_order === 1);
+  const champion = finalMatch?.winner || null;
+
+  const teamWins = React.useMemo(() => {
+    if (!isGameMode) return [];
+    const wins = {};
+    const teamsList = gameSetup?.config?.teams || [];
+    teamsList.forEach(t => {
+      wins[t.name] = { team: t.name, color: t.color, winsCount: 0, matchesPlayed: 0 };
+    });
+    matches.forEach(m => {
+      if (m.status === 'completed' && m.winner) {
+        if (!wins[m.winner]) {
+          wins[m.winner] = { team: m.winner, winsCount: 0, matchesPlayed: 0 };
+        }
+        wins[m.winner].winsCount += 1;
+      }
+      if (m.team_a && m.team_a !== 'BYE') {
+        if (!wins[m.team_a]) wins[m.team_a] = { team: m.team_a, winsCount: 0, matchesPlayed: 0 };
+        if (m.status === 'completed') wins[m.team_a].matchesPlayed += 1;
+      }
+      if (m.team_b && m.team_b !== 'BYE') {
+        if (!wins[m.team_b]) wins[m.team_b] = { team: m.team_b, winsCount: 0, matchesPlayed: 0 };
+        if (m.status === 'completed') wins[m.team_b].matchesPlayed += 1;
+      }
+    });
+    return Object.values(wins).sort((a, b) => b.winsCount - a.winsCount || b.matchesPlayed - a.matchesPlayed);
+  }, [matches, gameSetup, isGameMode]);
 
   const isGroupOrTeam = rubricConfig?.format === 'group' || rubricConfig?.format === 'team';
 
@@ -55,6 +146,214 @@ export default function ResultsPage() {
   const displayList = isGroupOrTeam ? uniqueTeams : participants;
 
   const handleExportPDF = () => {
+    if (isGameMode) {
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) {
+        showToast('Could not open print window. Please check popup blocker.', 'error');
+        return;
+      }
+      const title = `${selectedEvent.name} - Tournament Standings`;
+      const date = new Date().toLocaleDateString();
+      const scoredCount = matches.filter(m => m.status === 'completed').length;
+      
+      const htmlContent = `
+        <html>
+          <head>
+            <title>${title}</title>
+            <style>
+              @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@700;800;900&family=Inter:wght@400;600;700;800&display=swap');
+              body {
+                font-family: 'Inter', -apple-system, sans-serif;
+                color: #0f172a;
+                padding: 40px;
+                margin: 0;
+              }
+              .header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                border-bottom: 2px solid #e2e8f0;
+                padding-bottom: 20px;
+                margin-bottom: 30px;
+              }
+              .brand {
+                font-size: 20px;
+                font-weight: 800;
+                color: #0f172a;
+                font-family: 'DM Sans', sans-serif;
+              }
+              .brand span {
+                color: #3b82f6;
+              }
+              .title {
+                font-size: 24px;
+                font-weight: 800;
+                margin: 0 0 8px 0;
+                font-family: 'DM Sans', sans-serif;
+              }
+              .meta {
+                font-size: 13px;
+                color: #64748b;
+              }
+              .kpis {
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                gap: 16px;
+                margin-bottom: 30px;
+              }
+              .kpi-card {
+                border: 1px solid #e2e8f0;
+                border-radius: 12px;
+                padding: 16px;
+                background: #f8fafc;
+              }
+              .kpi-label {
+                font-size: 11px;
+                font-weight: 700;
+                text-transform: uppercase;
+                color: #64748b;
+                margin-bottom: 6px;
+              }
+              .kpi-value {
+                font-size: 18px;
+                font-weight: 800;
+              }
+              .champ-banner {
+                background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+                color: #fff;
+                padding: 24px;
+                border-radius: 12px;
+                margin-bottom: 30px;
+                display: flex;
+                align-items: center;
+                gap: 16px;
+              }
+              table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 20px;
+              }
+              th {
+                background: #f8fafc;
+                padding: 12px 16px;
+                font-size: 11px;
+                font-weight: 700;
+                text-transform: uppercase;
+                color: #475569;
+                border-bottom: 2px solid #cbd5e1;
+                text-align: left;
+              }
+              td {
+                padding: 14px 16px;
+                border-bottom: 1px solid #e2e8f0;
+                font-size: 14px;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <div>
+                <h1 class="title">${title}</h1>
+                <div class="meta">Exported on ${date} • Event Status: ${selectedEvent.status}</div>
+              </div>
+              <div class="brand">Standings<span>HQ</span></div>
+            </div>
+            
+            ${champion ? `
+              <div class="champ-banner">
+                <div style="font-size: 32px;">🏆</div>
+                <div>
+                  <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.7;">Grand Champion</div>
+                  <div style="font-size: 24px; font-weight: 900; color: #fcd34d;">${champion}</div>
+                </div>
+              </div>
+            ` : ''}
+
+            <div class="kpis">
+              <div class="kpi-card">
+                <div class="kpi-label">Game Type</div>
+                <div class="kpi-value">${gameSetup?.config?.gameName || gameSetup?.config?.gameType || '—'}</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-label">Tournament Format</div>
+                <div class="kpi-value">${gameSetup?.config?.bracketFormat === 'single_elimination' ? 'Single Elimination' : 'Round Robin'}</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-label">Matches Completed</div>
+                <div class="kpi-value">${scoredCount} / ${matches.length}</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-label">Total Teams</div>
+                <div class="kpi-value">${teamWins.length}</div>
+              </div>
+            </div>
+
+            <h2>Team Leaderboard (By Match Wins)</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 70px; text-align: center;">Rank</th>
+                  <th>Team</th>
+                  <th style="text-align: center;">Matches Played</th>
+                  <th style="text-align: right;">Wins</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${teamWins.length === 0 ? `
+                  <tr>
+                    <td colspan="4" style="text-align: center; color: #64748b; padding: 40px;">No teams registered.</td>
+                  </tr>
+                ` : teamWins.map((t, idx) => {
+                  const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : '';
+                  return `
+                    <tr>
+                      <td style="text-align: center; font-weight: 800; font-size: ${idx < 3 ? '16px' : '14px'}">${medal ? `${medal} ${idx + 1}` : idx + 1}</td>
+                      <td style="font-weight: 700;">${t.team}</td>
+                      <td style="text-align: center;">${t.matchesPlayed}</td>
+                      <td style="text-align: right; font-weight: 800; font-size: 16px; color: ${idx === 0 ? '#16a34a' : '#0f172a'}">${t.winsCount}</td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+            
+            <h2>Match Log</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Round</th>
+                  <th>Matchup</th>
+                  <th style="text-align: center;">Status</th>
+                  <th style="text-align: right;">Winner</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${matches.map(m => `
+                  <tr>
+                    <td>${m.round_label} (M${m.match_order})</td>
+                    <td style="font-weight: 600;">${m.team_a || 'TBD'} vs ${m.team_b || 'TBD'}</td>
+                    <td style="text-align: center; text-transform: uppercase; font-size: 12px; font-weight: 700; color: ${m.status === 'completed' ? '#16a34a' : '#f59e0b'}">${m.status}</td>
+                    <td style="text-align: right; font-weight: 700; color: #3b82f6;">${m.winner || '—'}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+
+            <script>
+              window.onload = function() {
+                window.print();
+                setTimeout(function() { window.close(); }, 500);
+              };
+            </script>
+          </body>
+        </html>
+      `;
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+      showToast('PDF Rankings Report generated!', 'success');
+      return;
+    }
+
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
       showToast('Could not open print window. Please check popup blocker.', 'error');
@@ -62,6 +361,7 @@ export default function ResultsPage() {
     }
 
     const title = `${selectedEvent.name} - Official Leaderboard`;
+
     const date = new Date().toLocaleDateString();
 
     const ranked = [...displayList].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
@@ -414,9 +714,206 @@ export default function ResultsPage() {
 
   return (
     <>
-      <div style={styles.pageHeader}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+      {isGameMode && (() => {
+        const scoredCount = matches.filter(m => m.status === 'completed').length;
+        return (
+          <>
+            {/* Header */}
+            <div style={styles.pageHeader}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+                  {isLive && (
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '6px',
+                      fontSize: '11px', fontWeight: 800, textTransform: 'uppercase',
+                      color: '#DC2626', background: '#FEE2E2', padding: '3px 10px', borderRadius: '100px',
+                    }}>
+                      <span style={{ width: '6px', height: '6px', background: '#DC2626', borderRadius: '50%', animation: 'blink 1.2s infinite' }} />
+                      Live Tournament
+                    </span>
+                  )}
+                  {elapsed && <span style={{ fontSize: '13px', color: colors.inkMuted }}>Running for {elapsed}</span>}
+                </div>
+                <h1 style={styles.pageTitle}>{gameSetup?.config?.gameName || gameSetup?.config?.gameType || 'Game'} Results</h1>
+                <p style={styles.pageDescription}>
+                  Live tournament overview and standings for <strong style={{ color: colors.navy }}>{selectedEvent.name}</strong>.
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                <button
+                  style={styles.btn(activeBtnHover === 'pause')}
+                  onMouseEnter={() => setActiveBtnHover('pause')}
+                  onMouseLeave={() => setActiveBtnHover(null)}
+                  onClick={() => { setLiveToggle(!liveToggle); showToast(liveToggle ? 'Live refresh paused.' : 'Live refresh resumed.', 'info'); }}
+                >
+                  <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>{liveToggle ? 'pause' : 'play_arrow'}</span>
+                  {liveToggle ? 'Pause Live' : 'Resume Live'}
+                </button>
+                <button
+                  style={styles.btn(activeBtnHover === 'export', true)}
+                  onMouseEnter={() => setActiveBtnHover('export')}
+                  onMouseLeave={() => setActiveBtnHover(null)}
+                  onClick={handleExportPDF}
+                >
+                  <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>download</span>
+                  Export PDF
+                </button>
+              </div>
+            </div>
+
+            {/* Champion Banner */}
+            {champion && (
+              <div style={{ background: 'linear-gradient(135deg, #1E2D4A 0%, #2E4268 100%)', borderRadius: '20px', padding: '28px 32px', marginBottom: '32px', display: 'flex', alignItems: 'center', gap: '20px', animation: 'fadeIn 0.5s ease-out' }}>
+                <div style={{ width: '64px', height: '64px', borderRadius: '20px', background: 'rgba(252,211,77,0.15)', border: '2px solid rgba(252,211,77,0.3)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                  <span className="material-symbols-rounded" style={{ fontSize: '34px', color: '#FCD34D' }}>emoji_events</span>
+                </div>
+                <div>
+                  <div style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(255,255,255,0.5)', marginBottom: '4px' }}>🏆 Grand Champion Winner</div>
+                  <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '28px', fontWeight: '900', color: '#FCD34D', letterSpacing: '-0.02em' }}>{champion}</div>
+                  <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', marginTop: '4px' }}>{gameSetup?.config?.gameName || gameSetup?.config?.gameType} · {selectedEvent.name}</div>
+                </div>
+              </div>
+            )}
+
+            {/* KPIs */}
+            <div style={styles.dashboardGrid}>
+              <div style={styles.widgetCard(3)}>
+                <span style={styles.statLabel}>Matches Played</span>
+                <div style={styles.statValue}>
+                  {scoredCount}
+                  <span style={{ fontSize: '16px', color: colors.inkMuted, marginLeft: '4px' }}>/{matches.length}</span>
+                </div>
+                {matches.length > 0 && (
+                  <div style={{ marginTop: '10px', height: '5px', background: colors.borderSoft, borderRadius: '100px', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${(scoredCount / matches.length) * 100}%`, background: colors.accent, borderRadius: '100px', transition: 'width 0.5s' }} />
+                  </div>
+                )}
+              </div>
+              <div style={styles.widgetCard(3)}>
+                <span style={styles.statLabel}>Total Teams</span>
+                <div style={styles.statValue}>{teamWins.length}</div>
+              </div>
+              <div style={styles.widgetCard(3)}>
+                <span style={styles.statLabel}>Tournament Format</span>
+                <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '20px', fontWeight: 800, color: colors.navy, marginTop: '8px' }}>
+                  {gameSetup?.config?.bracketFormat === 'single_elimination' ? 'Single Elimination' : 'Round Robin'}
+                </div>
+              </div>
+              <div style={styles.widgetCard(3)}>
+                <span style={styles.statLabel}>Est. Duration</span>
+                <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '20px', fontWeight: 800, color: colors.navy, marginTop: '8px' }}>
+                  {gameSetup?.config?.estimatedDuration || '—'}
+                </div>
+              </div>
+            </div>
+
+            {/* Leaderboard Table (Wins Tally) */}
+            <div style={{ ...styles.tableContainer, marginBottom: '32px' }}>
+              <div style={styles.tableHeader}>
+                <h3 style={{ ...styles.tableTitle, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span className="material-symbols-rounded" style={{ fontSize: '20px', color: colors.navy }}>leaderboard</span>
+                  Team Leaderboard (Wins Tally)
+                </h3>
+              </div>
+              <table style={styles.dataTable}>
+                <thead>
+                  <tr>
+                    <th style={{ ...styles.th, width: '70px', textAlign: 'center' }}>Rank</th>
+                    <th style={styles.th}>Team Name</th>
+                    <th style={{ ...styles.th, textAlign: 'center' }}>Matches Played</th>
+                    <th style={{ ...styles.th, textAlign: 'right' }}>Match Wins</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {teamWins.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} style={{ padding: '48px', textAlign: 'center', color: colors.inkMuted }}>
+                        No teams setup yet.
+                      </td>
+                    </tr>
+                  ) : teamWins.map((t, idx) => {
+                    const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : null;
+                    return (
+                      <tr key={t.team} style={{ background: idx === 0 && t.winsCount > 0 ? 'rgba(250,204,21,0.04)' : 'transparent' }}>
+                        <td style={{ ...styles.td, textAlign: 'center', fontWeight: 800, fontSize: idx < 3 && t.winsCount > 0 ? '20px' : '15px' }}>
+                          {medal || idx + 1}
+                        </td>
+                        <td style={{ ...styles.td, fontWeight: 700, color: colors.navy }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: t.color || colors.accent }} />
+                            {t.team}
+                          </div>
+                        </td>
+                        <td style={{ ...styles.td, textAlign: 'center' }}>{t.matchesPlayed}</td>
+                        <td style={{ ...styles.td, textAlign: 'right', fontFamily: "'DM Sans', sans-serif", fontWeight: 900, fontSize: '20px', color: idx === 0 && t.winsCount > 0 ? '#16A34A' : colors.navy }}>
+                          {t.winsCount}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Tournament Bracket Reference Summary */}
+            <div style={styles.tableContainer}>
+              <div style={styles.tableHeader}>
+                <h3 style={{ ...styles.tableTitle, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span className="material-symbols-rounded" style={{ fontSize: '20px', color: colors.navy }}>account_tree</span>
+                  Match Log &amp; Progress
+                </h3>
+              </div>
+              <table style={styles.dataTable}>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>Round</th>
+                    <th style={styles.th}>Match Order</th>
+                    <th style={styles.th}>Matchup</th>
+                    <th style={{ ...styles.th, textAlign: 'center' }}>Status</th>
+                    <th style={{ ...styles.th, textAlign: 'right' }}>Winner</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {matches.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} style={{ padding: '48px', textAlign: 'center', color: colors.inkMuted }}>
+                        No matches generated yet.
+                      </td>
+                    </tr>
+                  ) : matches.map(m => (
+                    <tr key={m.id}>
+                      <td style={{ ...styles.td, fontWeight: 600 }}>{m.round_label}</td>
+                      <td style={styles.td}>Match {m.match_order}</td>
+                      <td style={{ ...styles.td, fontWeight: 700, color: colors.navy }}>
+                        {m.team_a || 'TBD'} <span style={{ color: colors.inkMuted, fontWeight: 'normal' }}>vs</span> {m.team_b || 'TBD'}
+                      </td>
+                      <td style={{ ...styles.td, textAlign: 'center' }}>
+                        <span style={{
+                          display: 'inline-block', padding: '2px 10px', borderRadius: '100px', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase',
+                          background: m.status === 'completed' ? 'rgba(16,185,129,0.08)' : 'rgba(245,158,11,0.08)',
+                          color: m.status === 'completed' ? colors.success : '#B45309'
+                        }}>
+                          {m.status || 'pending'}
+                        </span>
+                      </td>
+                      <td style={{ ...styles.td, textAlign: 'right', fontWeight: 800, color: colors.accent }}>
+                        {m.winner || '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        );
+      })()}
+
+      {!isGameMode && (
+        <>
+          <div style={styles.pageHeader}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+
             {isLive && (
               <span style={{
                 display: 'inline-flex', alignItems: 'center', gap: '6px',
@@ -588,6 +1085,10 @@ export default function ResultsPage() {
           </tbody>
         </table>
       </div>
+      </>
+      )}
     </>
   );
 }
+
+

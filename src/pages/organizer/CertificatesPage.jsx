@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useEventContext } from './OrganizerLayout';
 import { colors } from '../../styles/colors';
 import { API_URL as API_BASE } from '../../config';
+import { createClient } from '../../utils/supabase/client';
 
 const GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.REACT_APP_GEMINI_API_KEY;
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
@@ -53,9 +54,78 @@ export default function CertificatesPage() {
     return Object.values(teamsMap);
   }, [participants, isGroupOrTeam]);
 
-  const displayList = isGroupOrTeam ? uniqueTeams : participants;
+  const [gameSetup, setGameSetup] = useState(null);
+  const [matches, setMatches] = useState([]);
+
+  const isGameMode = selectedEvent?.competition_mode === 'game';
+
+  React.useEffect(() => {
+    if (!selectedEvent || !isGameMode) return;
+    const fetchGameData = async () => {
+      try {
+        const [setupRes, bracketsRes] = await Promise.all([
+          fetch(`${API_BASE}/game/setup?event_id=${selectedEvent.id}`),
+          fetch(`${API_BASE}/game/brackets?event_id=${selectedEvent.id}`)
+        ]);
+        const setupJson = await setupRes.json();
+        const bracketsJson = await bracketsRes.json();
+        if (setupJson.success) setGameSetup(setupJson.data);
+        if (bracketsJson.success) setMatches(bracketsJson.data || []);
+      } catch (err) {
+        console.error('Error fetching game data for certificates:', err);
+      }
+    };
+    fetchGameData();
+
+    const supabase = createClient();
+    const channel = supabase
+      .channel('certificates-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'match_brackets',
+          filter: `event_id=eq.${selectedEvent.id}`
+        },
+        () => {
+          fetchGameData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [selectedEvent, isGameMode]);
+
+  const gameTeams = React.useMemo(() => {
+    if (!isGameMode || !gameSetup) return [];
+    const teamsList = gameSetup.config?.teams || [];
+    const wins = {};
+    teamsList.forEach(t => {
+      wins[t.name] = 0;
+    });
+    matches.forEach(m => {
+      if (m.status === 'completed' && m.winner) {
+        wins[m.winner] = (wins[m.winner] || 0) + 1;
+      }
+    });
+
+    return teamsList.map((t, idx) => ({
+      id: t.id || `team-${idx}`,
+      name: t.name,
+      team: t.name,
+      status: 'Registered',
+      score: wins[t.name] || 0,
+      email: ''
+    }));
+  }, [gameSetup, matches, isGameMode]);
+
+  const displayList = isGameMode ? gameTeams : (isGroupOrTeam ? uniqueTeams : participants);
 
   const [generating, setGenerating] = useState(false);
+
 
   const isEventCompleted = (selectedEvent?.status || '').toLowerCase() === 'completed';
 

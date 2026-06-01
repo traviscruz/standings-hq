@@ -65,6 +65,7 @@ export default function OrganizerLayout() {
     if (selectedEventId) localStorage.setItem('selected_event_id', selectedEventId);
   }, [selectedEventId]);
   const [rubricConfig, setRubricConfig] = useState(null);
+  const [gameSetupConfig, setGameSetupConfig] = useState(null);
 
   const selectedEvent = eventsList.find(e => e.id === selectedEventId) || eventsList[0];
   const userName = localStorage.getItem('username') || 'Event Admin';
@@ -228,6 +229,20 @@ export default function OrganizerLayout() {
     };
 
     fetchRubric();
+
+    // Fetch game setup if this is a game event
+    const currentEvent = eventsList.find(e => e.id === selectedEventId);
+    if (currentEvent?.competition_mode === 'game') {
+      fetch(`${API_BASE}/game/setup?event_id=${selectedEventId}`)
+        .then(r => r.json())
+        .then(json => {
+          if (json.success && json.data) setGameSetupConfig(json.data.config || null);
+          else setGameSetupConfig(null);
+        })
+        .catch(() => setGameSetupConfig(null));
+    } else {
+      setGameSetupConfig(null);
+    }
 
     const pollEventData = () => {
       fetch(`${API_BASE}/participants?event_id=${selectedEventId}`)
@@ -674,7 +689,10 @@ export default function OrganizerLayout() {
     showToast,
     rubricConfig,
     setRubricConfig,
+    gameSetupConfig,
+    setGameSetupConfig,
   };
+
 
   return (
     <EventContext.Provider value={contextValue}>
@@ -882,15 +900,38 @@ export default function OrganizerLayout() {
               <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>settings</span>
               Event Settings
             </NavLink>
-            <NavLink
-              to="/organizer/rubrics"
-              style={({ isActive }) => styles.sidebarLink(isActive, 'rubrics', !isSubscribed)}
-              onMouseEnter={() => setHoveredLink('rubrics')}
-              onMouseLeave={() => setHoveredLink(null)}
-            >
-              <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>rule</span>
-              Rubrics & Scoring
-            </NavLink>
+            {selectedEvent?.competition_mode === 'game' ? (
+              <>
+                <NavLink
+                  to="/organizer/game-setup"
+                  style={({ isActive }) => styles.sidebarLink(isActive, 'game-setup', !isSubscribed)}
+                  onMouseEnter={() => setHoveredLink('game-setup')}
+                  onMouseLeave={() => setHoveredLink(null)}
+                >
+                  <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>sports_martial_arts</span>
+                  Game Setup
+                </NavLink>
+                <NavLink
+                  to="/organizer/bracket"
+                  style={({ isActive }) => styles.sidebarLink(isActive, 'bracket', !isSubscribed)}
+                  onMouseEnter={() => setHoveredLink('bracket')}
+                  onMouseLeave={() => setHoveredLink(null)}
+                >
+                  <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>account_tree</span>
+                  Tournament Bracket
+                </NavLink>
+              </>
+            ) : (
+              <NavLink
+                to="/organizer/rubrics"
+                style={({ isActive }) => styles.sidebarLink(isActive, 'rubrics', !isSubscribed)}
+                onMouseEnter={() => setHoveredLink('rubrics')}
+                onMouseLeave={() => setHoveredLink(null)}
+              >
+                <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>rule</span>
+                Rubrics &amp; Scoring
+              </NavLink>
+            )}
 
             <div style={styles.navSectionTitle}>People & Scoring</div>
             <NavLink
