@@ -25,7 +25,7 @@ const EVENT_TYPES = ['Academic', 'Sports', 'Arts & Culture', 'Technology', 'Scie
 
 const CustomRangeInput = React.forwardRef(({ value, onClick, startDate, endDate, className }, ref) => (
   <div style={{ position: 'relative', cursor: 'pointer' }} onClick={onClick} ref={ref}>
-    <input 
+    <input
       className={`datepicker-input ${className || ''}`}
       style={{ paddingLeft: '44px', cursor: 'pointer' }}
       value={startDate ? (
@@ -93,7 +93,7 @@ export default function CreateEventPage() {
     end.setHours(23, 59, 59, 999);
 
     const isToday = form.startDate && format(form.startDate, 'yyyy-MM-dd') === format(now, 'yyyy-MM-dd');
-    
+
     return {
       min: isToday ? now : start,
       max: end
@@ -297,14 +297,14 @@ export default function CreateEventPage() {
             <div style={styles.formSectionBody}>
               <div>
                 <label style={styles.label}>Event Name <span style={{ color: colors.coral }}>*</span></label>
-                <input 
-                  type="text" 
-                  style={{ ...styles.input, borderColor: errors.name ? '#EF4444' : undefined, background: errors.name ? '#FFF5F5' : undefined }} 
-                  placeholder="Enter event name..." 
-                  value={form.name} 
-                  onChange={e => set('name', e.target.value)} 
-                  onFocus={inputFocus} 
-                  onBlur={inputBlur} 
+                <input
+                  type="text"
+                  style={{ ...styles.input, borderColor: errors.name ? '#EF4444' : undefined, background: errors.name ? '#FFF5F5' : undefined }}
+                  placeholder="Enter event name..."
+                  value={form.name}
+                  onChange={e => set('name', e.target.value)}
+                  onFocus={inputFocus}
+                  onBlur={inputBlur}
                   maxLength={120}
                 />
                 {errors.name && <div style={{ fontSize: '12px', color: '#EF4444', fontWeight: 600, marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}><span className="material-symbols-rounded" style={{ fontSize: '14px' }}>error</span>{errors.name}</div>}
@@ -325,19 +325,19 @@ export default function CreateEventPage() {
                   {EVENT_TYPES.map(t => <option key={t}>{t}</option>)}
                 </select>
                 {errors.type && !form.customType && <div style={{ fontSize: '12px', color: '#EF4444', fontWeight: 600, marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}><span className="material-symbols-rounded" style={{ fontSize: '14px' }}>error</span>{errors.type}</div>}
-                
+
                 {form.type === 'Other' && (
                   <div style={{ marginTop: '14px', animation: 'slideDown 0.3s ease-out' }}>
                     <label style={styles.label}>Custom Category <span style={{ color: colors.coral }}>*</span></label>
-                    <input 
-                      type="text" 
-                      style={{ ...styles.input, borderColor: errors.type ? '#EF4444' : undefined, background: errors.type ? '#FFF5F5' : undefined }} 
-                      placeholder="Enter custom category..." 
-                      value={form.customType} 
-                      onChange={e => set('customType', e.target.value)} 
-                      autoFocus 
-                      onFocus={inputFocus} 
-                      onBlur={inputBlur} 
+                    <input
+                      type="text"
+                      style={{ ...styles.input, borderColor: errors.type ? '#EF4444' : undefined, background: errors.type ? '#FFF5F5' : undefined }}
+                      placeholder="Enter custom category..."
+                      value={form.customType}
+                      onChange={e => set('customType', e.target.value)}
+                      autoFocus
+                      onFocus={inputFocus}
+                      onBlur={inputBlur}
                     />
                     {errors.type && <div style={{ fontSize: '12px', color: '#EF4444', fontWeight: 600, marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}><span className="material-symbols-rounded" style={{ fontSize: '14px' }}>error</span>{errors.type}</div>}
                   </div>
@@ -385,8 +385,8 @@ export default function CreateEventPage() {
                   isClearable={true}
                   minDate={new Date()}
                   customInput={
-                    <CustomRangeInput 
-                      startDate={form.startDate} 
+                    <CustomRangeInput
+                      startDate={form.startDate}
                       endDate={form.endDate}
                       hasError={!!(errors.startDate || errors.endDate)}
                     />
@@ -394,7 +394,7 @@ export default function CreateEventPage() {
                 />
                 {(errors.startDate || errors.endDate) && <div style={{ fontSize: '12px', color: '#EF4444', fontWeight: 600, marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}><span className="material-symbols-rounded" style={{ fontSize: '14px' }}>error</span>{errors.startDate || errors.endDate}</div>}
               </div>
-              
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                 <div>
                   <label style={styles.label}>Launch Time</label>
@@ -458,22 +458,22 @@ export default function CreateEventPage() {
                         }
                       }}
                     >
-                      <input 
-                        type="text" 
-                        style={styles.input} 
-                        placeholder="Search for a venue or address..." 
-                        value={form.location} 
-                        onChange={e => set('location', e.target.value)} 
-                        onFocus={inputFocus} 
-                        onBlur={inputBlur} 
+                      <input
+                        type="text"
+                        style={styles.input}
+                        placeholder="Search for a venue or address..."
+                        value={form.location}
+                        onChange={e => set('location', e.target.value)}
+                        onFocus={inputFocus}
+                        onBlur={inputBlur}
                       />
                     </Autocomplete>
                   ) : (
-                    <input 
-                      type="text" 
-                      style={styles.input} 
-                      placeholder="Loading Maps API..." 
-                      disabled 
+                    <input
+                      type="text"
+                      style={styles.input}
+                      placeholder="Loading Maps API..."
+                      disabled
                     />
                   )}
                 </div>
@@ -503,12 +503,12 @@ export default function CreateEventPage() {
                     </GoogleMap>
                   </div>
                 )}
-                
+
                 {!GOOGLE_MAPS_API_KEY && (
                   <div style={{ padding: '20px', background: colors.pageBg, borderRadius: '14px', border: `1px dashed ${colors.border}`, textAlign: 'center' }}>
                     <span className="material-symbols-rounded" style={{ color: colors.inkMuted, fontSize: '32px', marginBottom: '8px' }}>map</span>
                     <p style={{ fontSize: '13px', color: colors.inkMuted, margin: 0 }}>
-                      Google Maps preview requires an API key. <br/>
+                      Google Maps preview requires an API key. <br />
                       <span style={{ fontSize: '11px', opacity: 0.7 }}>Check your .env.local for REACT_APP_GOOGLE_MAPS_API_KEY</span>
                     </p>
                   </div>
@@ -610,86 +610,86 @@ export default function CreateEventPage() {
       </div>
 
       {/* ── Confirmation Modal ── */}
-    {showConfirm && (
-      <div style={{
-        position: 'fixed', inset: 0, zIndex: 1000,
-        background: 'rgba(15, 23, 42, 0.55)',
-        backdropFilter: 'blur(6px)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        animation: 'fadeIn 0.2s ease-out',
-        padding: '24px',
-      }}>
+      {showConfirm && (
         <div style={{
-          background: '#fff',
-          borderRadius: '24px',
-          padding: '36px',
-          maxWidth: '460px',
-          width: '100%',
-          boxShadow: '0 32px 64px -12px rgba(15,23,42,0.35)',
-          animation: 'modalUp 0.3s cubic-bezier(0.23, 1, 0.32, 1)',
+          position: 'fixed', inset: 0, zIndex: 1000,
+          background: 'rgba(15, 23, 42, 0.55)',
+          backdropFilter: 'blur(6px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          animation: 'fadeIn 0.2s ease-out',
+          padding: '24px',
         }}>
-          {/* Icon */}
-          <div style={{ width: '56px', height: '56px', borderRadius: '16px', background: colors.accentBg, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px' }}>
-            <span className="material-symbols-rounded" style={{ fontSize: '28px', color: colors.accent }}>rocket_launch</span>
-          </div>
+          <div style={{
+            background: '#fff',
+            borderRadius: '24px',
+            padding: '36px',
+            maxWidth: '460px',
+            width: '100%',
+            boxShadow: '0 32px 64px -12px rgba(15,23,42,0.35)',
+            animation: 'modalUp 0.3s cubic-bezier(0.23, 1, 0.32, 1)',
+          }}>
+            {/* Icon */}
+            <div style={{ width: '56px', height: '56px', borderRadius: '16px', background: colors.accentBg, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px' }}>
+              <span className="material-symbols-rounded" style={{ fontSize: '28px', color: colors.accent }}>rocket_launch</span>
+            </div>
 
-          {/* Title */}
-          <h2 style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '22px', fontWeight: 800, color: colors.navy, margin: '0 0 8px', letterSpacing: '-0.02em' }}>
-            Confirm Event Creation
-          </h2>
-          <p style={{ fontSize: '14px', color: colors.inkMid, lineHeight: 1.6, margin: '0 0 24px' }}>
-            You're about to establish this event. Please review the details below before proceeding.
-          </p>
+            {/* Title */}
+            <h2 style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '22px', fontWeight: 800, color: colors.navy, margin: '0 0 8px', letterSpacing: '-0.02em' }}>
+              Confirm Event Creation
+            </h2>
+            <p style={{ fontSize: '14px', color: colors.inkMid, lineHeight: 1.6, margin: '0 0 24px' }}>
+              You're about to establish this event. Please review the details below before proceeding.
+            </p>
 
-          {/* Summary */}
-          <div style={{ background: colors.pageBg, borderRadius: '14px', padding: '16px 20px', marginBottom: '28px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {[
-              { icon: 'edit', label: 'Event Name', value: form.name },
-              { icon: 'category', label: 'Category', value: form.type === 'Other' ? form.customType : form.type },
-              { icon: 'calendar_month', label: 'Dates', value: form.startDate && form.endDate ? `${format(form.startDate, 'MMM d')} — ${format(form.endDate, 'MMM d, yyyy')}` : '—' },
-              { icon: 'pin_drop', label: 'Venue', value: form.location || 'Not specified' },
-              { icon: form.visibility === 'Public' ? 'public' : 'lock', label: 'Visibility', value: form.visibility },
-            ].map(({ icon, label, value }) => (
-              <div key={label} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                <span className="material-symbols-rounded" style={{ fontSize: '16px', color: colors.accent, marginTop: '1px', flexShrink: 0 }}>{icon}</span>
-                <div>
-                  <div style={{ fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: colors.inkMuted, marginBottom: '1px' }}>{label}</div>
-                  <div style={{ fontSize: '13.5px', fontWeight: 600, color: colors.navy }}>{value}</div>
+            {/* Summary */}
+            <div style={{ background: colors.pageBg, borderRadius: '14px', padding: '16px 20px', marginBottom: '28px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {[
+                { icon: 'edit', label: 'Event Name', value: form.name },
+                { icon: 'category', label: 'Category', value: form.type === 'Other' ? form.customType : form.type },
+                { icon: 'calendar_month', label: 'Dates', value: form.startDate && form.endDate ? `${format(form.startDate, 'MMM d')} — ${format(form.endDate, 'MMM d, yyyy')}` : '—' },
+                { icon: 'pin_drop', label: 'Venue', value: form.location || 'Not specified' },
+                { icon: form.visibility === 'Public' ? 'public' : 'lock', label: 'Visibility', value: form.visibility },
+              ].map(({ icon, label, value }) => (
+                <div key={label} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                  <span className="material-symbols-rounded" style={{ fontSize: '16px', color: colors.accent, marginTop: '1px', flexShrink: 0 }}>{icon}</span>
+                  <div>
+                    <div style={{ fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: colors.inkMuted, marginBottom: '1px' }}>{label}</div>
+                    <div style={{ fontSize: '13.5px', fontWeight: 600, color: colors.navy }}>{value}</div>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
 
-          {/* Actions */}
-          <div style={{ display: 'flex', gap: '12px' }}>
-            <button
-              type="button"
-              onClick={() => setShowConfirm(false)}
-              style={{
-                flex: 1, padding: '12px', borderRadius: '14px', fontSize: '14px', fontWeight: 600,
-                cursor: 'pointer', background: '#fff', color: colors.inkSoft,
-                border: `1.5px solid ${colors.border}`, transition: 'all 0.2s', fontFamily: "'Inter', sans-serif",
-              }}
-            >
-              Go Back
-            </button>
-            <button
-              type="button"
-              onClick={confirmSubmit}
-              style={{
-                flex: 2, padding: '12px', borderRadius: '14px', fontSize: '14px', fontWeight: 700,
-                cursor: 'pointer', background: colors.navy, color: '#fff',
-                border: 'none', transition: 'all 0.2s', fontFamily: "'Inter', sans-serif",
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-              }}
-            >
-              <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>check_circle</span>
-              Yes, Establish Event
-            </button>
+            {/* Actions */}
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button
+                type="button"
+                onClick={() => setShowConfirm(false)}
+                style={{
+                  flex: 1, padding: '12px', borderRadius: '14px', fontSize: '14px', fontWeight: 600,
+                  cursor: 'pointer', background: '#fff', color: colors.inkSoft,
+                  border: `1.5px solid ${colors.border}`, transition: 'all 0.2s', fontFamily: "'Inter', sans-serif",
+                }}
+              >
+                Go Back
+              </button>
+              <button
+                type="button"
+                onClick={confirmSubmit}
+                style={{
+                  flex: 2, padding: '12px', borderRadius: '14px', fontSize: '14px', fontWeight: 700,
+                  cursor: 'pointer', background: colors.navy, color: '#fff',
+                  border: 'none', transition: 'all 0.2s', fontFamily: "'Inter', sans-serif",
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                }}
+              >
+                <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>check_circle</span>
+                Yes, Establish Event
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-    )}
-  </div>
+      )}
+    </div>
   );
 }

@@ -22,18 +22,18 @@ const normalizeEvent = (e) => {
   }
   return {
     ...e,
-    startDate:  e.start_date  || e.startDate  || '',
-    startTime:  e.start_time  || e.startTime  || '',
-    endDate:    e.end_date    || e.endDate    || '',
-    endTime:    e.end_time    || e.endTime    || '',
-    createdAt:  e.created_at  || e.createdAt  || '',
+    startDate: e.start_date || e.startDate || '',
+    startTime: e.start_time || e.startTime || '',
+    endDate: e.end_date || e.endDate || '',
+    endTime: e.end_time || e.endTime || '',
+    createdAt: e.created_at || e.createdAt || '',
     status,
-    visibility: e.visibility  || 'Public',
+    visibility: e.visibility || 'Public',
   };
 };
 
 const SEED_PARTICIPANTS = {};
-const SEED_JUDGES      = {};
+const SEED_JUDGES = {};
 
 const SEED_RUBRICS = {};
 
@@ -86,10 +86,10 @@ export default function OrganizerLayout() {
   const generateId = () => {
     return typeof crypto !== 'undefined' && crypto.randomUUID
       ? crypto.randomUUID()
-      : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-          var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
-          return v.toString(16);
-        });
+      : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+        var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
   };
 
   const addParticipant = (eventId, p) => {
@@ -226,7 +226,7 @@ export default function OrganizerLayout() {
         setRubricConfig(null);
       }
     };
-    
+
     fetchRubric();
 
     const pollEventData = () => {
@@ -236,8 +236,8 @@ export default function OrganizerLayout() {
           if (data.success) {
             setParticipantsData(prev => {
               const currentList = prev[selectedEventId] || [];
-              const hasChanged = currentList.length !== data.data.length || 
-                JSON.stringify(currentList.map(p => ({ id: p.id, status: p.status, score: p.score }))) !== 
+              const hasChanged = currentList.length !== data.data.length ||
+                JSON.stringify(currentList.map(p => ({ id: p.id, status: p.status, score: p.score }))) !==
                 JSON.stringify(data.data.map(p => ({ id: p.id, status: p.status, score: p.score })));
               return hasChanged ? { ...prev, [selectedEventId]: data.data } : prev;
             });
@@ -251,8 +251,8 @@ export default function OrganizerLayout() {
           if (data.success) {
             setJudgesData(prev => {
               const currentList = prev[selectedEventId] || [];
-              const hasChanged = currentList.length !== data.data.length || 
-                JSON.stringify(currentList.map(j => ({ id: j.id, rsvp: j.rsvp, status: j.status, role: j.role }))) !== 
+              const hasChanged = currentList.length !== data.data.length ||
+                JSON.stringify(currentList.map(j => ({ id: j.id, rsvp: j.rsvp, status: j.status, role: j.role }))) !==
                 JSON.stringify(data.data.map(j => ({ id: j.id, rsvp: j.rsvp, status: j.status, role: j.role })));
               return hasChanged ? { ...prev, [selectedEventId]: data.data } : prev;
             });
@@ -931,13 +931,13 @@ export default function OrganizerLayout() {
               <span className="material-symbols-rounded" style={{ fontSize: '20px' }}>workspace_premium</span>
               Certificates
             </NavLink>
-           </nav>
+          </nav>
 
           {!isSubscribed && (
             <div style={{ padding: '0 14px 16px 14px' }}>
-              <div style={{ 
-                background: `linear-gradient(135deg, ${colors.navy} 0%, ${colors.navySoft} 100%)`, 
-                padding: '16px', borderRadius: '18px', color: '#fff', 
+              <div style={{
+                background: `linear-gradient(135deg, ${colors.navy} 0%, ${colors.navySoft} 100%)`,
+                padding: '16px', borderRadius: '18px', color: '#fff',
                 boxShadow: '0 10px 20px -5px rgba(15, 23, 42, 0.3)',
                 position: 'relative', overflow: 'hidden'
               }}>
@@ -946,15 +946,15 @@ export default function OrganizerLayout() {
                 </div>
                 <p style={{ fontSize: '13px', fontWeight: '800', marginBottom: '6px', position: 'relative' }}>Pro Plan Required</p>
                 <p style={{ fontSize: '11px', opacity: 0.7, marginBottom: '14px', lineHeight: 1.4, position: 'relative' }}>To fully experience StandingsHQ, you need to subscribe.</p>
-                <button 
-                   onClick={() => navigate('/organizer/profile', { state: { activeTab: 'plan' } })}
-                   style={{ 
-                     width: '100%', padding: '10px', background: colors.accent, border: 'none', 
-                     borderRadius: '10px', color: '#fff', fontSize: '11px', fontWeight: '900', 
-                     cursor: 'pointer', transition: 'all 0.2s', boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
-                   }}
-                   onMouseEnter={(e) => e.target.style.transform = 'translateY(-1px)'}
-                   onMouseLeave={(e) => e.target.style.transform = 'none'}
+                <button
+                  onClick={() => navigate('/organizer/profile', { state: { activeTab: 'plan' } })}
+                  style={{
+                    width: '100%', padding: '10px', background: colors.accent, border: 'none',
+                    borderRadius: '10px', color: '#fff', fontSize: '11px', fontWeight: '900',
+                    cursor: 'pointer', transition: 'all 0.2s', boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
+                  }}
+                  onMouseEnter={(e) => e.target.style.transform = 'translateY(-1px)'}
+                  onMouseLeave={(e) => e.target.style.transform = 'none'}
                 >
                   SUBSCRIBE NOW
                 </button>

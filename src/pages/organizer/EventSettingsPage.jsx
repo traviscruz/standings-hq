@@ -6,8 +6,8 @@ import { GoogleMap, useJsApiLoader, Marker, Autocomplete } from '@react-google-m
 
 const GOOGLE_MAPS_API_KEY = process.env.REACT_APP_GOOGLE_MAPS_API_KEY || 'AIzaSyCbrk9Fnf3heYkZXpUtyjrxCI55JrdrnOI';
 
-const STATUS_OPTIONS  = ['Upcoming', 'Active', 'Completed', 'Cancelled'];
-const TYPE_OPTIONS    = ['Academic', 'Sports', 'Performing Arts', 'Arts & Culture', 'Technology', 'Science', 'Debate', 'Other'];
+const STATUS_OPTIONS = ['Upcoming', 'Active', 'Completed', 'Cancelled'];
+const TYPE_OPTIONS = ['Academic', 'Sports', 'Performing Arts', 'Arts & Culture', 'Technology', 'Science', 'Debate', 'Other'];
 
 /* ── Inline validation ─────────────────────────────────────────── */
 function validate(form) {
@@ -41,13 +41,13 @@ export default function EventSettingsPage() {
     name: '', type: '', startDate: '', startTime: '',
     endDate: '', endTime: '', description: '', visibility: 'Public', status: 'Upcoming', location: '',
   });
-  const [errors, setErrors]             = useState({});
+  const [errors, setErrors] = useState({});
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [saving, setSaving]             = useState(false);
-  const [saved, setSaved]               = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [activeBtnHover, setActiveBtnHover] = useState(null);
-  const [windowWidth, setWindowWidth]   = useState(window.innerWidth);
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
 
   // Google Maps
   const { isLoaded } = useJsApiLoader({
@@ -71,16 +71,16 @@ export default function EventSettingsPage() {
   useEffect(() => {
     if (!selectedEvent) return;
     setForm({
-      name:        selectedEvent.name        || '',
-      type:        selectedEvent.type        || '',
-      startDate:   selectedEvent.startDate   || '',
-      startTime:   selectedEvent.startTime   || '',
-      endDate:     selectedEvent.endDate     || '',
-      endTime:     selectedEvent.endTime     || '',
+      name: selectedEvent.name || '',
+      type: selectedEvent.type || '',
+      startDate: selectedEvent.startDate || '',
+      startTime: selectedEvent.startTime || '',
+      endDate: selectedEvent.endDate || '',
+      endTime: selectedEvent.endTime || '',
       description: selectedEvent.description || '',
-      visibility:  selectedEvent.visibility  || 'Public',
-      status:      selectedEvent.status      || 'Upcoming',
-      location:    selectedEvent.location    || '',
+      visibility: selectedEvent.visibility || 'Public',
+      status: selectedEvent.status || 'Upcoming',
+      location: selectedEvent.location || '',
     });
     setErrors({});
     setSaved(false);
@@ -100,7 +100,7 @@ export default function EventSettingsPage() {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const startDate = form.startDate ? new Date(form.startDate + 'T00:00:00') : null;
-      const endDate   = form.endDate   ? new Date(form.endDate   + 'T00:00:00') : null;
+      const endDate = form.endDate ? new Date(form.endDate + 'T00:00:00') : null;
 
       if (startDate && today < startDate) {
         showToast(
@@ -133,18 +133,18 @@ export default function EventSettingsPage() {
     setSaving(true);
     try {
       await updateEvent(selectedEvent.id, {
-        name:        form.name.trim(),
-        type:        form.type,
-        start_date:  form.startDate,
-        start_time:  form.startTime,
-        end_date:    form.endDate,
-        end_time:    form.endTime,
+        name: form.name.trim(),
+        type: form.type,
+        start_date: form.startDate,
+        start_time: form.startTime,
+        end_date: form.endDate,
+        end_time: form.endTime,
         description: form.description,
-        visibility:  form.visibility,
-        status:      form.status,
-        location:    form.location,
-        latitude:    markerPos ? markerPos.lat : null,
-        longitude:   markerPos ? markerPos.lng : null,
+        visibility: form.visibility,
+        status: form.status,
+        location: form.location,
+        latitude: markerPos ? markerPos.lat : null,
+        longitude: markerPos ? markerPos.lng : null,
       });
       setSaved(true);
       showToast('Event settings saved successfully.', 'success');
@@ -187,7 +187,7 @@ export default function EventSettingsPage() {
   });
 
   const inputFocus = (e) => { e.target.style.borderColor = colors.accent; e.target.style.boxShadow = `0 0 0 3px ${colors.accentGlow}`; };
-  const inputBlur  = (e) => { e.target.style.boxShadow = 'none'; };
+  const inputBlur = (e) => { e.target.style.boxShadow = 'none'; };
 
   const styles = {
     pageHeader: {
@@ -401,10 +401,10 @@ export default function EventSettingsPage() {
                 <label style={styles.label}>Event Status</label>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '10px' }}>
                   {[
-                    { value: 'Upcoming',  icon: 'schedule',     color: '#92400E', bg: '#FEF3C7', border: '#FDE68A',  desc: 'Not started' },
-                    { value: 'Active',    icon: 'sensors',      color: '#166534', bg: '#DCFCE7', border: '#86EFAC',  desc: 'Live now' },
-                    { value: 'Completed', icon: 'check_circle', color: '#1E3A8A', bg: '#EFF6FF', border: '#BFDBFE',  desc: 'Finished' },
-                    { value: 'Cancelled', icon: 'cancel',       color: '#991B1B', bg: '#FEF2F2', border: '#FECACA',  desc: 'Cancelled' },
+                    { value: 'Upcoming', icon: 'schedule', color: '#92400E', bg: '#FEF3C7', border: '#FDE68A', desc: 'Not started' },
+                    { value: 'Active', icon: 'sensors', color: '#166534', bg: '#DCFCE7', border: '#86EFAC', desc: 'Live now' },
+                    { value: 'Completed', icon: 'check_circle', color: '#1E3A8A', bg: '#EFF6FF', border: '#BFDBFE', desc: 'Finished' },
+                    { value: 'Cancelled', icon: 'cancel', color: '#991B1B', bg: '#FEF2F2', border: '#FECACA', desc: 'Cancelled' },
                   ].map(({ value, icon, color, bg, border, desc }) => {
                     const isSelected = form.status === value;
                     return (
@@ -519,8 +519,8 @@ export default function EventSettingsPage() {
               {[
                 { label: 'Start Date', key: 'startDate', type: 'date', req: true },
                 { label: 'Start Time', key: 'startTime', type: 'time', req: true },
-                { label: 'End Date',   key: 'endDate',   type: 'date', req: true },
-                { label: 'End Time',   key: 'endTime',   type: 'time', req: true },
+                { label: 'End Date', key: 'endDate', type: 'date', req: true },
+                { label: 'End Time', key: 'endTime', type: 'time', req: true },
               ].map(({ label, key, type, req }) => (
                 <div key={key}>
                   <label style={styles.label}>{label} {req && <span style={{ color: '#EF4444' }}>*</span>}</label>
@@ -577,9 +577,9 @@ export default function EventSettingsPage() {
             <div style={styles.formSectionBody}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {[
-                  { label: 'Event ID',  value: `#${String(selectedEvent.id).substring(0, 8)}` },
-                  { label: 'Created',   value: selectedEvent.createdAt ? new Date(selectedEvent.createdAt).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : '—' },
-                  { label: 'Status',    value: selectedEvent.status || '—' },
+                  { label: 'Event ID', value: `#${String(selectedEvent.id).substring(0, 8)}` },
+                  { label: 'Created', value: selectedEvent.createdAt ? new Date(selectedEvent.createdAt).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : '—' },
+                  { label: 'Status', value: selectedEvent.status || '—' },
                   { label: 'Organizer', value: localStorage.getItem('full_name') || localStorage.getItem('username') || '—' },
                 ].map(({ label, value }) => (
                   <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: colors.pageBg, borderRadius: '10px', gap: '8px' }}>

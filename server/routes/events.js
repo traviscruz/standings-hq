@@ -11,8 +11,8 @@ router.get('/', async (req, res) => {
     let query = supabase.from('events').select('*').order('created_at', { ascending: false });
 
     if (organizer_id) query = query.eq('organizer_id', organizer_id);
-    if (visibility)   query = query.eq('visibility', visibility);
-    if (type)         query = query.eq('type', type);
+    if (visibility) query = query.eq('visibility', visibility);
+    if (type) query = query.eq('type', type);
 
     const { data, error } = await query;
     if (error) throw error;
