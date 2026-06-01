@@ -104,20 +104,43 @@ export default function CertificatesPage() {
     const teamsList = gameSetup.config?.teams || [];
     const wins = {};
     teamsList.forEach(t => {
-      wins[t.name] = 0;
+      wins[t.name] = { team: t.name, color: t.color, winsCount: 0, matchesPlayed: 0 };
     });
     matches.forEach(m => {
       if (m.status === 'completed' && m.winner) {
-        wins[m.winner] = (wins[m.winner] || 0) + 1;
+        if (!wins[m.winner]) {
+          wins[m.winner] = { team: m.winner, winsCount: 0, matchesPlayed: 0 };
+        }
+        wins[m.winner].winsCount += 1;
+      }
+      if (m.team_a && m.team_a !== 'BYE') {
+        if (!wins[m.team_a]) wins[m.team_a] = { team: m.team_a, winsCount: 0, matchesPlayed: 0 };
+        if (m.status === 'completed') wins[m.team_a].matchesPlayed += 1;
+      }
+      if (m.team_b && m.team_b !== 'BYE') {
+        if (!wins[m.team_b]) wins[m.team_b] = { team: m.team_b, winsCount: 0, matchesPlayed: 0 };
+        if (m.status === 'completed') wins[m.team_b].matchesPlayed += 1;
       }
     });
 
-    return teamsList.map((t, idx) => ({
+    const sortedTeams = Object.values(wins).sort((a, b) => {
+      if (b.winsCount !== a.winsCount) {
+        return b.winsCount - a.winsCount;
+      }
+      const tbWinner = gameSetup?.config?.tieBreakerWinner;
+      if (tbWinner) {
+        if (a.team === tbWinner) return -1;
+        if (b.team === tbWinner) return 1;
+      }
+      return b.matchesPlayed - a.matchesPlayed;
+    });
+
+    return sortedTeams.map((t, idx) => ({
       id: t.id || `team-${idx}`,
-      name: t.name,
-      team: t.name,
+      name: t.team,
+      team: t.team,
       status: 'Registered',
-      score: wins[t.name] || 0,
+      score: t.winsCount,
       email: ''
     }));
   }, [gameSetup, matches, isGameMode]);
@@ -158,7 +181,7 @@ export default function CertificatesPage() {
         body: JSON.stringify({
           eventId: selectedEvent.id,
           bulkRecipient: bulkRecipient,
-          certType: certType,
+          certType: bulkRecipient === 'winners' ? 'champion' : 'participation',
           templateConfig: {
             templateId: selectedTemplate.id,
             bgImage: bgImage,
@@ -189,7 +212,7 @@ export default function CertificatesPage() {
   };
 
   const [selectedTemplate, setSelectedTemplate] = useState(BORDER_TEMPLATES[0]);
-  const [certType, setCertType] = useState('champion');
+  const [certType, setCertType] = useState('participation');
   const [recipientName, setRecipientName] = useState('');
   const [customText, setCustomText] = useState('');
   const [aiPrompt, setAiPrompt] = useState('');
@@ -229,6 +252,58 @@ export default function CertificatesPage() {
 
   const toggleSection = (id) => setExpandedSections(prev => ({ ...prev, [id]: !prev[id] }));
 
+  const [showAdvancedStudio, setShowAdvancedStudio] = useState(false);
+
+  const userName = localStorage.getItem('username') || localStorage.getItem('full_name') || 'Event Admin';
+  React.useEffect(() => {
+    if (selectedEvent) {
+      if (!orgName) setOrgName(selectedEvent.name);
+      if (signatories.length === 0) {
+        setSignatories([
+          { id: Date.now(), name: userName, title: 'Event Organizer', esign: null }
+        ]);
+      }
+    }
+  }, [selectedEvent, userName]);
+
+  const displayListWithMembers = React.useMemo(() => {
+    return displayList.map(item => {
+      const teamName = item.team || item.name;
+      const members = participants.filter(p => p.team?.trim().toLowerCase() === teamName?.trim().toLowerCase());
+      return {
+        ...item,
+        members: members.length > 0 ? members : (item.members || [])
+      };
+    });
+  }, [displayList, participants]);
+
+  const sortedDisplayList = React.useMemo(() => {
+    return [...displayListWithMembers].sort((a, b) => {
+      return (b.score ?? -1) - (a.score ?? -1);
+    });
+  }, [displayListWithMembers]);
+
+  const previewRecipient = React.useMemo(() => {
+    if (!recipientName) return sortedDisplayList[0] || { id: 'preview-id', name: 'Recipient Name', score: null };
+    return sortedDisplayList.find(p => p?.name?.trim().toLowerCase() === recipientName?.trim().toLowerCase()) || { id: 'preview-id', name: recipientName, score: null };
+  }, [recipientName, sortedDisplayList]);
+
+  const previewRank = React.useMemo(() => {
+    if (!previewRecipient) return 999;
+    const idx = sortedDisplayList.findIndex(p => p.id === previewRecipient.id);
+    return idx !== -1 ? idx + 1 : 999;
+  }, [previewRecipient, sortedDisplayList]);
+
+  const isPreviewChampion = previewRank === 1;
+  const previewTitleText = isPreviewChampion 
+    ? 'CHAMPION AWARD' 
+    : (previewRank === 2 ? '2nd PLACE WINNER' : (previewRank === 3 ? '3rd PLACE WINNER' : 'PARTICIPATION AWARD'));
+  const previewSubheaderText = isPreviewChampion 
+    ? 'OF CHAMPIONSHIP EXCELLENCE' 
+    : (previewRank === 2 || previewRank === 3 ? 'OF RUNNER UP EXCELLENCE' : 'OF ACTIVE PARTICIPATION');
+
+  const previewBodyText = customText || AI_TEXTS['participation'](selectedEvent.name);
+
   if (eventsLoading) {
     return (
       <div style={{ display: 'grid', placeItems: 'center', minHeight: '300px' }}>
@@ -250,7 +325,12 @@ export default function CertificatesPage() {
   const targetList = displayList.filter(p => {
     if (bulkRecipient === 'all') return true;
     if (bulkRecipient === 'winners') {
-      const ranked = [...displayList].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
+      const ranked = [...displayList].sort((a, b) => {
+        if (b.score !== a.score) {
+          return (b.score ?? -1) - (a.score ?? -1);
+        }
+        return displayList.indexOf(a) - displayList.indexOf(b);
+      });
       return ranked.slice(0, 3).some(r => r.id === p.id);
     }
     if (bulkRecipient === 'registered') return p.status === 'Registered';
@@ -544,26 +624,37 @@ Rules:
     }
 
     const rName = p.name;
-    const sorted = [...displayList].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
+    const sorted = [...displayList].sort((a, b) => {
+      if (b.score !== a.score) {
+        return (b.score ?? -1) - (a.score ?? -1);
+      }
+      return displayList.indexOf(a) - displayList.indexOf(b);
+    });
     const rank = sorted.findIndex(s => s.id === p.id) + 1;
     
     let achievement = 'Participation';
-    if (certType === 'champion') {
-      if (rank === 1) achievement = '1st Place Champion';
-      else if (rank === 2) achievement = '2nd Place';
-      else if (rank === 3) achievement = '3rd Place';
-      else achievement = 'Champion Finalist';
-    } else if (certType === 'recognition') {
-      achievement = 'Recognition';
+    let mainTitleText = 'PARTICIPATION AWARD';
+    let subheaderText = 'OF ACTIVE PARTICIPATION';
+    
+    if (rank === 1) {
+      achievement = '1st Place Champion';
+      mainTitleText = 'CHAMPION AWARD';
+      subheaderText = 'OF CHAMPIONSHIP EXCELLENCE';
+    } else if (rank === 2) {
+      achievement = '2nd Place';
+      mainTitleText = '2nd PLACE WINNER';
+      subheaderText = 'OF RUNNER UP EXCELLENCE';
+    } else if (rank === 3) {
+      achievement = '3rd Place';
+      mainTitleText = '3rd PLACE WINNER';
+      subheaderText = 'OF RUNNER UP EXCELLENCE';
+    } else {
+      achievement = 'Participation';
+      mainTitleText = 'PARTICIPATION AWARD';
+      subheaderText = 'OF ACTIVE PARTICIPATION';
     }
 
-    const isChampion = certType === 'champion';
-    const mainTitleText = isChampion ? 'CHAMPION AWARD' : 'CERTIFICATE';
-    const subheaderText = isChampion 
-      ? `OF CHAMPIONSHIP EXCELLENCE` 
-      : certType === 'participation' 
-        ? 'OF ACTIVE PARTICIPATION' 
-        : 'OF SPECIAL RECOGNITION';
+    const pBodyText = customText || AI_TEXTS['participation'](selectedEvent.name);
 
     const aspect = certOrientation === 'landscape' ? '297mm 210mm' : '210mm 297mm';
 
@@ -702,12 +793,12 @@ Rules:
         <body>
           <div class="cert-container">
             ${cornersHtml}
-            <div class="org-name">${orgName ? `${orgName} · ` : ''}${certType === 'champion' ? 'Championship Recognition' : 'Official Recognition'}</div>
+            <div class="org-name">${orgName ? `${orgName} · ` : ''}${rank === 1 ? 'Championship Recognition' : 'Official Recognition'}</div>
             <h1 class="main-title">${mainTitleText}</h1>
             <div class="sub-title">${subheaderText}</div>
             <div class="presented">This prestigious award is proudly presented to</div>
             <div class="recipient">${rName}</div>
-            <div class="custom-text">${bodyText}</div>
+            <div class="custom-text">${pBodyText}</div>
             
             <div class="signatories">
               ${signatories.map(s => `
@@ -934,7 +1025,259 @@ Rules:
         </div>
       </div>
 
-      <div style={styles.mainGrid}>
+      {/* ── TOP SECTION: SIMPLE ROSTER AND WINNERS ── */}
+      <div style={{
+        background: '#fff',
+        border: `1.5px solid ${colors.borderSoft}`,
+        borderRadius: '24px',
+        padding: '32px',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.02)',
+        marginBottom: '32px',
+        fontFamily: "'Inter', sans-serif"
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px', marginBottom: '24px' }}>
+          <div>
+            <h2 style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '20px', fontWeight: 800, color: colors.navy, margin: 0 }}>
+              🏆 Winner &amp; Participant Roster
+            </h2>
+            <p style={{ fontSize: '13.5px', color: colors.inkSoft, margin: '4px 0 0' }}>
+              One-click issue or print professional, high-res e-certificates directly from the roster.
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            <button
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '10px 20px',
+                borderRadius: '12px',
+                fontSize: '13px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                background: showAdvancedStudio ? '#1E293B' : '#fff',
+                color: showAdvancedStudio ? '#fff' : colors.navy,
+                border: `1.5px solid ${showAdvancedStudio ? '#1E293B' : colors.border}`,
+                transition: 'all 0.2s',
+              }}
+              onClick={() => setShowAdvancedStudio(!showAdvancedStudio)}
+            >
+              <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>brush</span>
+              {showAdvancedStudio ? 'Hide Design Studio' : 'Customize Template'}
+            </button>
+            <button
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '10px 22px',
+                borderRadius: '12px',
+                fontSize: '13px',
+                fontWeight: '700',
+                cursor: isEventCompleted ? 'pointer' : 'not-allowed',
+                background: isEventCompleted ? '#9333EA' : '#CBD5E1',
+                color: '#fff',
+                border: 'none',
+                transition: 'all 0.2s',
+                opacity: isEventCompleted ? 1 : 0.6,
+                boxShadow: isEventCompleted ? '0 4px 12px rgba(147, 51, 234, 0.2)' : 'none'
+              }}
+              disabled={!isEventCompleted || generating}
+              onClick={generateCertificates}
+            >
+              <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>rocket_launch</span>
+              {generating ? 'Issuing...' : `Bulk Issue All (${displayList.length})`}
+            </button>
+          </div>
+        </div>
+
+        {/* Dynamic Winners Podium Row */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+          gap: '20px',
+          marginBottom: '32px'
+        }}>
+          {sortedDisplayList.slice(0, 3).map((p, idx) => {
+            const rank = idx + 1;
+            let title = 'Champion';
+            let badge = '🥇';
+            let bg = 'linear-gradient(135deg, #FEF3C7 0%, #FFFBEB 100%)';
+            let border = '1.5px solid #FCD34D';
+            let titleColor = '#92400E';
+
+            if (rank === 2) {
+              title = '1st Runner Up';
+              badge = '🥈';
+              bg = 'linear-gradient(135deg, #F1F5F9 0%, #F8FAFC 100%)';
+              border = '1.5px solid #CBD5E1';
+              titleColor = '#475569';
+            } else if (rank === 3) {
+              title = '2nd Runner Up';
+              badge = '🥉';
+              bg = 'linear-gradient(135deg, #FFEDD5 0%, #FFF7ED 100%)';
+              border = '1.5px solid #FED7AA';
+              titleColor = '#C2410C';
+            }
+
+            return (
+              <div key={p.id} style={{
+                background: bg,
+                border: border,
+                borderRadius: '20px',
+                padding: '20px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                boxShadow: '0 4px 10px rgba(0,0,0,0.01)',
+                position: 'relative'
+              }}>
+                <div style={{ position: 'absolute', top: '16px', right: '16px', fontSize: '24px' }}>
+                  {badge}
+                </div>
+                <div>
+                  <span style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', color: titleColor, letterSpacing: '0.05em' }}>
+                    {title}
+                  </span>
+                  <h3 style={{ fontSize: '18px', fontWeight: 800, color: colors.navy, margin: '4px 0 8px' }}>
+                    {p.name}
+                  </h3>
+                  
+                  {/* Members behind the team */}
+                  {p.members && p.members.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '16px' }}>
+                      {p.members.map(m => (
+                        <span key={m.id} style={{
+                          fontSize: '11px',
+                          fontWeight: '600',
+                          background: 'rgba(255, 255, 255, 0.7)',
+                          color: colors.navy,
+                          padding: '2.5px 8px',
+                          borderRadius: '6px',
+                          border: '1px solid rgba(0,0,0,0.05)'
+                        }}>
+                          {m.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  
+                  <div style={{ fontSize: '13px', color: colors.inkSoft, marginBottom: '20px' }}>
+                    Final Score: <strong style={{ color: colors.navy }}>{p.score ?? '—'}</strong>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button
+                    style={{
+                      flex: 1,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      padding: '8px 12px',
+                      borderRadius: '10px',
+                      fontSize: '12px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      background: '#fff',
+                      color: colors.navy,
+                      border: '1px solid rgba(0,0,0,0.1)',
+                      transition: 'all 0.2s',
+                    }}
+                    onClick={() => handleDownloadForParticipant(p)}
+                  >
+                    <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>print</span>
+                    Print / PDF
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Participant Table */}
+        <h4 style={{ fontSize: '13px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: colors.inkMuted, marginBottom: '14px' }}>
+          Participants &amp; Team Roster ({sortedDisplayList.length})
+        </h4>
+        <div style={{
+          border: `1px solid ${colors.borderSoft}`,
+          borderRadius: '16px',
+          overflow: 'hidden'
+        }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+            <thead>
+              <tr style={{ background: '#F8FAFC' }}>
+                <th style={{ padding: '12px 20px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: colors.inkMuted, borderBottom: `1.5px solid ${colors.borderSoft}` }}>Rank</th>
+                <th style={{ padding: '12px 20px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: colors.inkMuted, borderBottom: `1.5px solid ${colors.borderSoft}` }}>Name</th>
+                <th style={{ padding: '12px 20px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: colors.inkMuted, borderBottom: `1.5px solid ${colors.borderSoft}` }}>People Behind</th>
+                <th style={{ padding: '12px 20px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: colors.inkMuted, borderBottom: `1.5px solid ${colors.borderSoft}`, textAlign: 'center' }}>Score</th>
+                <th style={{ padding: '12px 20px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: colors.inkMuted, borderBottom: `1.5px solid ${colors.borderSoft}`, textAlign: 'right' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedDisplayList.map((p, idx) => {
+                const rank = idx + 1;
+                const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
+                return (
+                  <tr key={p.id} style={{ borderBottom: `1px solid ${colors.borderSoft}`, background: rank <= 3 ? 'rgba(255,255,255,0.2)' : 'transparent' }}>
+                    <td style={{ padding: '16px 20px', fontSize: '14px', fontWeight: 800, color: colors.navy }}>{medal}</td>
+                    <td style={{ padding: '16px 20px', fontSize: '14.5px', fontWeight: 700, color: colors.navy }}>{p.name}</td>
+                    <td style={{ padding: '16px 20px' }}>
+                      {p.members && p.members.length > 0 ? (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                          {p.members.map(m => (
+                            <span key={m.id} style={{
+                              fontSize: '10.5px',
+                              fontWeight: '600',
+                              background: '#F1F5F9',
+                              color: colors.navy,
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                            }}>
+                              {m.name}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span style={{ fontSize: '12.5px', color: colors.inkMuted }}>Individual Participant</span>
+                      )}
+                    </td>
+                    <td style={{ padding: '16px 20px', fontSize: '14.5px', fontWeight: 800, color: colors.navy, textAlign: 'center' }}>
+                      {p.score ?? '—'}
+                    </td>
+                    <td style={{ padding: '16px 20px', textAlign: 'right' }}>
+                      <button
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '6px 12px',
+                          borderRadius: '8px',
+                          fontSize: '12px',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          background: '#fff',
+                          color: colors.navy,
+                          border: '1px solid rgba(0,0,0,0.1)',
+                          transition: 'all 0.2s',
+                        }}
+                        onClick={() => handleDownloadForParticipant(p)}
+                      >
+                        <span className="material-symbols-rounded" style={{ fontSize: '15px' }}>print</span>
+                        Print PDF
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {showAdvancedStudio && (
+        <div style={styles.mainGrid}>
         {/* ── LEFT: PURE PREVIEW (Col 1-7) ── */}
         <div style={{
           gridColumn: isMobile ? 'span 12' : 'span 7',
@@ -1020,17 +1363,17 @@ Rules:
 
               <div style={{ position: 'relative', zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                 <div style={{ fontSize: '12px', fontWeight: 800, letterSpacing: '0.3em', textTransform: 'uppercase', color: (bgImage || !selectedTemplate.isDark) ? colors.navy : selectedTemplate.accent, marginBottom: '20px', opacity: 0.9 }}>
-                  {orgName ? `${orgName} · ` : ''}{certType === 'champion' ? 'Championship Recognition' : 'Official Recognition'}
+                  {orgName ? `${orgName} · ` : ''}{previewRank === 1 ? 'Championship Recognition' : 'Official Recognition'}
                 </div>
                 <div style={{ fontSize: '56px', fontFamily: "'DM Sans', sans-serif", fontWeight: 900, color: (bgImage || !selectedTemplate.isDark) ? colors.navy : '#fff', marginBottom: '8px', letterSpacing: '-0.02em' }}>
-                  {certType === 'champion' ? 'CHAMPION AWARD' : 'CERTIFICATE'}
+                  {previewTitleText}
                 </div>
                 <div style={{ fontSize: '14px', fontWeight: 600, color: (bgImage || !selectedTemplate.isDark) ? colors.inkSoft : 'rgba(255,255,255,0.6)', marginBottom: '24px', letterSpacing: '0.1em' }}>
-                  {certType === 'champion' ? 'OF CHAMPIONSHIP EXCELLENCE' : certType === 'participation' ? 'OF ACTIVE PARTICIPATION' : 'OF SPECIAL RECOGNITION'}
+                  {previewSubheaderText}
                 </div>
                 <div style={{ fontSize: '15px', color: (bgImage || !selectedTemplate.isDark) ? colors.inkMid : 'rgba(255,255,255,0.7)', marginBottom: '12px' }}>This prestigious award is proudly presented to</div>
                 <div style={{ fontSize: '42px', fontFamily: "Georgia, serif", fontStyle: 'italic', color: (bgImage || !selectedTemplate.isDark) ? colors.navy : '#fff', marginBottom: '20px', borderBottom: `2px solid ${bgImage || !selectedTemplate.isDark ? colors.borderSoft : selectedTemplate.border}`, paddingBottom: '16px', minWidth: '320px', fontWeight: 700 }}>{recipientName || 'Recipient Name'}</div>
-                <div style={{ fontSize: '14px', color: (bgImage || !selectedTemplate.isDark) ? colors.inkSoft : 'rgba(255,255,255,0.8)', maxWidth: '540px', lineHeight: 1.8, marginBottom: '40px', fontStyle: 'italic' }}>{bodyText || 'Your certificate text will appear here.'}</div>
+                <div style={{ fontSize: '14px', color: (bgImage || !selectedTemplate.isDark) ? colors.inkSoft : 'rgba(255,255,255,0.8)', maxWidth: '540px', lineHeight: 1.8, marginBottom: '40px', fontStyle: 'italic' }}>{previewBodyText || 'Your certificate text will appear here.'}</div>
                 <div style={{ display: 'flex', gap: '60px', justifyContent: 'center', flexWrap: 'wrap' }}>
                   {signatories.map(s => (
                     <div key={s.id} style={{ textAlign: 'center', minWidth: '140px', position: 'relative' }}>
@@ -1066,19 +1409,9 @@ Rules:
             {expandedSections.content && (
               <div style={styles.formSectionBody}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                    <div>
-                      <label style={styles.label}>Type</label>
-                      <select style={styles.input} value={certType} onChange={e => setCertType(e.target.value)}>
-                        <option value="champion">Champion Award</option>
-                        <option value="participation">Participation</option>
-                        <option value="recognition">Recognition</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label style={styles.label}>Organization Name</label>
-                      <input type="text" style={styles.input} placeholder="e.g. School, Company, Club" value={orgName} onChange={e => setOrgName(e.target.value)} />
-                    </div>
+                  <div>
+                    <label style={styles.label}>Organization Name</label>
+                    <input type="text" style={styles.input} placeholder="e.g. School, Company, Club" value={orgName} onChange={e => setOrgName(e.target.value)} />
                   </div>
                   <div>
                     <label style={styles.label}>Recipient Name</label>
@@ -1453,6 +1786,7 @@ Rules:
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

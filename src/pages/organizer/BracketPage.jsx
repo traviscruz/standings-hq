@@ -27,6 +27,63 @@ export default function BracketPage() {
   const [isResetting, setIsResetting] = useState(false);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
 
+  const [selectedTieBreakerWinner, setSelectedTieBreakerWinner] = useState('');
+  const [isSavingTieBreaker, setIsSavingTieBreaker] = useState(false);
+
+  const handleRecordTieBreaker = async (winnerName) => {
+    if (!winnerName) return;
+    setIsSavingTieBreaker(true);
+    try {
+      const userId = localStorage.getItem('user_id');
+      const updatedConfig = {
+        ...gameSetup.config,
+        tieBreakerWinner: winnerName
+      };
+
+      const res = await fetch(`${API_URL}/game/setup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event_id: selectedEvent.id, config: updatedConfig, created_by: userId })
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error);
+      
+      setGameSetup(prev => ({ ...prev, config: updatedConfig }));
+      showToast(`Tie-breaker winner recorded: ${winnerName}!`, 'success');
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to record tie-breaker winner.', 'error');
+    } finally {
+      setIsSavingTieBreaker(false);
+    }
+  };
+
+  const handleResetTieBreaker = async () => {
+    setIsSavingTieBreaker(true);
+    try {
+      const userId = localStorage.getItem('user_id');
+      const updatedConfig = { ...gameSetup.config };
+      delete updatedConfig.tieBreakerWinner;
+
+      const res = await fetch(`${API_URL}/game/setup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event_id: selectedEvent.id, config: updatedConfig, created_by: userId })
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error);
+      
+      setGameSetup(prev => ({ ...prev, config: updatedConfig }));
+      setSelectedTieBreakerWinner('');
+      showToast('Tie-breaker cleared successfully.', 'info');
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to clear tie-breaker.', 'error');
+    } finally {
+      setIsSavingTieBreaker(false);
+    }
+  };
+
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
     window.addEventListener('resize', handleResize);
@@ -93,9 +150,65 @@ export default function BracketPage() {
 
   // Determine overall champion
   const roundedData = groupByRound(matches);
-  const maxRound = roundedData.length > 0 ? Math.max(...roundedData.map(r => r.round)) : 0;
-  const finalMatch = roundedData.find(r => r.round === maxRound)?.matches[0];
-  const champion = finalMatch?.winner || null;
+  const isRoundRobin = gameSetup?.config?.bracketFormat === 'round_robin' || matches.some(m => m.round_label === 'Round Robin');
+  const allMatchesCompleted = matches.length > 0 && matches.every(m => m.status === 'completed');
+
+  const teamWins = React.useMemo(() => {
+    const wins = {};
+    const teamsList = gameSetup?.config?.teams || [];
+    teamsList.forEach(t => {
+      wins[t.name] = { team: t.name, color: t.color, winsCount: 0, matchesPlayed: 0 };
+    });
+    matches.forEach(m => {
+      if (m.status === 'completed' && m.winner) {
+        if (!wins[m.winner]) {
+          wins[m.winner] = { team: m.winner, winsCount: 0, matchesPlayed: 0 };
+        }
+        wins[m.winner].winsCount += 1;
+      }
+      if (m.team_a && m.team_a !== 'BYE') {
+        if (!wins[m.team_a]) wins[m.team_a] = { team: m.team_a, winsCount: 0, matchesPlayed: 0 };
+        if (m.status === 'completed') wins[m.team_a].matchesPlayed += 1;
+      }
+      if (m.team_b && m.team_b !== 'BYE') {
+        if (!wins[m.team_b]) wins[m.team_b] = { team: m.team_b, winsCount: 0, matchesPlayed: 0 };
+        if (m.status === 'completed') wins[m.team_b].matchesPlayed += 1;
+      }
+    });
+    return Object.values(wins).sort((a, b) => {
+      if (b.winsCount !== a.winsCount) {
+        return b.winsCount - a.winsCount;
+      }
+      const tbWinner = gameSetup?.config?.tieBreakerWinner;
+      if (tbWinner) {
+        if (a.team === tbWinner) return -1;
+        if (b.team === tbWinner) return 1;
+      }
+      return b.matchesPlayed - a.matchesPlayed;
+    });
+  }, [matches, gameSetup]);
+
+  const champion = React.useMemo(() => {
+    if (matches.length === 0 || !gameSetup) return null;
+    
+    if (isRoundRobin) {
+      if (gameSetup?.config?.tieBreakerWinner) {
+        return gameSetup.config.tieBreakerWinner;
+      }
+      if (allMatchesCompleted && teamWins.length > 0) {
+        const maxWins = teamWins[0].winsCount;
+        const topTeams = teamWins.filter(t => t.winsCount === maxWins);
+        if (topTeams.length === 1) {
+          return topTeams[0].team;
+        }
+      }
+      return null;
+    } else {
+      const maxRound = roundedData.length > 0 ? Math.max(...roundedData.map(r => r.round)) : 0;
+      const finalMatch = roundedData.find(r => r.round === maxRound)?.matches[0];
+      return finalMatch?.winner || null;
+    }
+  }, [matches, gameSetup, isRoundRobin, allMatchesCompleted, teamWins, roundedData]);
 
   const handleSetWinner = async (matchId, winner, currentMatch) => {
     // Optimistic update
@@ -321,6 +434,134 @@ export default function BracketPage() {
           </div>
         </div>
       )}
+
+            {/* Tie-Breaker Console */}
+            {isRoundRobin && allMatchesCompleted && (() => {
+              const maxWins = teamWins[0]?.winsCount || 0;
+              const tiedTeams = teamWins.filter(t => t.winsCount === maxWins);
+              const hasTiedTeams = tiedTeams.length > 1;
+              const recordedWinner = gameSetup?.config?.tieBreakerWinner;
+
+              if (!hasTiedTeams) return null;
+
+              return (
+                <div style={{
+                  background: 'linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%)',
+                  border: '1.5px solid #FCD34D',
+                  borderRadius: '22px',
+                  padding: '24px',
+                  marginBottom: '32px',
+                  boxShadow: '0 4px 15px rgba(251, 191, 36, 0.1)',
+                  animation: 'fadeIn 0.4s ease-out'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                    <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: '#F59E0B', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                      <span className="material-symbols-rounded" style={{ fontSize: '22px', color: '#fff' }}>bolt</span>
+                    </div>
+                    <div>
+                      <h4 style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '16px', fontWeight: '800', color: '#92400E', margin: 0 }}>
+                        {recordedWinner ? 'Recorded Tie-Breaker Decision' : 'Leaderboard Tie Detected!'}
+                      </h4>
+                      <p style={{ fontSize: '13px', color: '#B45309', margin: '2px 0 0' }}>
+                        {recordedWinner 
+                          ? `The organizer has recorded a tie-breaker decision in favor of ${recordedWinner}.` 
+                          : `${tiedTeams.map(t => t.team).join(' and ')} are tied for 1st place with ${maxWins} wins.`}
+                      </p>
+                    </div>
+                  </div>
+
+                  {recordedWinner ? (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', padding: '10px 20px', borderRadius: '100px', background: 'rgba(245, 158, 11, 0.12)', border: '1.5px solid #FCD34D' }}>
+                        <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#F59E0B' }} />
+                        <span style={{ fontSize: '14px', fontWeight: '700', color: '#92400E' }}>
+                          🏆 Winner: {recordedWinner}
+                        </span>
+                      </div>
+                      <button
+                        onClick={handleResetTieBreaker}
+                        disabled={isSavingTieBreaker}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          padding: '10px 20px',
+                          borderRadius: '12px',
+                          fontSize: '13px',
+                          fontWeight: '600',
+                          cursor: 'pointer',
+                          background: '#fff',
+                          color: '#DC2626',
+                          border: '1px solid rgba(220, 38, 38, 0.2)',
+                          transition: 'all 0.2s',
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
+                        }}
+                      >
+                        <span className="material-symbols-rounded" style={{ fontSize: '16px' }}>delete</span>
+                        Clear Tie-Breaker Decision
+                      </button>
+                    </div>
+                  ) : (
+                    <div>
+                      <p style={{ fontSize: '13px', fontWeight: '700', color: '#92400E', marginBottom: '12px' }}>
+                        Select the team that won the tie-breaker round:
+                      </p>
+                      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '16px' }}>
+                        {tiedTeams.map(t => {
+                          const isSelected = selectedTieBreakerWinner === t.team;
+                          return (
+                            <button
+                              key={t.team}
+                              onClick={() => setSelectedTieBreakerWinner(t.team)}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                padding: '10px 20px',
+                                borderRadius: '12px',
+                                border: `2px solid ${isSelected ? '#F59E0B' : '#E2E8F0'}`,
+                                background: isSelected ? '#FEF3C7' : '#fff',
+                                color: isSelected ? '#92400E' : colors.inkSoft,
+                                fontWeight: '700',
+                                fontSize: '13.5px',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s'
+                              }}
+                            >
+                              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: t.color || '#F59E0B' }} />
+                              {t.team}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <button
+                        onClick={() => handleRecordTieBreaker(selectedTieBreakerWinner)}
+                        disabled={!selectedTieBreakerWinner || isSavingTieBreaker}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          padding: '12px 24px',
+                          borderRadius: '12px',
+                          fontSize: '13.5px',
+                          fontWeight: '700',
+                          cursor: (!selectedTieBreakerWinner || isSavingTieBreaker) ? 'not-allowed' : 'pointer',
+                          background: '#F59E0B',
+                          color: '#fff',
+                          border: 'none',
+                          opacity: (!selectedTieBreakerWinner || isSavingTieBreaker) ? 0.6 : 1,
+                          transition: 'all 0.2s',
+                          boxShadow: '0 4px 12px rgba(245, 158, 11, 0.2)'
+                        }}
+                      >
+                        <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>check</span>
+                        {isSavingTieBreaker ? 'Saving...' : 'Record Tie-Breaker Decision'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
       {/* Bracket Display */}
       <div style={{ overflowX: 'auto', paddingBottom: '24px' }}>
