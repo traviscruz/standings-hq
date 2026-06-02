@@ -512,48 +512,6 @@ export default function ProfilePage() {
           <div style={{ ...styles.card(5), gap: '32px' }}
           >
             {/* SIGNATURE */}
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px' }}>
-                <div style={styles.iconWrapper('#EEF2FF', '#6366F1')}>
-                  <span className="material-symbols-rounded">draw</span>
-                </div>
-                <h2 style={styles.cardTitle}>E-Signature</h2>
-              </div>
-              
-              <div style={{ 
-                height: '120px', border: `2px dashed ${colors.border}`, borderRadius: '18px', 
-                background: colors.pageBg, display: 'grid', placeItems: 'center', position: 'relative'
-              }}>
-                {localStorage.getItem(`esign_${formData.username}`) ? (
-                  <div style={{ textAlign: 'center' }}>
-                    <img src={localStorage.getItem(`esign_${formData.username}`)} alt="Sig" style={{ maxHeight: '70px' }} />
-                    <button 
-                      onClick={() => { localStorage.removeItem(`esign_${formData.username}`); setFormData({...formData}); }}
-                      style={{ position: 'absolute', top: '10px', right: '10px', background: '#fff', border: `1px solid ${colors.border}`, borderRadius: '50%', width: '28px', height: '28px', display: 'grid', placeItems: 'center', cursor: 'pointer', color: colors.error }}
-                    >
-                      <span className="material-symbols-rounded" style={{ fontSize: '18px' }}>close</span>
-                    </button>
-                  </div>
-                ) : (
-                  <label style={{ cursor: 'pointer', textAlign: 'center' }}>
-                    <input type="file" hidden accept="image/*" onChange={(e) => {
-                      const file = e.target.files[0];
-                      if (file) {
-                        const reader = new FileReader();
-                        reader.onloadend = () => {
-                          localStorage.setItem(`esign_${formData.username}`, reader.result);
-                          setFormData({...formData});
-                          setShowSuccess(true);
-                        };
-                        reader.readAsDataURL(file);
-                      }
-                    }} />
-                    <span className="material-symbols-rounded" style={{ fontSize: '32px', color: colors.border, marginBottom: '4px' }}>upload_file</span>
-                    <p style={{ fontSize: '12px', color: colors.inkMuted, fontWeight: '700' }}>Upload PNG</p>
-                  </label>
-                )}
-              </div>
-            </div>
           </div>
         </div>
       ) : (

@@ -93,7 +93,7 @@ export default function EventSettingsPage() {
     } else {
       setMarkerPos(null);
     }
-  }, [selectedEvent?.id]);
+  }, [selectedEvent?.id, selectedEvent?.competition_mode]);
 
   const set = (key, val) => {
     // Status validation: block setting Active if outside event date window
@@ -433,22 +433,23 @@ export default function EventSettingsPage() {
               {/* Competition Mode */}
               <div>
                 <label style={styles.label}>Competition Mode</label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
                   {[
-                    { id: 'standard', label: 'Standard Rubric', icon: 'gavel', desc: 'Score participants using customizable multi-criteria rubrics.' },
-                    { id: 'game', label: 'Traditional Games / Tournament', icon: 'sports_esports', desc: 'Run bracket matchups (e.g. Tug of War, Patintero).' }
+                    { id: 'standard', label: 'Standard Rubric', icon: 'gavel', desc: 'Score participants using customizable multi-criteria rubrics. Perfect for pageants, debates, or talent shows.' },
+                    { id: 'game', label: 'Traditional Games / Tournament', icon: 'sports_esports', desc: 'Run bracket matchups (e.g. Tug of War, Patintero). AI creates round limits, scoring configs, and advances winners.' },
+                    { id: 'sports', label: 'Sports Competition', icon: 'sports', desc: 'Track scores per quarter, set, or period for sports like Basketball, Volleyball, Badminton and more.' },
                   ].map(m => {
                     const isSelected = form.competition_mode === m.id;
                     return (
                       <label key={m.id} style={{
-                        display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '6px', padding: '12px 16px',
+                        display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '6px', padding: '14px 16px',
                         border: `2px solid ${isSelected ? colors.accent : colors.borderSoft}`,
                         borderRadius: '14px', cursor: 'pointer',
                         background: isSelected ? colors.accentBg : '#fff', transition: 'all 0.2s',
                       }}>
                         <input type="radio" name="competition_mode" value={m.id} checked={isSelected} onChange={() => set('competition_mode', m.id)} style={{ display: 'none' }} />
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span className="material-symbols-rounded" style={{ fontSize: '20px', color: isSelected ? colors.accent : colors.inkMuted }}>{m.icon}</span>
+                          <span className="material-symbols-rounded" style={{ fontSize: '22px', color: isSelected ? colors.accent : colors.inkMuted }}>{m.icon}</span>
                           <span style={{ fontSize: '14px', fontWeight: 800, color: isSelected ? colors.accentDeep : colors.navy }}>{m.label}</span>
                         </div>
                         <span style={{ fontSize: '11.5px', color: colors.inkMid, lineHeight: '1.4' }}>{m.desc}</span>

@@ -276,7 +276,7 @@ export default function JudgeLayout() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
-  const userName = localStorage.getItem('username') || 'Official Judge';
+  const userName = (localStorage.getItem('full_name') || localStorage.getItem('username') || 'Official Judge').split(' ')[0];
   const userInitials = userName.split(' ').map(n => n[0]).join('').toUpperCase();
   const [hoveredLink, setHoveredLink] = useState(null);
   const [isLogoutHovered, setIsLogoutHovered] = useState(false);

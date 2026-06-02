@@ -70,7 +70,7 @@ export default function ParticipantLayout() {
   const [toast, setToast] = useState(null);
   const timeoutRef = useRef(null);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
-  const userName = localStorage.getItem('full_name') || localStorage.getItem('username') || 'Member';
+  const userName = (localStorage.getItem('full_name') || localStorage.getItem('username') || 'Member').split(' ')[0];
   const userInitials = userName.split(' ').map(n => n[0]).join('').toUpperCase();
   const [hoveredLink, setHoveredLink] = useState(null);
   const [isLogoutHovered, setIsLogoutHovered] = useState(false);

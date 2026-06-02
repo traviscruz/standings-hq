@@ -14,6 +14,8 @@ const SPORT_ICONS = {
 
 export default function SportsSetupPage() {
   const { selectedEvent, participants, showToast, gameSetupConfig, eventsLoading } = useEventContext();
+
+  const isLocked = ['active', 'ongoing', 'completed'].includes((selectedEvent?.status || '').toLowerCase());
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -201,8 +203,30 @@ export default function SportsSetupPage() {
   const card = { background: '#fff', border: `1px solid ${colors.borderSoft}`, borderRadius: '20px', padding: '28px' };
 
   return (
-    <div className="slide-up-anim">
+    <div className="slide-up-anim" style={{ position: 'relative' }}>
       <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }`}</style>
+
+      {/* 🔒 Lock overlay */}
+      {isLocked && (
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(6px)', zIndex: 100, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px', textAlign: 'center', borderRadius: '16px' }}>
+          <div style={{ background: '#fff', border: `1.5px solid ${colors.borderSoft}`, borderRadius: '24px', padding: '36px 28px', maxWidth: '400px', boxShadow: '0 20px 48px rgba(15,23,42,0.08)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '18px' }}>
+            <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: '#FFF9E6', color: '#D97706', display: 'grid', placeItems: 'center', boxShadow: '0 4px 14px rgba(217,119,6,0.15)' }}>
+              <span className="material-symbols-rounded" style={{ fontSize: '28px' }}>lock</span>
+            </div>
+            <div>
+              <h3 style={{ fontSize: '19px', fontWeight: 800, color: colors.navy, margin: '0 0 8px', letterSpacing: '-0.02em' }}>
+                Sport Setup Locked
+              </h3>
+              <p style={{ fontSize: '13.5px', color: colors.inkSoft, lineHeight: 1.5, margin: 0 }}>
+                This event is <strong>{selectedEvent?.status}</strong>. Sport setup is locked to preserve bracket integrity and scoring data.
+              </p>
+            </div>
+            <div style={{ fontSize: '11px', fontWeight: 800, color: colors.inkMuted, textTransform: 'uppercase', letterSpacing: '0.05em', background: colors.pageBg, padding: '6px 14px', borderRadius: '100px', border: `1px solid ${colors.borderSoft}` }}>
+              Status: {selectedEvent?.status}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Header */}
       <header style={{ marginBottom: '32px' }}>

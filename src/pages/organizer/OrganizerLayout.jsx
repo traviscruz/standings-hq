@@ -29,6 +29,7 @@ const normalizeEvent = (e) => {
     createdAt: e.created_at || e.createdAt || '',
     status,
     visibility: e.visibility || 'Public',
+    competition_mode: e.competition_mode || 'standard',
   };
 };
 
@@ -68,7 +69,7 @@ export default function OrganizerLayout() {
   const [gameSetupConfig, setGameSetupConfig] = useState(null);
 
   const selectedEvent = eventsList.find(e => e.id === selectedEventId) || eventsList[0];
-  const userName = localStorage.getItem('username') || 'Event Admin';
+  const userName = (localStorage.getItem('full_name') || localStorage.getItem('username') || 'Event Admin').split(' ')[0];
   const userInitials = userName.split(' ').map(n => n[0]).join('').toUpperCase();
 
   const getParticipants = (id = selectedEventId) => participantsData[id] || [];
